@@ -1,4 +1,5 @@
 // The only file that reads from Supabase. Pages call these and never query directly.
+import { cookies } from "next/headers";
 import { isSupabaseConfigured } from "./config";
 import { demoCategories, demoTotals, demoTransactions } from "./demo";
 import { shiftMonth } from "./format";
@@ -54,4 +55,9 @@ export async function getTransactions(month: string): Promise<Transaction[]> {
       .order("created_at", { ascending: false }),
   );
   return rows.map((r) => ({ ...r, amount: Number(r.amount) })) as unknown as Transaction[];
+}
+
+/** Which partner line the player picked (a cookie; see choosePartner). */
+export async function getPartnerId(): Promise<string | undefined> {
+  return (await cookies()).get("partner")?.value;
 }

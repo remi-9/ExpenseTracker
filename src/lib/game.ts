@@ -31,7 +31,7 @@ export function summarizeMonth(totals: MonthTotal[], month: string): MonthSummar
 export const XP_PER_ENTRY = 10; // logging anything
 export const PESOS_PER_SAVING_XP = 100; // 1 XP per ₱100 saved
 
-const RANKS = ["Rookie", "Coin Scout", "Budget Ranger", "Ledger Knight", "Vault Keeper", "Money Master"];
+const RANKS = ["Rookie Trainer", "Bug Catcher", "Ace Trainer", "Gym Leader", "Elite Four", "Champion"];
 
 /** Total XP needed to reach a level: 0, 100, 300, 600, 1000… */
 const xpForLevel = (level: number) => 50 * level * (level - 1);
@@ -78,7 +78,8 @@ type BadgeInput = {
 
 export type Badge = {
   id: string;
-  icon: string;
+  /** Which Kanto gym badge sprite to show, 1–8. */
+  sprite: number;
   name: string;
   how: string;
   earned: (input: BadgeInput) => boolean;
@@ -91,31 +92,20 @@ function months(totals: MonthTotal[]) {
 }
 
 export const BADGES: Badge[] = [
+  { id: "boulder", sprite: 1, name: "Boulder Badge", how: "Log your first entry", earned: ({ player }) => player.entries >= 1 },
+  { id: "cascade", sprite: 2, name: "Cascade Badge", how: "Set money aside in any month", earned: ({ player }) => player.saved > 0 },
+  { id: "thunder", sprite: 3, name: "Thunder Badge", how: "Log 25 entries", earned: ({ player }) => player.entries >= 25 },
   {
-    id: "first-log",
-    icon: "📝",
-    name: "First entry",
-    how: "Log your first entry",
-    earned: ({ player }) => player.entries >= 1,
+    id: "rainbow",
+    sprite: 4,
+    name: "Rainbow Badge",
+    how: "End a month with money left over",
+    earned: ({ totals }) => months(totals).some((m) => m.income > 0 && m.remaining > 0),
   },
   {
-    id: "scribe",
-    icon: "📚",
-    name: "Scribe",
-    how: "Log 25 entries",
-    earned: ({ player }) => player.entries >= 25,
-  },
-  {
-    id: "piggy",
-    icon: "🐷",
-    name: "Piggy bank",
-    how: "Set money aside in any month",
-    earned: ({ player }) => player.saved > 0,
-  },
-  {
-    id: "goal",
-    icon: "🎯",
-    name: "Goal getter",
+    id: "soul",
+    sprite: 5,
+    name: "Soul Badge",
     how: "Hit a savings goal in a month",
     earned: ({ totals, categories }) =>
       totals.some((t) => {
@@ -123,23 +113,18 @@ export const BADGES: Badge[] = [
         return t.kind === "saving" && target != null && t.total >= target;
       }),
   },
+  { id: "marsh", sprite: 6, name: "Marsh Badge", how: "Log 100 entries", earned: ({ player }) => player.entries >= 100 },
   {
-    id: "in-the-green",
-    icon: "🌿",
-    name: "In the green",
-    how: "End a month with money left over",
-    earned: ({ totals }) => months(totals).some((m) => m.income > 0 && m.remaining > 0),
-  },
-  {
-    id: "hat-trick",
-    icon: "🏆",
-    name: "Hat trick",
+    id: "volcano",
+    sprite: 7,
+    name: "Volcano Badge",
     how: "Three months in a row with money left over",
     earned: ({ totals }) => {
       let run = 0;
       return months(totals).some((m) => (run = m.income > 0 && m.remaining > 0 ? run + 1 : 0) >= 3);
     },
   },
+  { id: "earth", sprite: 8, name: "Earth Badge", how: "Reach level 10", earned: ({ player }) => player.level >= 10 },
 ];
 
 // ---- Narration -------------------------------------------------------------

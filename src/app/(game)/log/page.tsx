@@ -1,63 +1,110 @@
+import Link from "next/link";
+import { SavedChime } from "@/components/sound";
 import { Dialog, MonthPicker, Panel } from "@/components/ui";
 import { addTransaction, deleteTransaction } from "@/lib/actions";
 import { getCategories, getTransactions } from "@/lib/data";
 import { dayLabel, money, parseMonth, today } from "@/lib/format";
 import type { Kind } from "@/lib/types";
 
-const GROUPS: [Kind, string][] = [
-  ["expense", "Spending"],
-  ["income", "Income"],
-  ["saving", "Savings"],
+// Step 1 of the form: what kind of entry is it?
+const KINDS: { kind: Kind; label: string }[] = [
+  { kind: "expense", label: "I spent" },
+  { kind: "income", label: "I earned" },
+  { kind: "saving", label: "I saved" },
 ];
 
 export default async function LogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string; error?: string }>;
+  searchParams: Promise<{ m?: string; kind?: string; error?: string; saved?: string }>;
 }) {
   const params = await searchParams;
   const month = parseMonth(params.m);
+  const kind = KINDS.find((k) => k.kind === params.kind)?.kind ?? "expense";
   const [categories, transactions] = await Promise.all([getCategories(), getTransactions(month)]);
-  const active = categories.filter((c) => !c.archived_at);
+  const choices = categories.filter((c) => c.kind === kind && !c.archived_at);
 
   return (
     <>
       {params.error && <Dialog tone="error">{params.error}</Dialog>}
+      {params.saved && (
+        <>
+          <SavedChime />
+          <Dialog>Saved! Your partner gained 10 XP.</Dialog>
+        </>
+      )}
 
       <Panel title="Log an entry">
-        <form action={addTransaction} className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            Category
-            <select name="category_id" required className="field">
-              {GROUPS.map(([kind, label]) => (
-                <optgroup key={kind} label={label}>
-                  {active
-                    .filter((c) => c.kind === kind)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.icon} {c.name}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            Amount
-            <input name="amount" type="number" min="0.01" step="0.01" inputMode="decimal" required className="field" />
-          </label>
-          <label className="flex flex-col gap-1">
-            Date
-            <input name="occurred_on" type="date" defaultValue={today()} required className="field" />
-          </label>
-          <label className="flex flex-col gap-1">
-            Note
-            <input name="note" placeholder="Optional, e.g. Custom table" className="field" />
-          </label>
-          <div className="sm:col-span-2">
-            <button className="btn btn-primary">Save entry (+10 XP)</button>
-          </div>
-        </form>
+        <div className="mb-3 grid grid-cols-3" role="tablist" aria-label="Kind of entry">
+          {KINDS.map((k) => (
+            <Link
+              key={k.kind}
+              href={`/log?kind=${k.kind}`}
+              role="tab"
+              aria-selected={k.kind === kind}
+              className={`btn ${k.kind === kind ? "btn-selected" : ""}`}
+            >
+              {k.label}
+            </Link>
+          ))}
+        </div>
+
+        {choices.length === 0 ? (
+          <p className="text-muted">
+            No categories of this kind yet.{" "}
+            <Link href="/categories" className="text-blue underline">
+              Add one
+            </Link>{" "}
+            first.
+          </p>
+        ) : (
+          <form action={addTransaction} className="flex flex-col gap-3">
+            <input type="hidden" name="kind" value={kind} />
+
+            <label className="flex flex-col gap-1">
+              How much?
+              <span className="flex">
+                <span className="grid place-items-center bg-ink px-3 font-display text-xs text-panel">₱</span>
+                <input
+                  name="amount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  inputMode="decimal"
+                  required
+                  autoFocus
+                  placeholder="0"
+                  className="field text-2xl"
+                />
+              </span>
+            </label>
+
+            <fieldset>
+              <legend className="mb-1">On what?</legend>
+              <div className="flex flex-wrap">
+                {choices.map((c, i) => (
+                  <label key={c.id} className="chip">
+                    <input type="radio" name="category_id" value={c.id} defaultChecked={i === 0} required />
+                    {c.icon} {c.name}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                When?
+                <input name="occurred_on" type="date" defaultValue={today()} required className="field" />
+              </label>
+              <label className="flex flex-col gap-1">
+                Note
+                <input name="note" placeholder="Optional, e.g. Custom table" className="field" />
+              </label>
+            </div>
+
+            <button className="btn btn-primary py-3!">Save entry (+10 XP)</button>
+          </form>
+        )}
       </Panel>
 
       <MonthPicker month={month} path="/log" />

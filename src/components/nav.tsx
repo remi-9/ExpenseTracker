@@ -4,28 +4,32 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
+import { Icon, type IconName } from "./sprite";
 
-// Add a page to the menu by adding a line here.
-const MENU = [
-  { href: "/", label: "Home" },
-  { href: "/log", label: "Log" },
-  { href: "/categories", label: "Categories" },
+// Add a tab by adding a line here (and an icon in sprite.tsx).
+const TABS: { href: string; label: string; icon: IconName }[] = [
+  { href: "/", label: "Home", icon: "home" },
+  { href: "/log", label: "Log", icon: "log" },
+  { href: "/stats", label: "Stats", icon: "stats" },
+  { href: "/quests", label: "Quests", icon: "quests" },
+  { href: "/categories", label: "Categories", icon: "categories" },
 ];
 
-export function Menu() {
+/** Tab bar: pinned to the bottom of the screen on phones, under the header on wider screens. */
+export function Tabs() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Main" className="flex flex-wrap gap-x-4 gap-y-1 font-display text-[0.65rem] leading-loose">
-      {MENU.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className="cursor hover:text-red"
-          aria-current={pathname === item.href ? "page" : undefined}
-        >
-          {item.label}
-        </Link>
-      ))}
+    <nav aria-label="Main" className="tabs fixed inset-x-0 bottom-0 z-10 sm:static">
+      <ul className="box m-0! grid grid-cols-5 p-0! sm:m-1!">
+        {TABS.map((tab) => (
+          <li key={tab.href}>
+            <Link href={tab.href} className="tab" aria-current={pathname === tab.href ? "page" : undefined}>
+              <Icon name={tab.icon} />
+              {tab.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 }

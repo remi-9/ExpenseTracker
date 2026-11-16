@@ -1,10 +1,11 @@
 "use server";
 // The only file that writes to Supabase. Forms post straight to these.
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
 import { today } from "./format";
+import { PARTNERS } from "./partners";
 import { createClient } from "./supabase/server";
 
 const fail = (path: string, message: string): never =>
@@ -34,7 +35,7 @@ export async function addTransaction(form: FormData) {
   if (error) fail("/log", error.message);
 
   revalidatePath("/", "layout");
-  redirect(`/log?m=${occurred_on.slice(0, 7)}`);
+  redirect(`/log?m=${occurred_on.slice(0, 7)}&kind=${text(form, "kind")}&saved=1`);
 }
 
 export async function deleteTransaction(form: FormData) {
@@ -97,4 +98,13 @@ export async function signOut() {
   const supabase = await db("/");
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/** The partner choice is a cosmetic preference, so it lives in a cookie, not the database. */
+export async function choosePartner(form: FormData) {
+  const id = text(form, "partner");
+  if (PARTNERS.some((p) => p.id === id)) {
+    (await cookies()).set("partner", id, { maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+  }
+  redirect("/");
 }

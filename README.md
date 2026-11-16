@@ -1,8 +1,8 @@
 # Pocket Ledger
 
 A personal expense tracker that plays like a handheld RPG. It replaces the
-`Expense Planner.xlsx` spreadsheet: your month's pay is an HP bar, logging
-entries earns XP, and savings goals are quests.
+`Expense Planner.xlsx` spreadsheet: your month's pay is your partner Pokémon's
+HP bar, logging entries earns XP, and savings goals are quests.
 
 - **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind 4 · Supabase (Postgres + magic-link login) · Vercel
 - **Single user.** Row-level security means only your login can read or write your rows.
@@ -52,14 +52,21 @@ src/
     data.ts                  every read from Supabase
     actions.ts               every write to Supabase (server actions)
     game.ts                  all game rules: summary, XP, levels, badges
+    partners.ts              partner lines, evolution levels, PokeAPI sprite URLs
+    sfx.ts                   synthesized sound effects and cries
     demo.ts                  sample data for demo mode
     format.ts                money and month helpers
   components/
     ui.tsx                   Panel, Bar, MonthPicker, Dialog
-    nav.tsx                  menu and theme toggle
+    sprite.tsx               tab icons drawn as character grids
+    partner.tsx              partner Pokémon sprite and the starter picker
+    sound.tsx                sound toggle, menu ticks, music, saved chime
+    nav.tsx                  tab bar and theme toggle
   app/
-    (game)/page.tsx          Home: wallet status, quests, breakdown, badges
-    (game)/log/page.tsx      add and browse entries
+    (game)/page.tsx          Home: partner scene, wallet HP, next quest, latest entries
+    (game)/log/              add and browse entries
+    (game)/stats/            six-month chart and where the month went
+    (game)/quests/           level, quests and badges
     (game)/categories/       add and archive categories
     login/ · auth/callback/  magic-link login
     globals.css              theme tokens and the pixel building blocks
@@ -95,10 +102,44 @@ All of it is computed from `month_totals` in [`src/lib/game.ts`](src/lib/game.ts
 Nothing game-related is stored, so you can change the rules at any time and
 your level simply recalculates.
 
+- **Partner:** pick a starter on first visit (change it on the Quests tab). It shivers when wallet HP is low, faints when the month is overspent, and evolves at levels 5 and 10. The choice is a cookie, not a database row.
 - **Wallet HP:** share of the month's income still unspent. Green above 50%, gold above 20%, red below.
 - **XP:** 10 per entry logged, plus 1 per ₱100 saved. Levels need 100, 300, 600, 1000… XP.
 - **Quests:** any saving category with a target ("set aside ₱10,000") or expense category with a target ("keep Food under ₱6,000").
-- **Badges:** a list in `game.ts`; each is a name plus an `earned()` function.
+- **Badges:** the eight Kanto gym badges, listed in `game.ts`; each is a name plus an `earned()` function.
+
+## Pokémon resources
+
+Nothing Pokémon-owned is stored in this repo. Images and cries load at runtime
+from the PokeAPI project's public GitHub repos; the URL builders are in
+[`src/lib/partners.ts`](src/lib/partners.ts).
+
+| What | Source | Used for |
+| --- | --- | --- |
+| Animated sprites | [PokeAPI/sprites](https://github.com/PokeAPI/sprites) `pokemon/versions/generation-v/black-white/animated/{dex}.gif` | partner on Home and Quests |
+| Static sprites | same repo, `pokemon/{dex}.png` | starter picker |
+| Gym badges | same repo, `badges/{1-8}.png` | badge tiles |
+| Item icons | same repo, `items/{name}.png` | Poké Ball in the header |
+| Cries | [PokeAPI/cries](https://github.com/PokeAPI/cries) `cries/pokemon/latest/{dex}.ogg` | click your partner |
+| Data API | [pokeapi.co](https://pokeapi.co/docs/v2) (free, no key) | not called yet; use it for names, types or evolution chains |
+
+Other useful sources: [Pokémon Showdown sprites](https://play.pokemonshowdown.com/sprites/)
+and [msikma/pokesprite](https://github.com/msikma/pokesprite) (box and item icons).
+
+Pokémon and all related images and sounds are © Nintendo, Game Freak and The
+Pokémon Company. These repos' own licences cover their code and curation, not
+the artwork. That is normal for a personal fan project; keep this app personal
+and non-commercial.
+
+## Sound
+
+Sound is off until you press **♪** in the header, and stays quiet by design.
+
+- **Effects** are synthesized in the browser (`sfx.ts`): a menu tick and a chime when an entry is saved. No audio files.
+- **Cry:** click your partner.
+- **Music:** not included, because game soundtracks are copyrighted recordings. To add your own copy, save it as
+  `public/audio/pokemon-center.mp3` and restart `bun dev`. It loops at 12% volume whenever sound is on.
+  The folder is gitignored, so the file stays on your machine; a Vercel deploy plays music only if you choose to commit it.
 
 ## Extending it
 
@@ -107,7 +148,8 @@ your level simply recalculates.
 | A category | Categories page. No code. |
 | A quest | Give a category a monthly target. No code. |
 | A badge | Add an entry to `BADGES` in `game.ts`. |
-| A menu page | Add a folder under `app/(game)/` and a line to `MENU` in `nav.tsx`. |
+| A tab | Add a folder under `app/(game)/`, a line to `TABS` in `nav.tsx` and an icon grid in `sprite.tsx`. |
+| A partner line | Add an entry to `PARTNERS` in `partners.ts` (dex numbers 1–649 have animated sprites). |
 | A colour or theme tweak | Edit the tokens at the top of `globals.css`. |
 | Another currency or time zone | `config.ts`. |
 
@@ -118,5 +160,4 @@ Kept out of the skeleton until they are needed:
 - Editing an entry (delete and re-add for now)
 - One-tap "log this month's fixed bills"
 - Multiple bank accounts and transfers between them
-- Charts and month-over-month trends
 - CSV import/export

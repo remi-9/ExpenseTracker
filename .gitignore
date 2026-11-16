@@ -43,3 +43,7 @@ next-env.d.ts
 # keep the env template, ignore personal seed data
 !.env.example
 supabase/seed.local.sql
+
+# your own music file (see README → Sound)
+public/audio/*
+!public/audio/.gitkeep
