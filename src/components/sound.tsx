@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { blip, chime, isSoundOn, setSoundOn, subscribeSound } from "@/lib/sfx";
+import { blip, chime, isSoundOn, resumeAudio, setSoundOn, startMusic, stopMusic, subscribeSound } from "@/lib/sfx";
 
-// Set at build time by next.config.ts when public/audio/pokemon-center.mp3 exists.
+// Optional: your own track replaces the built-in loop. Set at build time by next.config.ts
+// when public/audio/pokemon-center.mp3 exists.
 const MUSIC_SRC = process.env.NEXT_PUBLIC_MUSIC_SRC;
 const MUSIC_VOLUME = 0.12;
 
@@ -20,13 +21,18 @@ export function SoundToggle() {
       else audio.pause();
     }
     if (!on) return;
+    if (!audio) startMusic(); // built-in loop
 
     const onClick = (event: MouseEvent) => {
+      resumeAudio();
       if (audio?.paused) audio.play().catch(() => {});
       if ((event.target as Element).closest("a, button, .chip")) blip();
     };
     document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
+    return () => {
+      document.removeEventListener("click", onClick);
+      stopMusic();
+    };
   }, [on]);
 
   return (

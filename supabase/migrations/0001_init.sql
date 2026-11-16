@@ -1,4 +1,4 @@
--- Pocket Ledger schema: two tables and one view.
+-- Pocket Tracker schema: two tables and one view.
 -- Everything the app shows (balance, wallet HP, XP, badges) is derived from these.
 
 create table public.categories (

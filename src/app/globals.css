@@ -18,10 +18,6 @@
   --blue: #2d5fc4;
   --chart-earned: #2d5fc4;
   --chart-spent: #cf3a33;
-  --sky: #a9d8e8;
-  --cloud: #f4fbff;
-  --grass: #7fbf5a;
-  --grass-dark: #5a9a3e;
 }
 
 .dark {
@@ -37,10 +33,6 @@
   --blue: #7aa2ff;
   --chart-earned: #5b84e8;
   --chart-spent: #e25549;
-  --sky: #1b2550;
-  --cloud: #3a4a86;
-  --grass: #2f5a3c;
-  --grass-dark: #214430;
 }
 
 @theme inline {
@@ -66,8 +58,9 @@ html.dark {
 
 body {
   background-color: var(--bg);
-  background-image: radial-gradient(var(--bg-dot) 2px, transparent 2px);
-  background-size: 8px 8px;
+  /* Two-tone checkerboard, like a handheld menu backdrop. */
+  background-image: conic-gradient(var(--bg-dot) 25%, transparent 0 50%, var(--bg-dot) 0 75%, transparent 0);
+  background-size: 48px 48px;
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 1.375rem;
@@ -173,8 +166,16 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .bar > span,
   .chart-cols > span,
-  .mood-worried {
+  .mood-worried,
+  .layer,
+  .runner.running > * {
     animation: none;
+  }
+  .env {
+    animation: none;
+  }
+  .env:first-of-type {
+    opacity: 1;
   }
 }
 
@@ -208,39 +209,70 @@ code {
   color: var(--panel);
 }
 
-/* ---- Home scene: sky, clouds, grass ---------------------------------------- */
+/* ---- Home scene: environments that scroll past (see components/scene.tsx) ---- */
 .scene {
   position: relative;
-  height: 11.5rem;
+  height: 12.5rem;
   overflow: hidden;
-  background: var(--sky);
   border-bottom: 4px solid var(--ink);
 }
-.scene::after {
+.env {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: env-cycle linear infinite;
+}
+.layer {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 34%;
+  background-repeat: repeat-x;
+  background-position: 0 100%;
+  animation: scroll linear infinite;
+}
+.ground {
+  position: absolute;
+  inset: 66% 0 0 0;
+  border-top: 4px solid color-mix(in srgb, #000 18%, transparent);
+}
+.layer.specks {
+  inset: 0;
+  height: auto !important;
+  background-repeat: repeat;
+}
+@keyframes scroll {
+  to {
+    background-position-x: calc(var(--w) * -1);
+  }
+}
+/* Night: dim every environment. */
+.dark .env::after {
   content: "";
   position: absolute;
-  inset: auto 0 0 0;
-  height: 34%;
-  background-color: var(--grass);
-  background-image: radial-gradient(var(--grass-dark) 2px, transparent 2px);
-  background-size: 16px 12px;
-  border-top: 4px solid var(--grass-dark);
+  inset: 0;
+  background: rgb(14 18 52 / 0.38);
 }
-.cloud {
+.scene.paused .layer {
+  animation-play-state: paused;
+}
+
+/* The partner faces the way it is running and hops as it goes. */
+.runner {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  background: var(--cloud);
-  box-shadow:
-    8px 0 var(--cloud),
-    16px 0 var(--cloud),
-    24px 0 var(--cloud),
-    32px 0 var(--cloud),
-    8px -8px var(--cloud),
-    16px -8px var(--cloud),
-    24px -8px var(--cloud),
-    16px -16px var(--cloud);
+  bottom: 14%;
+  left: 10%;
+  z-index: 1;
+  transform: scaleX(-1);
 }
+.runner.running > * {
+  animation: hop 0.45s steps(2, end) infinite;
+}
+@keyframes hop {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 .pixel {
   image-rendering: pixelated;
 }

@@ -1,4 +1,4 @@
-# Pocket Ledger
+# Pocket Tracker
 
 A personal expense tracker that plays like a handheld RPG. It replaces the
 `Expense Planner.xlsx` spreadsheet: your month's pay is your partner Pokémon's
@@ -60,6 +60,7 @@ src/
     ui.tsx                   Panel, Bar, MonthPicker, Dialog
     sprite.tsx               tab icons drawn as character grids
     partner.tsx              partner Pokémon sprite and the starter picker
+    scene.tsx                Home scene: six environments that scroll past
     sound.tsx                sound toggle, menu ticks, music, saved chime
     nav.tsx                  tab bar and theme toggle
   app/
@@ -137,9 +138,8 @@ Sound is off until you press **♪** in the header, and stays quiet by design.
 
 - **Effects** are synthesized in the browser (`sfx.ts`): a menu tick and a chime when an entry is saved. No audio files.
 - **Cry:** click your partner.
-- **Music:** not included, because game soundtracks are copyrighted recordings. To add your own copy, save it as
-  `public/audio/pokemon-center.mp3` and restart `bun dev`. It loops at 12% volume whenever sound is on.
-  The folder is gitignored, so the file stays on your machine; a Vercel deploy plays music only if you choose to commit it.
+- **Music:** an original eight-bar chiptune loop, written for this app and played by the same synth (`LEAD` and `BASS` in `sfx.ts`), so there is no file and nothing to license. Edit the note lists to change the tune.
+- **Your own track instead:** save it as `public/audio/pokemon-center.mp3` and restart `bun dev`; it replaces the built-in loop at 12% volume. The folder is gitignored. Game soundtracks are copyrighted recordings, which is why none is included.
 
 ## Extending it
 
@@ -149,6 +149,7 @@ Sound is off until you press **♪** in the header, and stays quiet by design.
 | A quest | Give a category a monthly target. No code. |
 | A badge | Add an entry to `BADGES` in `game.ts`. |
 | A tab | Add a folder under `app/(game)/`, a line to `TABS` in `nav.tsx` and an icon grid in `sprite.tsx`. |
+| An environment | Add an entry to `ENVS` in `scene.tsx`: sky and ground colours plus two character grids. |
 | A partner line | Add an entry to `PARTNERS` in `partners.ts` (dex numbers 1–649 have animated sprites). |
 | A colour or theme tweak | Edit the tokens at the top of `globals.css`. |
 | Another currency or time zone | `config.ts`. |

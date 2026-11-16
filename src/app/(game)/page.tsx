@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PartnerPicker, PartnerSprite, type Mood } from "@/components/partner";
+import { Scene } from "@/components/scene";
 import { Bar, Dialog, hpTone, MonthPicker, Panel } from "@/components/ui";
 import { getCategories, getMonthTotals, getPartnerId, getTransactions } from "@/lib/data";
 import { dayLabel, money, monthLabel, parseMonth } from "@/lib/format";
@@ -34,6 +35,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
   const player = getPlayer(totals);
   const hp = walletHp(summary);
   const partner = partnerAt(partnerId, player.level);
+  const mood = moodFor(summary);
 
   if (!partner) {
     return (
@@ -59,11 +61,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       <MonthPicker month={month} path="/" />
 
       <section className="box p-0!" aria-label="Wallet status">
-        <div className="scene">
-          <span className="cloud" style={{ left: "12%", top: "18%" }} />
-          <span className="cloud" style={{ left: "46%", top: "42%" }} />
-          <div className="absolute bottom-3 left-[8%] z-1">
-            <PartnerSprite dex={partner.dex} name={partner.name} mood={moodFor(summary)} />
+        <Scene paused={mood === "fainted"}>
+          <div className={`runner ${mood === "fainted" ? "" : "running"}`}>
+            <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} />
           </div>
           <div className="box absolute top-2 right-2 z-1 flex w-[min(60%,17rem)] flex-col gap-1 p-2!">
             <div className="flex items-baseline justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
@@ -78,7 +78,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
               {money(Math.max(0, summary.remaining))} / {money(summary.income)}
             </p>
           </div>
-        </div>
+        </Scene>
         <div className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-x-2 p-3">
           <span className="font-display text-[0.6rem] text-blue">XP</span>
           <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />

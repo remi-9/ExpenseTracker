@@ -1,5 +1,5 @@
 // App-wide settings. Change these in one place.
-export const APP_NAME = "Pocket Ledger";
+export const APP_NAME = "Pocket Tracker";
 export const CURRENCY = "PHP";
 export const LOCALE = "en-PH";
 export const TIME_ZONE = "Asia/Manila";
