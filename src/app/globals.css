@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---- Theme tokens ---------------------------------------------------------
+   Every colour in the app comes from these. Light = handheld screen by day,
+   dark = the same screen at night. next-themes toggles the .dark class. */
+:root {
+  --bg: #dbe6c8;
+  --bg-dot: #cbd8b5;
+  --panel: #fbfdf2;
+  --ink: #1c2434;
+  --muted: #5a6577;
+  --track: #d5dcc6;
+  --red: #cf3a33;
+  --green: #2c9a43;
+  --gold: #d99a13;
+  --blue: #2d5fc4;
+}
+
+.dark {
+  --bg: #11162a;
+  --bg-dot: #1a2140;
+  --panel: #1d2541;
+  --ink: #e8eed6;
+  --muted: #98a3bd;
+  --track: #0c1022;
+  --red: #ff6f61;
+  --green: #5ed16a;
+  --gold: #ffcc47;
+  --blue: #7aa2ff;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-track: var(--track);
+  --color-red: var(--red);
+  --color-green: var(--green);
+  --color-gold: var(--gold);
+  --color-blue: var(--blue);
+  --font-display: var(--font-press-start), monospace;
+  --font-body: var(--font-vt323), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--bg-dot) 2px, transparent 2px);
+  background-size: 8px 8px;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.375rem;
+  line-height: 1.25;
+}
+
+/* ---- Pixel building blocks ------------------------------------------------ */
+
+/* A panel with a stepped 4px border (corners are notched, like a game menu). */
+.box {
+  background: var(--panel);
+  margin: 4px;
+  padding: 1rem;
+  box-shadow:
+    0 -4px 0 0 var(--ink),
+    0 4px 0 0 var(--ink),
+    -4px 0 0 0 var(--ink),
+    4px 0 0 0 var(--ink),
+    4px 8px 0 0 color-mix(in srgb, var(--ink) 25%, transparent),
+    8px 4px 0 0 color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 4px;
+  padding: 0.5rem 0.9rem;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  line-height: 1.6;
+  cursor: pointer;
+  box-shadow:
+    0 -4px 0 0 var(--ink),
+    0 4px 0 0 var(--ink),
+    -4px 0 0 0 var(--ink),
+    4px 0 0 0 var(--ink),
+    inset -4px -4px 0 0 color-mix(in srgb, var(--ink) 18%, transparent);
+}
+.btn:hover {
+  background: color-mix(in srgb, var(--gold) 35%, var(--panel));
+}
+.btn:active {
+  box-shadow:
+    0 -4px 0 0 var(--ink),
+    0 4px 0 0 var(--ink),
+    -4px 0 0 0 var(--ink),
+    4px 0 0 0 var(--ink),
+    inset 4px 4px 0 0 color-mix(in srgb, var(--ink) 18%, transparent);
+}
+.btn-primary {
+  background: var(--red);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: color-mix(in srgb, var(--red) 85%, #000);
+}
+.dark .btn-primary {
+  color: #1c2434;
+}
+
+.field {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  background: var(--panel);
+  color: var(--ink);
+  border: 4px solid var(--ink);
+  border-radius: 0;
+  font: inherit;
+}
+.field::placeholder {
+  color: var(--muted);
+}
+
+:focus-visible {
+  outline: 4px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* HP / XP / quest bars. Width comes from the --fill custom property (0–100). */
+.bar {
+  height: 20px;
+  background: var(--track);
+  border: 4px solid var(--ink);
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  width: calc(var(--fill) * 1%);
+  background: var(--tone, var(--green));
+  box-shadow: inset 0 -4px 0 0 color-mix(in srgb, #000 22%, transparent);
+  animation: fill 0.9s steps(12, end) both;
+}
+@keyframes fill {
+  from {
+    width: 0;
+  }
+}
+
+/* The ▶ cursor that marks the selected menu item. */
+.cursor::before {
+  content: "▶";
+  display: inline-block;
+  width: 1.1em;
+  visibility: hidden;
+}
+.cursor[aria-current="page"]::before {
+  visibility: visible;
+  animation: blink 1s steps(2, start) infinite;
+}
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar > span,
+  .cursor[aria-current="page"]::before {
+    animation: none;
+  }
+}
+
+code {
+  font: inherit;
+  text-decoration: underline dotted;
+}
