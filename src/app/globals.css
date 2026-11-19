@@ -1455,17 +1455,6 @@ a.pc-cell:focus-visible,
 }
 
 /* ---- Log tab: laid out like a shop counter ---------------------------------------- */
-.shop > div {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-@media (min-width: 640px) {
-  .shop {
-    grid-template-columns: 14rem minmax(0, 1fr);
-    align-items: start;
-  }
-}
 .money-box {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -1522,17 +1511,43 @@ a.pc-cell:focus-visible,
   padding: 0.2rem 0;
 }
 
-/* The partner keeping the counter on the Log tab. */
-.keeper {
+/* Log tab, wide screens: status and the monthly checklist share the left column,
+   and the checklist panel stretches to the foot of the entry form beside it. */
+.shop-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.shop-monthly {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  text-align: center;
 }
-@media (max-width: 639px) {
-  .keeper {
-    display: none;
+.shop-today {
+  margin-top: 1rem;
+}
+@media (min-width: 640px) {
+  .shop {
+    grid-template-columns: 20rem minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "status form"
+      "monthly form";
+    align-items: stretch;
+  }
+  .shop-status {
+    grid-area: status;
+  }
+  .shop-monthly {
+    grid-area: monthly;
+  }
+  .entry-form {
+    grid-area: form;
+  }
+  .shop-monthly .checklist .field {
+    width: 5.25rem;
+  }
+  .shop-monthly .checklist .btn {
+    padding-inline: 0.5rem;
   }
 }
 
@@ -1639,7 +1654,7 @@ a.pc-cell:focus-visible,
 .entry-form {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.7rem;
 }
 /* There is one category list per kind of entry. Only the list for the checked
    kind shows, so switching kind is instant and nothing typed is lost. */

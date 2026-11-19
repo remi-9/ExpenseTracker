@@ -159,7 +159,7 @@ The interface borrows the layouts of the handheld games rather than a web dashbo
 | Dex | the party screen, then PC boxes of 30 with a detail window for the one you pick |
 | Setup, Bag | pockets on the left, the items in that pocket on the right, a description window below |
 | Setup, Options | one setting per line with its choices beside it: text speed, frame colour, backdrop colour, backdrop pattern, sound, day or night |
-| Log | a shop counter: a money window and your partner on the left, the entry on the right; tossing an entry asks YES / NO |
+| Log | a shop counter: your money, the monthly checklist and today's entries on the left, the entry on the right; tossing an entry asks YES / NO |
 | Quests | a trainer card with a badge case along the bottom |
 
 Building blocks, all in `globals.css`: `.window` (a framed message or menu box), `.menu` and `.menu-item`

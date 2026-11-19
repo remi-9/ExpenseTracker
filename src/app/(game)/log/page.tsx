@@ -73,6 +73,10 @@ export default async function LogPage({
     .filter((c) => c.is_fixed && !c.archived_at)
     .map((c) => ({ c, logged: totalIn(month, c.id), last: totalIn(shiftMonth(month, -1), c.id) }));
 
+  // What has gone in today, as a reminder while you log.
+  const todays = transactions.filter((t) => t.occurred_on === today());
+  const spentToday = todays.filter((t) => t.category.kind === "expense").reduce((sum, t) => sum + t.amount, 0);
+
   // Entries, newest day first.
   const days = new Map<string, Transaction[]>();
   for (const t of transactions) days.set(t.occurred_on, [...(days.get(t.occurred_on) ?? []), t]);
@@ -107,22 +111,20 @@ export default async function LogPage({
         </div>
       )}
 
-      {/* The counter: your money on the left, the entry on the right. */}
+      {/* The counter. Wide screens: status and the monthly checklist on the left, the entry
+          on the right (placed by grid areas in globals.css). Phones: the order written here. */}
       <div className="shop">
-        <div>
-          <dl className="window money-box">
-            <dt>Money</dt>
-            <dd>{money(summary.balance)}</dd>
-            <dt title="Left from this month's income">Left</dt>
-            <dd>{money(summary.remaining)}</dd>
-          </dl>
-          {partner && (
-            <div className="window keeper">
-              <img src={sprite.pokemon(partner.dex)} alt="" className="pixel sprite-card" />
-              <Hearts ratio={walletHp(summary)} size={16} />
-              <span className="leading-tight text-muted">{partner.name} is minding the wallet.</span>
-            </div>
-          )}
+        <div className="window shop-status">
+          {partner && <img src={sprite.pokemon(partner.dex)} alt="" className="pixel sprite-card shrink-0" />}
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <dl className="money-box">
+              <dt>Money</dt>
+              <dd>{money(summary.balance)}</dd>
+              <dt title="Left from this month's income">Left</dt>
+              <dd>{money(summary.remaining)}</dd>
+            </dl>
+            <Hearts ratio={walletHp(summary)} size={16} />
+          </div>
         </div>
 
         {/* Re-keyed after every save, so the amount clears and takes the cursor again. */}
@@ -257,6 +259,79 @@ export default async function LogPage({
             </SubmitButton>
           )}
         </form>
+
+        <Panel
+          title="Monthly"
+          className="shop-monthly"
+          aside={
+            monthly.length > 0 ? (
+              <span>
+                {monthly.filter((row) => row.logged > 0).length} of {monthly.length}
+              </span>
+            ) : undefined
+          }
+        >
+          {monthly.length === 0 ? (
+            <p className="text-muted">
+              Pay, rent and bills that come round every month can be logged here in one tap. In Setup, open a category
+              in the Bag and choose Make monthly.
+            </p>
+          ) : (
+            <ul className="checklist">
+              {monthly.map(({ c, logged, last }) => (
+                <li key={c.id}>
+                  <span className="truncate" title={c.name}>
+                    <CategoryIcon icon={c.icon} size={24} />
+                    {c.name}
+                  </span>
+                  {logged > 0 ? (
+                    <span className="text-green">{money(logged)}</span>
+                  ) : (
+                    <form action={logMonthly}>
+                      <input type="hidden" name="category_id" value={c.id} />
+                      <input type="hidden" name="m" value={month} />
+                      <input
+                        name="amount"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        required
+                        defaultValue={last || undefined}
+                        placeholder="Amount"
+                        aria-label={`Amount for ${c.name}`}
+                        title={last ? `Last month: ${money(last)}` : undefined}
+                        className="field"
+                      />
+                      <SubmitButton className="btn" pending="…" sfx="none">
+                        Log
+                      </SubmitButton>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {/* What has gone in today, so you can see at a glance whether something is already logged. */}
+          <section className="shop-today" aria-label="Today">
+            <h3 className="day-head">
+              <span>Today</span>
+              <span>{money(spentToday)} spent</span>
+            </h3>
+            {todays.length === 0 ? (
+              <p className="px-2 pt-1 text-muted">Nothing logged yet.</p>
+            ) : (
+              <ul className="entries by-day">
+                {todays.map((t) => (
+                  <li key={t.id}>
+                    <Link href={`/log?m=${month}&edit=${t.id}`} aria-label={`Edit ${t.note ?? t.category.name}`}>
+                      <EntryWhat entry={t} />
+                      <EntryAmount entry={t} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </Panel>
       </div>
 
       {savedAmount > 0 && savedCategory && params.id && !editing && (
@@ -272,57 +347,6 @@ export default async function LogPage({
           entryId={params.id}
         />
       )}
-
-      <Panel
-        title="Monthly checklist"
-        aside={
-          monthly.length > 0 ? (
-            <span>
-              {monthly.filter((row) => row.logged > 0).length} of {monthly.length} logged
-            </span>
-          ) : undefined
-        }
-      >
-        {monthly.length === 0 ? (
-          <p className="text-muted">
-            Things that come round every month, like pay, rent and bills, can be logged from here in one tap. In Setup,
-            open a category in the Bag and choose Make monthly.
-          </p>
-        ) : (
-          <ul className="checklist">
-            {monthly.map(({ c, logged, last }) => (
-              <li key={c.id}>
-                <span className="truncate">
-                  <CategoryIcon icon={c.icon} />
-                  {c.name}
-                </span>
-                {logged > 0 ? (
-                  <span className="text-green">Logged {money(logged)}</span>
-                ) : (
-                  <form action={logMonthly}>
-                    <input type="hidden" name="category_id" value={c.id} />
-                    <input type="hidden" name="m" value={month} />
-                    <input
-                      name="amount"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      required
-                      defaultValue={last || undefined}
-                      placeholder="Amount"
-                      aria-label={`Amount for ${c.name}`}
-                      title={last ? `Last month: ${money(last)}` : undefined}
-                      className="field"
-                    />
-                    <SubmitButton className="btn" pending="…" sfx="none">
-                      Log
-                    </SubmitButton>
-                  </form>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
 
       <MonthPicker month={month} path="/log" />
 
