@@ -10,7 +10,7 @@ import { PlayOnMount } from "./sound";
 import { Typewriter } from "./typewriter";
 import { Bar, hpTone } from "./ui";
 
-export function BattleResult({
+export function EntryResult({
   kind,
   amount,
   categoryName,

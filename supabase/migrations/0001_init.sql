@@ -8,7 +8,7 @@ create table public.categories (
   kind           text not null check (kind in ('income', 'expense', 'saving')),
   icon           text not null default 'poke-ball', -- PokeAPI item sprite name, or an emoji
   is_fixed       boolean not null default false,   -- recurring monthly bill (Internet, Electricity…)
-  monthly_target numeric(12, 2),                    -- saving: goal · expense: budget cap · income: unused
+  monthly_target numeric(12, 2),                    -- a goal for savings, a budget cap for spending
   sort_order     int not null default 0,
   archived_at    timestamptz,                       -- hide from forms, keep history
   created_at     timestamptz not null default now(),

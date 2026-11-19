@@ -47,3 +47,6 @@ supabase/seed.local.sql
 # your own music file (see README → Sound)
 public/audio/*
 !public/audio/.gitkeep
+
+# local tool settings
+.claude/

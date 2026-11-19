@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprite */
 import Link from "next/link";
-import { BattleResult } from "@/components/battle";
+import { EntryResult } from "@/components/entry-result";
 import { PlayOnMount } from "@/components/sound";
 import { Hearts } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
@@ -62,7 +62,7 @@ export default async function LogPage({
         </>
       )}
       {savedAmount > 0 && savedCategory && (
-        <BattleResult
+        <EntryResult
           key={params.t}
           kind={savedCategory.kind}
           amount={savedAmount}

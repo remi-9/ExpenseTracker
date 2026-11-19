@@ -4,9 +4,9 @@ A personal expense tracker that plays like a handheld RPG. It replaces the
 `Expense Planner.xlsx` spreadsheet: your month's pay is your partner Pokémon's
 HP bar, logging entries earns XP, and savings goals are quests.
 
-- **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind 4 · Supabase (Postgres + magic-link login) · Vercel
+- **Stack:** Next.js 16 (App Router), TypeScript, Tailwind 4, Supabase (Postgres and magic-link login), Vercel
 - **Single user.** Row-level security means only your login can read or write your rows.
-- **Pixel theme** with day and night modes (follows your system, toggle in the header).
+- **Pixel theme** with day and night modes. It follows your system; the sun or moon button in the header switches it.
 
 ## Run it
 
@@ -22,16 +22,16 @@ preview, so it is the quickest way to look around.
 ## Connect Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. SQL editor → run [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
+2. In the SQL editor, run [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
 3. Copy `.env.example` to `.env.local` and fill in the project URL and key
-   (Project Settings → API).
-4. Authentication → URL Configuration → add `http://localhost:3000/auth/callback`
+   (under Project Settings, API).
+4. Under Authentication, URL Configuration, add `http://localhost:3000/auth/callback`
    (and later your Vercel URL) to **Redirect URLs**.
 5. `bun dev`, sign in with your email, click the link.
-6. SQL editor → run [`supabase/seed.sql`](supabase/seed.sql) for the starter
+6. In the SQL editor, run [`supabase/seed.sql`](supabase/seed.sql) for the starter
    categories. If you have `supabase/seed.local.sql` (your spreadsheet history,
    not committed), run it next.
-7. Authentication → Sign In / Providers → turn off **Allow new users to sign up**,
+7. Under Authentication, Sign In / Providers, turn off **Allow new users to sign up**,
    or set `ALLOWED_EMAIL` so only you can request a link.
 
 ## Deploy to Vercel
@@ -57,12 +57,13 @@ src/
     sfx.ts                   the synth: every sound effect and both tunes
     fight.ts                 battle rules and roguelike content (moves, damage, areas, upgrades)
     options.ts               text speed and window frame options
+    backdrop.ts              backdrop colours and the rules that generate its patterns
     demo.ts                  sample data for demo mode
     format.ts                money and month helpers
   components/
     ui.tsx                   Panel, Bar, MonthPicker, CategoryIcon, Dialog
     typewriter.tsx           dialog box that types its lines out
-    battle.tsx               the result shown after logging an entry
+    entry-result.tsx         the result shown after logging an entry
     submit.tsx               submit button with a saving state
     sprite.tsx               tab icons, chest, shield and hearts drawn as character grids
     charts.tsx               pay split, stepped line, waffle and calendar charts
@@ -72,8 +73,9 @@ src/
     expedition.tsx           the roguelike run: floors, paths, upgrades
     partner.tsx              partner sprite, partner picker, trainer picker
     scene.tsx                Home scene: battle backdrops that fade from place to place
+    backdrop.tsx             page backdrop: a colour layer and a generated pattern
     sound.tsx                sound toggle, click sounds, music
-    nav.tsx                  pop-up start menu, phone tab bar, arrow-key menu navigation, theme toggle
+    nav.tsx                  start menu, screen switcher, phone tab bar, keyboard shortcuts, day/night toggle
   app/
     (game)/template.tsx      short entrance animation on every tab change
     (game)/page.tsx          Home: scene, wallet HP, narration, pay split, balance trend
@@ -84,7 +86,7 @@ src/
     (game)/battle/           expeditions and wild battles
     (game)/dex/              party screen and PC boxes
     (game)/setup/            Bag (categories), Trainer, Partner, Options
-    login/ · auth/callback/  magic-link login
+    login/, auth/callback/   magic-link login
     globals.css              theme tokens and the pixel building blocks
 ```
 
@@ -120,13 +122,13 @@ so you can change the rules at any time and your level simply recalculates.
 The only game state that is stored is the Pokédex (`catches`); your trainer and
 partner choices are cookies.
 
-- **Partner:** pick one of twelve starters on first visit (change it on the Quests tab). It shivers when wallet HP is low, faints when the month is overspent, and evolves at levels 5 and 10. Click it to pet it. The choice is a cookie, not a database row.
-- **Logging is a battle:** after you save an entry the Log tab plays the result. Spending hits your partner's HP ("super effective" at 10% of the month's income or more, "not very effective" at 1% or less), income heals it, and savings go to the PC. Enough XP levels it up or evolves it on the spot. The result is worked out from the entry and the month's totals (`components/battle.tsx`).
+- **Partner:** pick one of twelve starters on first visit (change it under Setup, Partner). It shivers when wallet HP is low, faints when the month is overspent, and evolves at levels 5 and 10. Click it to pet it. The choice is a cookie, not a database row.
+- **Logging is a battle:** after you save an entry the Log tab plays the result. Spending hits your partner's HP ("super effective" at 10% of the month's income or more, "not very effective" at 1% or less), income heals it, and savings go to the PC. Enough XP levels it up or evolves it on the spot. The result is worked out from the entry and the month's totals (`components/entry-result.tsx`).
 - **Shiny month:** log income and complete every quest in a month, and your partner is shiny for that month.
 - **Wallet HP:** share of the month's income still unspent. Green above 50%, gold above 20%, red below.
 - **XP:** 10 per entry logged, plus 1 per ₱100 saved. Levels need 100, 300, 600, 1000… XP.
 - **Quests:** any saving category with a target ("set aside ₱10,000") or expense category with a target ("keep Food under ₱6,000").
-- **Badges:** the eight Kanto gym badges, listed in `game.ts`; each is a name plus an `earned()` function.
+- **Badges:** 24 gym badges, eight each from Kanto, Johto and Hoenn, listed in `game.ts`. Each is a name plus an `earned()` function. Kanto is the opening stretch, Johto rewards steady habits, Hoenn staying power.
 - **Trainer card:** rank, money, savings, entries and badges, at the top of the Quests tab. Pick which famous trainer you are on the Setup tab.
 - **Wild Pokémon:** random Pokémon (dex 1–649) turn up in the Home scene. Tap one to battle it. Every entry you log earns one Poké Ball, so balls left = entries − catches; a ball is only used up by a successful catch.
 - **Team:** your partner plus up to five Pokémon you have caught, chosen on the Dex tab. A caught Pokémon can also be made your partner (caught partners don't evolve).
@@ -138,17 +140,21 @@ The interface borrows the layouts of the handheld games rather than a web dashbo
 
 | Screen | Laid out like |
 | --- | --- |
-| Navigation | the start menu: a pop-up list with a ▶ cursor and a save-style summary under it. Open it with the Menu button or the M key; Esc closes it. Phones also get a bar of icons along the bottom |
+| Navigation | the start menu: a pop-up list with a ▶ cursor and a save-style summary under it. Open it with the Menu button or the M key; Esc closes it. The header also has previous and next arrows around the current screen's name. Phones get a bar of icons along the bottom |
 | Home, battles | a message window on the left and a 2 × 2 command box on the right (FIGHT / BAG / POKéMON / RUN in battle) |
 | Dex | the party screen, then PC boxes of 30 with a detail window for the one you pick |
-| Setup → Bag | pockets on the left, the items in that pocket on the right, a description window below |
-| Setup → Options | one setting per line with its choices beside it: text speed, frame colour, sound, day or night |
+| Setup, Bag | pockets on the left, the items in that pocket on the right, a description window below |
+| Setup, Options | one setting per line with its choices beside it: text speed, frame colour, backdrop colour, backdrop pattern, sound, day or night |
 | Log | a shop counter: a money window and the kind of entry on the left, the entry on the right; tossing an entry asks YES / NO |
 | Quests | a trainer card with a badge case along the bottom |
 
 Building blocks, all in `globals.css`: `.window` (a framed message or menu box), `.menu` and `.menu-item`
 (choices with a ▶ cursor), `.menu.commands` (the 2 × 2 box) and `.battle-bottom` (message beside commands).
 Any element with `data-menu` gets arrow-key navigation between its choices.
+
+Keyboard: **M** opens the menu, **1** to **7** jump to a screen, **[** and **]** step to the previous or next
+screen, arrow keys move within a menu, and a skip link is the first Tab stop. Shortcuts are ignored while
+you type in a field.
 
 Spacing follows one rule: windows and panels carry a 4px margin for their pixel border, and grids of them
 (`.battle-bottom`, `.tiles`, `.shop`, `.bag`) add an 8px gap, so everything sits 16px apart, the same as the
@@ -211,7 +217,7 @@ and non-commercial.
 
 ## Sound
 
-Sound is off until you press **♪** in the header, and stays quiet by design.
+Sound is off until you press the note button in the header, and stays quiet by design.
 
 - **Effects** are synthesized in the browser by a small three-channel synth in `sfx.ts` (square, triangle and noise). There are about twenty: tab changes, month arrows, chips, dialog text ticks, an impact when spending lands, a rising heal for income, coins dropping for savings, level-up and evolution fanfares, a sting when a wild Pokémon appears, the ball throw and wobble, and a catch jingle.
 - **Choosing a sound:** give any element `data-sfx="name"` (a key of `SOUNDS` in `sfx.ts`), or `data-sfx="none"` to silence it. Plain buttons and links get `select`.
@@ -223,17 +229,19 @@ Sound is off until you press **♪** in the header, and stays quiet by design.
 
 | To add… | Do this |
 | --- | --- |
-| A category | Setup → Bag → pick a pocket → New item: one tap from the suggestions, or make your own. No code. |
+| A category | In Setup, open the Bag, pick a pocket and choose New item: one tap from the suggestions, or make your own. No code. |
 | A quick-add preset | Add an entry to `PRESETS` in `partners.ts`. |
 | A trainer | Add an entry to `TRAINERS` in `partners.ts` (any name from the Showdown trainers folder). |
 | A sound | Add an entry to `SOUNDS` in `sfx.ts`. |
+| A backdrop pattern | Add a rule to `RULES` in `lib/backdrop.ts`: a function that says whether the pixel at (x, y) is on. |
+| A backdrop colour | Add an entry to `TONE_COLORS` in `lib/backdrop.ts`: a name with its day and night shades. |
 | A frame colour | Add an id to `FRAMES` in `options.ts` and a `.app[data-frame="…"]` rule in `globals.css`. |
 | A run upgrade | Add an entry to `BOONS` in `fight.ts` (its id is the item sprite shown), then apply it in `fight.tsx` or `expedition.tsx`. |
 | An expedition area | Add an entry to `BIOMES` in `fight.ts`: a name, a Showdown backdrop and favoured type ids. |
 | An icon choice | Add an item name to `ITEM_ICONS` in `partners.ts`. |
 | A quest | Give a category a monthly target. No code. |
 | A badge | Add an entry to `BADGES` in `game.ts`. |
-| A tab | Add a folder under `app/(game)/`, a line to `TABS` in `nav.tsx` and an icon grid in `sprite.tsx`. |
+| A screen | Add a folder under `app/(game)/`, a line to `SCREENS` in `nav.tsx` and an icon grid in `sprite.tsx`. |
 | A place on Home | Add a backdrop name to `PLACES` in `scene.tsx`. |
 | A partner line | Add an entry to `PARTNERS` in `partners.ts` (dex numbers 1–649 have animated sprites). |
 | A colour or theme tweak | Edit the tokens at the top of `globals.css`. |

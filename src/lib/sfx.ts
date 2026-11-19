@@ -1,7 +1,7 @@
 // Sound, browser-only. Every effect and the music are synthesized here with the
 // Web Audio API (square, triangle and noise channels, like an 8-bit console), so
 // there are no audio files. Cries stream from PokeAPI. Quiet by design, and off
-// until switched on with the ♪ button.
+// until switched on with the note button in the header.
 
 const KEY = "sound";
 const EVENT = "soundchange";

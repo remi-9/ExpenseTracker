@@ -68,7 +68,7 @@ export function Bar({
   );
 }
 
-/** ◀ November 2026 ▶ — links that change the ?m= month on the current page. */
+/** Previous and next links around the month name. They change ?m= on the current page. */
 export function MonthPicker({ month, path }: { month: string; path: string }) {
   const href = (n: number) => `${path}?m=${shiftMonth(month, n)}`;
   return (
@@ -116,7 +116,7 @@ export function EntryList({
           <span className="truncate">
             <CategoryIcon icon={t.category.icon} />
             {t.category.name}
-            {t.note && <span className="text-muted"> · {t.note}</span>}
+            {t.note && <span className="ml-3 text-muted">{t.note}</span>}
           </span>
           <span className={`amount ${t.category.kind === "income" ? "text-green" : ""}`}>
             {t.category.kind === "income" ? "+" : "−"}

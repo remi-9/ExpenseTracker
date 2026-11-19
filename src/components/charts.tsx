@@ -88,10 +88,10 @@ export function StepLine({
       </svg>
       <figcaption className="flex justify-between text-muted">
         <span>
-          {points[0].label} · {money(points[0].value)}
+          {points[0].label} {money(points[0].value)}
         </span>
         <span>
-          {points[last].label} · {money(points[last].value)}
+          {points[last].label} {money(points[last].value)}
         </span>
       </figcaption>
     </figure>
@@ -125,9 +125,9 @@ export function Waffle({ slices, total }: { slices: Slice[]; total: number }) {
               {s.icon}
               {s.name}
             </span>
-            <span className="shrink-0">
+            <span className="flex shrink-0 gap-3">
               {money(s.value)}
-              <span className="text-muted"> · {Math.round(exact[i])}%</span>
+              <span className="w-10 text-right text-muted">{Math.round(exact[i])}%</span>
             </span>
           </li>
         ))}
@@ -165,12 +165,15 @@ export function SpendCalendar({ month, byDay }: { month: string; byDay: Map<numb
           );
         })}
       </div>
-      <p className="flex items-center gap-1 text-muted">
-        Less
-        {[0, 1, 2, 3, 4].map((n) => (
-          <span key={n} className={`day heat-${n} size-4!`} />
-        ))}
-        More · busiest day {money(byDay.size ? peak : 0)}
+      <p className="flex flex-wrap items-center justify-between gap-x-4 text-muted">
+        <span className="flex items-center gap-1">
+          Less
+          {[0, 1, 2, 3, 4].map((n) => (
+            <span key={n} className={`day heat-${n} size-4!`} />
+          ))}
+          More
+        </span>
+        <span>Busiest day {money(byDay.size ? peak : 0)}</span>
       </p>
     </div>
   );

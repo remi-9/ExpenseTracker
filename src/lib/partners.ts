@@ -1,5 +1,5 @@
 // Partner Pokémon. Sprites, badges, item icons and cries are loaded at runtime from
-// the PokeAPI project's public repos (see README → Pokémon resources). Nothing is bundled.
+// the PokeAPI project's public repos (see Pokémon resources in the README). Nothing is bundled.
 // Add a partner line by adding an entry: [dex number, name] for each stage.
 
 const RAW = "https://raw.githubusercontent.com/PokeAPI";

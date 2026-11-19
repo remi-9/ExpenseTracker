@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprite */
 import Link from "next/link";
-import { MenuKeys, StartMenu, TabBar, ThemeToggle } from "@/components/nav";
+import { Backdrop } from "@/components/backdrop";
+import { Keys, ScreenSwitcher, StartMenu, TabBar, ThemeToggle } from "@/components/nav";
 import { SoundToggle } from "@/components/sound";
 import { signOut } from "@/lib/actions";
 import { APP_NAME, isSupabaseConfigured } from "@/lib/config";
@@ -22,14 +23,18 @@ export default async function GameLayout({ children }: { children: React.ReactNo
   const player = getPlayer(totals);
   const summary: [string, string][] = [
     ["Player", TRAINERS.find((t) => t.id === trainerId)?.name ?? "Trainer"],
-    ["Badges", String(BADGES.filter((b) => b.earned({ player, totals, categories })).length)],
+    ["Badges", String(BADGES.filter((b) => b.earned({ player, totals, categories, caught: caught.length })).length)],
     ["Pokédex", String(caught.length)],
     ["Money", money(summarizeMonth(totals, parseMonth()).balance)],
   ];
 
   return (
     <div className="app" data-frame={options.frame} data-speed={options.speed}>
-      <MenuKeys />
+      <Backdrop tone={options.tone} pattern={options.pattern} />
+      <Keys />
+      <a href="#main" className="skip btn">
+        Skip to content
+      </a>
 
       <div className="flex min-w-0 flex-col gap-4">
         <header className="box flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -42,6 +47,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
               </span>
             )}
           </Link>
+          <ScreenSwitcher />
           <div className="flex flex-wrap items-center">
             <StartMenu summary={summary} />
             <SoundToggle />
@@ -54,7 +60,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
           </div>
         </header>
 
-        <main>{children}</main>
+        <main id="main">{children}</main>
       </div>
 
       <TabBar />

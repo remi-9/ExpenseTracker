@@ -4,7 +4,7 @@ import { Chest, Shield } from "@/components/sprite";
 import { Bar, CategoryIcon, MonthPicker, Panel } from "@/components/ui";
 import { getCategories, getCaught, getMonthTotals, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
 import { money, monthLabel, parseMonth } from "@/lib/format";
-import { BADGES, getPlayer, getQuests, isShiny, summarizeMonth } from "@/lib/game";
+import { BADGES, getPlayer, getQuests, isShiny, REGIONS, summarizeMonth } from "@/lib/game";
 import { partnerAt, sprite, TRAINERS } from "@/lib/partners";
 
 export default async function QuestsPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
@@ -23,7 +23,7 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
 
   const quests = getQuests(categories, totals, month);
   const shiny = isShiny(quests, summarizeMonth(totals, month));
-  const badges = BADGES.map((b) => ({ ...b, has: b.earned({ player, totals, categories }) }));
+  const badges = BADGES.map((b) => ({ ...b, has: b.earned({ player, totals, categories, caught: caught.length }) }));
 
   // Trainer card facts. "Money" is the bank balance as of the current month.
   const balance = summarizeMonth(totals, parseMonth()).balance;
@@ -70,8 +70,8 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
             ))}
           </ul>
           <p className="text-muted">
-            {player.xpForNext - player.xpIntoLevel} XP to Lv {player.level + 1}
-            {partner?.nextName && ` · ${partner.name} evolves into ${partner.nextName} at Lv ${partner.evolvesAt}`}
+            {player.xpForNext - player.xpIntoLevel} XP to Lv {player.level + 1}.
+            {partner?.nextName && ` ${partner.name} evolves into ${partner.nextName} at Lv ${partner.evolvesAt}.`}
           </p>
         </div>
       </section>
@@ -111,16 +111,30 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
         )}
       </Panel>
 
-      <Panel title="Badges">
-        <ul className="grid grid-cols-2 sm:grid-cols-4">
-          {badges.map((b) => (
-            <li key={b.id} className={`medal ${b.has ? "" : "locked"}`}>
-              <img src={sprite.badge(b.sprite)} alt="" width={56} height={56} />
-              <span className="font-display text-[0.6rem] leading-relaxed">{b.name}</span>
-              <span className="leading-tight text-muted">{b.has ? "Earned" : b.how}</span>
-            </li>
-          ))}
-        </ul>
+      <Panel
+        title="Badges"
+        aside={
+          <span>
+            {badges.filter((b) => b.has).length} / {badges.length}
+          </span>
+        }
+      >
+        {REGIONS.map((region) => (
+          <section key={region} className="mb-4 last:mb-0">
+            <h3 className="mb-1 font-display text-[0.65rem] leading-loose text-muted uppercase">{region}</h3>
+            <ul className="grid grid-cols-2 sm:grid-cols-4">
+              {badges
+                .filter((b) => b.region === region)
+                .map((b) => (
+                  <li key={b.id} className={`medal ${b.has ? "" : "locked"}`}>
+                    <img src={sprite.badge(b.sprite)} alt="" width={48} height={48} />
+                    <span className="font-display text-[0.6rem] leading-relaxed">{b.name}</span>
+                    <span className="leading-tight text-muted">{b.has ? "Earned" : b.how}</span>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        ))}
       </Panel>
     </>
   );

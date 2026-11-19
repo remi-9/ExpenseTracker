@@ -11,6 +11,7 @@ import {
   subscribeSound,
   type SfxName,
 } from "@/lib/sfx";
+import { Icon } from "./sprite";
 
 // Optional: your own track replaces the built-in loop. Set at build time by next.config.ts
 // when public/audio/pokemon-center.mp3 exists.
@@ -56,15 +57,17 @@ export function SoundToggle() {
     <>
       <button
         type="button"
-        className="btn"
+        className="btn icon"
         data-sfx="none"
         aria-pressed={on}
+        aria-label="Sound"
+        title={on ? "Sound is on" : "Sound is off"}
         onClick={() => {
           setSoundOn(!on);
           play("toggle");
         }}
       >
-        {on ? "♪ On" : "♪ Off"}
+        <Icon name="note" size={20} />
       </button>
       {MUSIC_SRC && <audio ref={music} src={MUSIC_SRC} loop preload="none" />}
     </>
@@ -75,8 +78,16 @@ export function SoundToggle() {
 export function SoundSwitch() {
   const on = useSyncExternalStore(subscribeSound, isSoundOn, () => false);
   return (
-    <button type="button" className="btn" data-sfx="none" aria-pressed={on} onClick={() => setSoundOn(!on)}>
-      {on ? "♪ On" : "♪ Off"}
+    <button
+      type="button"
+      className="btn icon"
+      data-sfx="none"
+      aria-pressed={on}
+      aria-label="Sound"
+      title={on ? "Sound is on" : "Sound is off"}
+      onClick={() => setSoundOn(!on)}
+    >
+      <Icon name="note" size={20} />
     </button>
   );
 }

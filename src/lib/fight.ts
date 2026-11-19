@@ -1,5 +1,5 @@
 // The battle engine and the roguelike content: pure functions and tables, no React.
-// Rules are a simplified version of the classic formulas (see README → Battles).
+// Rules are a simplified version of the classic formulas (see Battles in the README).
 
 /** One species: type ids and the six base stats (hp, atk, def, sp. atk, sp. def, speed). */
 export type Species = { t: number[]; s: number[] };

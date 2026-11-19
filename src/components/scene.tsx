@@ -1,5 +1,5 @@
 // The Home scene: a battle-style view that travels between places.
-// Backdrops are Pokémon Showdown's battle backgrounds (see README → Pokémon resources),
+// Backdrops are Pokémon Showdown's battle backgrounds (see Pokémon resources in the README),
 // loaded at runtime. They fade from one to the next and drift slowly sideways.
 import type { ReactNode } from "react";
 import { backdrop } from "@/lib/fight";

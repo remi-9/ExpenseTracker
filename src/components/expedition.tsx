@@ -404,10 +404,8 @@ function RunBar({ run, biome }: { run: Run; biome: string }) {
   return (
     <section className="box hud items-center" aria-label="Expedition status">
       <div>
-        <span className="text-muted">Floor</span>
-        <strong>
-          {run.floor} · {biome}
-        </strong>
+        <span className="text-muted">Floor {run.floor}</span>
+        <strong>{biome}</strong>
       </div>
       <div>
         <span className="text-muted">Supplies</span>

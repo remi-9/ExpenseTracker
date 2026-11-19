@@ -109,63 +109,95 @@ export const isShiny = (quests: Quest[], s: MonthSummary) =>
   s.income > 0 && quests.length > 0 && quests.every((q) => q.complete);
 
 // ---- Badges ----------------------------------------------------------------
-// Add a badge by adding an entry here. `earned` gets everything it might need.
+// Gym badges from the first three regions, eight each. Add one by adding an
+// entry; `earned` is given everything it might need. Kanto is the opening
+// stretch, Johto asks for steady habits, and Hoenn for staying power.
 
 type BadgeInput = {
   player: Player;
   totals: MonthTotal[];
   categories: Category[];
+  /** How many Pokémon have been caught. */
+  caught: number;
 };
+
+export const REGIONS = ["Kanto", "Johto", "Hoenn"] as const;
 
 export type Badge = {
   id: string;
-  /** Which Kanto gym badge sprite to show, 1–8. */
+  region: (typeof REGIONS)[number];
+  /** Which badge sprite to show (PokeAPI numbers them 1–24 across the three regions). */
   sprite: number;
   name: string;
   how: string;
   earned: (input: BadgeInput) => boolean;
 };
 
-/** Months, oldest first, with their summaries. */
+/** Every month with entries, oldest first, with its summary. */
 function months(totals: MonthTotal[]) {
   const keys = [...new Set(totals.map((t) => t.month.slice(0, 7)))].sort();
-  return keys.map((m) => summarizeMonth(totals, m));
+  return keys.map((m) => ({ month: m, ...summarizeMonth(totals, m) }));
 }
 
-export const BADGES: Badge[] = [
-  { id: "boulder", sprite: 1, name: "Boulder Badge", how: "Log your first entry", earned: ({ player }) => player.entries >= 1 },
-  { id: "cascade", sprite: 2, name: "Cascade Badge", how: "Set money aside in any month", earned: ({ player }) => player.saved > 0 },
-  { id: "thunder", sprite: 3, name: "Thunder Badge", how: "Log 25 entries", earned: ({ player }) => player.entries >= 25 },
-  {
-    id: "rainbow",
-    sprite: 4,
-    name: "Rainbow Badge",
-    how: "End a month with money left over",
-    earned: ({ totals }) => months(totals).some((m) => m.income > 0 && m.remaining > 0),
-  },
-  {
-    id: "soul",
-    sprite: 5,
-    name: "Soul Badge",
-    how: "Hit a savings goal in a month",
-    earned: ({ totals, categories }) =>
-      totals.some((t) => {
+/** The longest run of consecutive months that pass `test`. */
+function longestRun(totals: MonthTotal[], test: (m: MonthSummary) => boolean) {
+  let run = 0;
+  let best = 0;
+  for (const m of months(totals)) {
+    run = test(m) ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  return best;
+}
+
+const inTheGreen = (m: MonthSummary) => m.income > 0 && m.remaining > 0;
+
+/** Months in which a saving category reached its target. */
+const goalMonths = ({ totals, categories }: BadgeInput) =>
+  new Set(
+    totals
+      .filter((t) => {
         const target = categories.find((c) => c.id === t.category_id)?.monthly_target;
         return t.kind === "saving" && target != null && t.total >= target;
-      }),
-  },
-  { id: "marsh", sprite: 6, name: "Marsh Badge", how: "Log 100 entries", earned: ({ player }) => player.entries >= 100 },
-  {
-    id: "volcano",
-    sprite: 7,
-    name: "Volcano Badge",
-    how: "Three months in a row with money left over",
-    earned: ({ totals }) => {
-      let run = 0;
-      return months(totals).some((m) => (run = m.income > 0 && m.remaining > 0 ? run + 1 : 0) >= 3);
-    },
-  },
-  { id: "earth", sprite: 8, name: "Earth Badge", how: "Reach level 10", earned: ({ player }) => player.level >= 10 },
+      })
+      .map((t) => t.month),
+  ).size;
+
+/** The most spending categories used in any one month. */
+const widestMonth = ({ totals }: BadgeInput) => {
+  const perMonth = new Map<string, number>();
+  for (const t of totals) if (t.kind === "expense") perMonth.set(t.month, (perMonth.get(t.month) ?? 0) + 1);
+  return Math.max(0, ...perMonth.values());
+};
+
+export const BADGES: Badge[] = [
+  // Kanto
+  { id: "boulder", region: "Kanto", sprite: 1, name: "Boulder Badge", how: "Log your first entry", earned: ({ player }) => player.entries >= 1 },
+  { id: "cascade", region: "Kanto", sprite: 2, name: "Cascade Badge", how: "Set money aside in any month", earned: ({ player }) => player.saved > 0 },
+  { id: "thunder", region: "Kanto", sprite: 3, name: "Thunder Badge", how: "Log 25 entries", earned: ({ player }) => player.entries >= 25 },
+  { id: "rainbow", region: "Kanto", sprite: 4, name: "Rainbow Badge", how: "End a month with money left over", earned: ({ totals }) => longestRun(totals, inTheGreen) >= 1 },
+  { id: "soul", region: "Kanto", sprite: 5, name: "Soul Badge", how: "Hit a savings goal in a month", earned: (input) => goalMonths(input) >= 1 },
+  { id: "marsh", region: "Kanto", sprite: 6, name: "Marsh Badge", how: "Log 100 entries", earned: ({ player }) => player.entries >= 100 },
+  { id: "volcano", region: "Kanto", sprite: 7, name: "Volcano Badge", how: "Three months in a row with money left over", earned: ({ totals }) => longestRun(totals, inTheGreen) >= 3 },
+  { id: "earth", region: "Kanto", sprite: 8, name: "Earth Badge", how: "Reach level 10", earned: ({ player }) => player.level >= 10 },
+  // Johto
+  { id: "zephyr", region: "Johto", sprite: 9, name: "Zephyr Badge", how: "Log 50 entries", earned: ({ player }) => player.entries >= 50 },
+  { id: "hive", region: "Johto", sprite: 10, name: "Hive Badge", how: "Catch your first Pokémon", earned: ({ caught }) => caught >= 1 },
+  { id: "plain", region: "Johto", sprite: 11, name: "Plain Badge", how: "Save ₱10,000 in total", earned: ({ player }) => player.saved >= 10000 },
+  { id: "fog", region: "Johto", sprite: 12, name: "Fog Badge", how: "Use five spending categories in one month", earned: (input) => widestMonth(input) >= 5 },
+  { id: "storm", region: "Johto", sprite: 13, name: "Storm Badge", how: "Spend under 80% of a month's income", earned: ({ totals }) => months(totals).some((m) => m.income > 0 && m.expense < m.income * 0.8) },
+  { id: "mineral", region: "Johto", sprite: 14, name: "Mineral Badge", how: "Log entries in three different months", earned: ({ totals }) => months(totals).length >= 3 },
+  { id: "glacier", region: "Johto", sprite: 15, name: "Glacier Badge", how: "Save a fifth of a month's income", earned: ({ totals }) => months(totals).some((m) => m.income > 0 && m.saving >= m.income * 0.2) },
+  { id: "rising", region: "Johto", sprite: 16, name: "Rising Badge", how: "Reach level 5", earned: ({ player }) => player.level >= 5 },
+  // Hoenn
+  { id: "stone", region: "Hoenn", sprite: 17, name: "Stone Badge", how: "Save ₱50,000 in total", earned: ({ player }) => player.saved >= 50000 },
+  { id: "knuckle", region: "Hoenn", sprite: 18, name: "Knuckle Badge", how: "Six months in a row with money left over", earned: ({ totals }) => longestRun(totals, inTheGreen) >= 6 },
+  { id: "dynamo", region: "Hoenn", sprite: 19, name: "Dynamo Badge", how: "Log 250 entries", earned: ({ player }) => player.entries >= 250 },
+  { id: "heat", region: "Hoenn", sprite: 20, name: "Heat Badge", how: "Catch 10 Pokémon", earned: ({ caught }) => caught >= 10 },
+  { id: "balance", region: "Hoenn", sprite: 21, name: "Balance Badge", how: "Hit a savings goal in three months", earned: (input) => goalMonths(input) >= 3 },
+  { id: "feather", region: "Hoenn", sprite: 22, name: "Feather Badge", how: "Log entries in twelve different months", earned: ({ totals }) => months(totals).length >= 12 },
+  { id: "mind", region: "Hoenn", sprite: 23, name: "Mind Badge", how: "Catch 50 Pokémon", earned: ({ caught }) => caught >= 50 },
+  { id: "rain", region: "Hoenn", sprite: 24, name: "Rain Badge", how: "Reach level 20", earned: ({ player }) => player.level >= 20 },
 ];
 
 // ---- Narration -------------------------------------------------------------

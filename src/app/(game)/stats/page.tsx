@@ -80,7 +80,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         </div>
         <div>
           <span className="text-muted">Hi-score</span>
-          <strong>{best ? money(best.left) : "—"}</strong>
+          <strong>{best ? money(best.left) : "None yet"}</strong>
           <span className="text-muted">{best ? monthLabel(best.month) : "no months yet"}</span>
         </div>
         <div>
@@ -153,8 +153,8 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
           <>
             <Waffle slices={slices} total={summary.expense} />
             <p className="mt-3 text-muted">
-              Each square is 1% of the month&apos;s spending. Fixed bills {money(fixed)} · everything else{" "}
-              {money(summary.expense - fixed)}
+              Each square is 1% of the month&apos;s spending. Fixed bills came to {money(fixed)}; everything else to{" "}
+              {money(summary.expense - fixed)}.
             </p>
           </>
         )}

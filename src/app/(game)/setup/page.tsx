@@ -9,6 +9,8 @@ import { CategoryIcon, Dialog, Panel } from "@/components/ui";
 import { addCategory, addPreset, setCategoryArchived, setOption } from "@/lib/actions";
 import { getCategories, getCaught, getOptions, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
 import { money } from "@/lib/format";
+import type { CSSProperties } from "react";
+import { PATTERNS, TONE_COLORS, TONES, type Tone } from "@/lib/backdrop";
 import { FRAMES, SPEEDS } from "@/lib/options";
 import { ITEM_ICONS, PRESETS, sprite } from "@/lib/partners";
 import type { Category, Kind } from "@/lib/types";
@@ -239,34 +241,63 @@ async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: s
 /** The Options screen: one setting per line, choices to the right, the current one marked. */
 async function Options() {
   const options = await getOptions();
+  // Each row is a small form: pressing a choice posts that one setting.
+  const rows: { label: string; name: keyof typeof options; choices: readonly string[] }[] = [
+    { label: "Text speed", name: "speed", choices: SPEEDS },
+    { label: "Frame", name: "frame", choices: FRAMES },
+    { label: "Backdrop", name: "tone", choices: TONES },
+    { label: "Pattern", name: "pattern", choices: PATTERNS },
+  ];
   return (
     <section className="window options" aria-label="Options">
-      <form action={setOption} className="option" data-menu>
-        <span className="option-label">Text speed</span>
-        {SPEEDS.map((speed) => (
-          <button key={speed} name="speed" value={speed} className="menu-item" aria-pressed={options.speed === speed} data-sfx="chip">
-            {speed}
-          </button>
-        ))}
-      </form>
-      <form action={setOption} className="option" data-menu>
-        <span className="option-label">Frame</span>
-        {FRAMES.map((frame) => (
-          <button key={frame} name="frame" value={frame} className="menu-item" aria-pressed={options.frame === frame} data-sfx="chip">
-            {frame}
-          </button>
-        ))}
-      </form>
+      {rows.map(({ label, name, choices }) => (
+        <form key={name} action={setOption} className="option" data-menu>
+          <span className="option-label">{label}</span>
+          <div className="option-choices">
+            {choices.map((choice) => (
+              <button
+                key={choice}
+                name={name}
+                value={choice}
+                className="menu-item"
+                aria-pressed={options[name] === choice}
+                aria-label={choice}
+                title={choice}
+                data-sfx="chip"
+              >
+                {name === "tone" ? (
+                  <span
+                    className="swatch"
+                    style={
+                      {
+                        "--day": TONE_COLORS[choice as Tone].day,
+                        "--night": TONE_COLORS[choice as Tone].night,
+                      } as CSSProperties
+                    }
+                  />
+                ) : (
+                  choice
+                )}
+              </button>
+            ))}
+          </div>
+        </form>
+      ))}
       <div className="option">
         <span className="option-label">Sound</span>
-        <SoundSwitch />
+        <div className="option-choices">
+          <SoundSwitch />
+        </div>
       </div>
       <div className="option">
         <span className="option-label">Screen</span>
-        <ThemeToggle />
+        <div className="option-choices">
+          <ThemeToggle />
+        </div>
       </div>
       <p className="mt-2 text-muted">
         Text speed sets how fast messages type out and battles move. Frame changes the colour of every message window.
+        The backdrop is a colour with a generated pattern over it; choose each separately.
       </p>
     </section>
   );

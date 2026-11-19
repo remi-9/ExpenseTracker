@@ -98,20 +98,33 @@ body {
   line-height: 1.25;
 }
 
-/* The page backdrop: a field of Poké Ball outlines drifting diagonally, like a
-   handheld menu screen. The outline is a mask, so it takes the theme's colour. */
-body::before {
-  content: "";
+/* The page backdrop (components/backdrop.tsx): a colour layer, and over it a
+   generated pattern that drifts diagonally. Only the pattern layer moves, and it
+   moves by transform alone, which browsers can do without repainting. */
+.backdrop,
+.backdrop-color {
   position: fixed;
-  inset: -64px;
+  inset: 0;
   z-index: -1;
-  background: var(--bg-dot);
-  mask: url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2264%22%20height=%2264%22%20shape-rendering=%22crispEdges%22%3E%3Crect%20x=%2212%22%20y=%224%22%20width=%228%22%20height=%222%22/%3E%3Crect%20x=%228%22%20y=%226%22%20width=%224%22%20height=%222%22/%3E%3Crect%20x=%2220%22%20y=%226%22%20width=%224%22%20height=%222%22/%3E%3Crect%20x=%226%22%20y=%228%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2224%22%20y=%228%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%226%22%20y=%2210%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2224%22%20y=%2210%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%224%22%20y=%2212%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2226%22%20y=%2212%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%224%22%20y=%2214%22%20width=%2210%22%20height=%222%22/%3E%3Crect%20x=%2218%22%20y=%2214%22%20width=%2210%22%20height=%222%22/%3E%3Crect%20x=%224%22%20y=%2216%22%20width=%2210%22%20height=%222%22/%3E%3Crect%20x=%2218%22%20y=%2216%22%20width=%2210%22%20height=%222%22/%3E%3Crect%20x=%224%22%20y=%2218%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2226%22%20y=%2218%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%226%22%20y=%2220%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2224%22%20y=%2220%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%226%22%20y=%2222%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2224%22%20y=%2222%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%228%22%20y=%2224%22%20width=%224%22%20height=%222%22/%3E%3Crect%20x=%2220%22%20y=%2224%22%20width=%224%22%20height=%222%22/%3E%3Crect%20x=%2212%22%20y=%2226%22%20width=%228%22%20height=%222%22/%3E%3Crect%20x=%2244%22%20y=%2236%22%20width=%228%22%20height=%222%22/%3E%3Crect%20x=%2240%22%20y=%2238%22%20width=%224%22%20height=%222%22/%3E%3Crect%20x=%2252%22%20y=%2238%22%20width=%224%22%20height=%222%22/%3E%3Crect%20x=%2238%22%20y=%2240%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2256%22%20y=%2240%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2238%22%20y=%2242%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2256%22%20y=%2242%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2236%22%20y=%2244%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2258%22%20y=%2244%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2236%22%20y=%2246%22%20width=%2210%22%20height=%222%22/%3E%3Crect%20x=%2250%22%20y=%2246%22%20width=%2210%22%20height=%222%22/%3E%3Crect%20x=%2236%22%20y=%2248%22%20width=%2210%22%20height=%222%22/%3E%3Crect%20x=%2250%22%20y=%2248%22%20width=%2210%22%20height=%222%22/%3E%3Crect%20x=%2236%22%20y=%2250%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2258%22%20y=%2250%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2238%22%20y=%2252%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2256%22%20y=%2252%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2238%22%20y=%2254%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2256%22%20y=%2254%22%20width=%222%22%20height=%222%22/%3E%3Crect%20x=%2240%22%20y=%2256%22%20width=%224%22%20height=%222%22/%3E%3Crect%20x=%2252%22%20y=%2256%22%20width=%224%22%20height=%222%22/%3E%3Crect%20x=%2244%22%20y=%2258%22%20width=%228%22%20height=%222%22/%3E%3C/svg%3E") 0 0 / 64px 64px;
+  overflow: hidden;
+}
+.backdrop-color.by-night,
+.dark .backdrop-color.by-day {
+  display: none;
+}
+.dark .backdrop-color.by-night {
+  display: block;
+}
+.backdrop-pattern {
+  position: absolute;
+  inset: calc(var(--tile) * -1);
+  background-size: var(--tile) var(--tile);
+  will-change: transform;
   animation: drift 7s linear infinite;
 }
 @keyframes drift {
   to {
-    transform: translate(64px, 64px);
+    transform: translate(var(--tile), var(--tile));
   }
 }
 
@@ -257,7 +270,7 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .bar > span,
   .chart-cols > span,
-  body::before,
+  .backdrop-pattern,
   .wild,
   .wobble,
   .mood-worried,
@@ -304,7 +317,7 @@ code {
 
 /* ---- Windows and menus ---------------------------------------------------------
    A window is the framed box games use for messages and menus. Its coloured band
-   is the "frame" option (Setup → Options), set by data-frame on .app. */
+   is the "frame" option on the Options screen, set by data-frame on .app. */
 .app {
   --frame: #3b6fb5;
 }
@@ -1396,21 +1409,22 @@ a.pc-cell:focus-visible,
   max-height: 22rem;
   overflow-y: auto;
 }
+/* One setting per row: its name on the left, its choices on the right. */
 .option {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
   align-items: center;
-  gap: 0 0.25rem;
-  padding: 0.2rem 0;
-}
-.option {
+  gap: 0 0.5rem;
   min-height: 2.75rem;
 }
 .option-label {
-  width: 10rem;
   font-family: var(--font-display);
   font-size: 0.68rem;
   text-transform: uppercase;
+}
+.option-choices {
+  display: flex;
+  flex-wrap: wrap;
 }
 .option .menu-item {
   width: auto;
@@ -1419,6 +1433,7 @@ a.pc-cell:focus-visible,
 /* Eight badge slots along the bottom of the trainer card. */
 .badge-case {
   display: grid;
+  /* Eight to a row, one row per region. */
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
@@ -1566,4 +1581,63 @@ a.pc-cell:focus-visible,
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* ---- Header controls ------------------------------------------------------------- */
+/* A button that is only an icon. A switched-off toggle is dimmed and struck through. */
+.btn.icon {
+  position: relative;
+  padding: 0.45rem 0.55rem;
+}
+.btn.icon[aria-pressed="false"] {
+  color: var(--muted);
+}
+.btn.icon[aria-pressed="false"]::after {
+  content: "";
+  position: absolute;
+  inset: 45% 18% auto 18%;
+  height: 4px;
+  background: var(--red);
+  transform: rotate(-35deg);
+}
+/* Previous screen, the current screen's name, next screen. */
+.switcher {
+  display: none;
+  align-items: center;
+}
+.switcher-now {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 7.5rem;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+@media (min-width: 640px) {
+  .switcher {
+    display: flex;
+  }
+}
+.menu-item kbd {
+  margin-left: auto;
+}
+/* A colour sample on the Options screen. */
+/* Split diagonally: the day shade and the night shade. */
+.swatch {
+  width: 1.4rem;
+  height: 1.4rem;
+  background: linear-gradient(135deg, var(--day) 50%, var(--night) 50%);
+  border: 3px solid var(--ink);
+}
+/* Skip link: the first thing a keyboard reaches. */
+.skip {
+  position: absolute;
+  left: -999px;
+}
+.skip:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 40;
 }

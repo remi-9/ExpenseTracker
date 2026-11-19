@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
 import { today } from "./format";
 import { getCaught, getMonthTotals, getTeam } from "./data";
+import { PATTERNS, TONES } from "./backdrop";
 import { FRAMES, SPEEDS } from "./options";
 import { DEFAULT_ICON, MAX_DEX, PARTNERS, PRESETS, TRAINERS } from "./partners";
 import type { Kind } from "./types";
@@ -41,7 +42,7 @@ export async function addTransaction(form: FormData) {
     revalidatePath("/", "layout");
   }
 
-  // The Log page turns these into the battle-style result (see components/battle.tsx).
+  // The Log page turns these into the battle-style result (see components/entry-result.tsx).
   const result = new URLSearchParams({
     m: occurred_on.slice(0, 7),
     kind: text(form, "kind"),
@@ -158,13 +159,14 @@ export async function chooseTrainer(form: FormData) {
   redirect("/setup?s=trainer");
 }
 
-/** Options screen: frame colour and text speed. */
+/** Options screen: each button posts one setting, saved as a cookie of the same name. */
 export async function setOption(form: FormData) {
+  const allowed: Record<string, readonly string[]> = { frame: FRAMES, speed: SPEEDS, tone: TONES, pattern: PATTERNS };
   const jar = await cookies();
-  const frame = text(form, "frame");
-  const speed = text(form, "speed");
-  if ((FRAMES as readonly string[]).includes(frame)) jar.set("frame", frame, { maxAge: YEAR, sameSite: "lax" });
-  if ((SPEEDS as readonly string[]).includes(speed)) jar.set("speed", speed, { maxAge: YEAR, sameSite: "lax" });
+  for (const [name, values] of Object.entries(allowed)) {
+    const value = text(form, name);
+    if (values.includes(value)) jar.set(name, value, { maxAge: YEAR, sameSite: "lax" });
+  }
   redirect("/setup?s=options");
 }
 

@@ -79,8 +79,11 @@ export default async function DexPage({
           </Link>
           <h1>
             Box {box}
-            <small>
-              Own {caught.length} / {MAX_DEX} · Balls ×{balls}
+            <small className="flex gap-4">
+              <span>
+                Own {caught.length} / {MAX_DEX}
+              </span>
+              <span>Balls ×{balls}</span>
             </small>
           </h1>
           <Link href={boxHref(box + 1)} className="btn" aria-label="Next box" data-sfx="page">

@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "./config";
 import { demoCategories, demoTotals, demoTransactions } from "./demo";
 import type { BattleData, Species } from "./fight";
 import { shiftMonth } from "./format";
+import { PATTERNS, TONES, type Pattern, type Tone } from "./backdrop";
 import { DEFAULT_OPTIONS, FRAMES, SPEEDS, type Speed } from "./options";
 import { DEFAULT_TRAINER, MAX_DEX, TRAINERS } from "./partners";
 import { createClient } from "./supabase/server";
@@ -152,14 +153,18 @@ async function loadBattleData(): Promise<BattleData | null> {
   }
 }
 
-/** Frame colour and text speed chosen on the Options screen (cookies; see setOption). */
-async function loadOptions(): Promise<{ frame: string; speed: Speed }> {
+/** Everything chosen on the Options screen (cookies; see setOption). */
+async function loadOptions(): Promise<{ frame: string; speed: Speed; tone: Tone; pattern: Pattern }> {
   const jar = await cookies();
-  const frame = jar.get("frame")?.value ?? "";
-  const speed = jar.get("speed")?.value ?? "";
+  const pick = <T extends string>(name: string, allowed: readonly T[], fallback: T): T => {
+    const value = jar.get(name)?.value as T;
+    return allowed.includes(value) ? value : fallback;
+  };
   return {
-    frame: (FRAMES as readonly string[]).includes(frame) ? frame : DEFAULT_OPTIONS.frame,
-    speed: (SPEEDS as readonly string[]).includes(speed) ? (speed as Speed) : DEFAULT_OPTIONS.speed,
+    frame: pick("frame", FRAMES, DEFAULT_OPTIONS.frame),
+    speed: pick("speed", SPEEDS, DEFAULT_OPTIONS.speed),
+    tone: pick("tone", TONES, DEFAULT_OPTIONS.tone),
+    pattern: pick("pattern", PATTERNS, DEFAULT_OPTIONS.pattern),
   };
 }
 

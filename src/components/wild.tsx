@@ -57,7 +57,7 @@ export function WildPokemon({ balls, caught, names }: { balls: number; caught: n
             {caught.includes(visitor.dex) && (
               <img src={sprite.item("poke-ball")} alt="Already caught" width={20} height={20} className="pixel" />
             )}
-            Wild {nameOf(visitor.dex)} · Battle
+            Battle wild {nameOf(visitor.dex)}
           </span>
         </Link>
       )}

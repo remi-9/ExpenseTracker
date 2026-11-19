@@ -44,7 +44,7 @@ type State = {
   me: number;
   foe: number;
   potions: number;
-  /** main: choose an action · forced: must switch after a faint · busy: a turn is playing out. */
+  /** "forced" means you must switch after a faint; "busy" means a turn is playing out. */
   menu: "main" | "moves" | "bag" | "team" | "forced" | "busy" | "done";
   text: string;
   /** Animation class currently on each sprite. */
@@ -362,7 +362,7 @@ export function Fight({
             <p className="px-2 leading-tight">
               {peeked.heal
                 ? `Heals 40% HP. ${me.heals} left.`
-                : `Power ${peeked.power} · ${peeked.accuracy}%${peeked.quick ? " · goes first" : ""}`}
+                : `Power ${peeked.power}, ${peeked.accuracy}% accurate.${peeked.quick ? " Goes first." : ""}`}
               {!peeked.heal && peekEff > 1 && <b className="block text-green">Super effective</b>}
               {!peeked.heal && peekEff < 1 && peekEff > 0 && <b className="block text-red">Not very effective</b>}
               {!peeked.heal && peekEff === 0 && <b className="block text-red">No effect</b>}
