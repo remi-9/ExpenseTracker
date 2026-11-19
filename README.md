@@ -73,11 +73,11 @@ src/
     partner.tsx              partner sprite, partner picker, trainer picker
     scene.tsx                Home scene: battle backdrops that fade from place to place
     sound.tsx                sound toggle, click sounds, music
-    nav.tsx                  start menu, arrow-key menu navigation, theme toggle
+    nav.tsx                  pop-up start menu, phone tab bar, arrow-key menu navigation, theme toggle
   app/
     (game)/template.tsx      short entrance animation on every tab change
     (game)/page.tsx          Home: scene, wallet HP, narration, pay split, balance trend
-    (game)/layout.tsx        page frame: content, start menu and save summary
+    (game)/layout.tsx        page frame: header with the Menu button, content, phone tab bar
     (game)/log/              the counter: add entries, browse them, toss with a yes/no
     (game)/stats/            score strip, six-month chart, waffle, spending calendar
     (game)/quests/           trainer card, quests, badges
@@ -138,7 +138,7 @@ The interface borrows the layouts of the handheld games rather than a web dashbo
 
 | Screen | Laid out like |
 | --- | --- |
-| Navigation | the start menu: a list down the right with a ▶ cursor and a save-style summary under it (a bar of icons along the bottom on phones) |
+| Navigation | the start menu: a pop-up list with a ▶ cursor and a save-style summary under it. Open it with the Menu button or the M key; Esc closes it. Phones also get a bar of icons along the bottom |
 | Home, battles | a message window on the left and a 2 × 2 command box on the right (FIGHT / BAG / POKéMON / RUN in battle) |
 | Dex | the party screen, then PC boxes of 30 with a detail window for the one you pick |
 | Setup → Bag | pockets on the left, the items in that pocket on the right, a description window below |

@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprite */
 import Link from "next/link";
-import { MenuKeys, StartMenu, ThemeToggle } from "@/components/nav";
+import { MenuKeys, StartMenu, TabBar, ThemeToggle } from "@/components/nav";
 import { SoundToggle } from "@/components/sound";
 import { signOut } from "@/lib/actions";
 import { APP_NAME, isSupabaseConfigured } from "@/lib/config";
@@ -18,7 +18,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
     getCaught(),
   ]);
 
-  // The little summary under the start menu, like the one a game shows when you save.
+  // The little summary in the start menu, like the one a game shows when you save.
   const player = getPlayer(totals);
   const summary: [string, string][] = [
     ["Player", TRAINERS.find((t) => t.id === trainerId)?.name ?? "Trainer"],
@@ -42,7 +42,8 @@ export default async function GameLayout({ children }: { children: React.ReactNo
               </span>
             )}
           </Link>
-          <div className="flex items-center">
+          <div className="flex flex-wrap items-center">
+            <StartMenu summary={summary} />
             <SoundToggle />
             <ThemeToggle />
             {isSupabaseConfigured && (
@@ -56,17 +57,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
         <main>{children}</main>
       </div>
 
-      <aside className="app-side">
-        <StartMenu />
-        <dl className="window save-info">
-          {summary.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </aside>
+      <TabBar />
     </div>
   );
 }
