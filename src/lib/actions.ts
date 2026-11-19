@@ -5,7 +5,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
 import { today } from "./format";
-import { DEFAULT_ICON, PARTNERS } from "./partners";
+import { getCaught, getMonthTotals } from "./data";
+import { DEFAULT_ICON, MAX_DEX, PARTNERS, PRESETS, TRAINERS } from "./partners";
 import type { Kind } from "./types";
 import { createClient } from "./supabase/server";
 
@@ -60,10 +61,10 @@ export async function deleteTransaction(form: FormData) {
 }
 
 export async function addCategory(form: FormData) {
-  const supabase = await db("/categories");
+  const supabase = await db("/setup");
   const name = text(form, "name");
   const target = text(form, "monthly_target");
-  if (!name) fail("/categories", "Give the category a name.");
+  if (!name) fail("/setup", "Give the category a name.");
 
   const kind = text(form, "kind") as Kind;
   const { error } = await supabase.from("categories").insert({
@@ -74,22 +75,33 @@ export async function addCategory(form: FormData) {
     monthly_target: target ? Number(target) : null,
   });
   if (error) {
-    fail("/categories", error.code === "23505" ? `"${name}" already exists.` : error.message);
+    fail("/setup", error.code === "23505" ? `"${name}" already exists.` : error.message);
   }
   revalidatePath("/", "layout");
-  redirect("/categories");
+  redirect("/setup");
+}
+
+/** One-tap category from the PRESETS list. */
+export async function addPreset(form: FormData) {
+  const supabase = await db("/setup");
+  const preset = PRESETS[Number(text(form, "preset"))];
+  if (!preset) fail("/setup", "That preset no longer exists.");
+  const { error } = await supabase.from("categories").insert({ ...preset });
+  if (error) fail("/setup", error.code === "23505" ? `"${preset.name}" already exists.` : error.message);
+  revalidatePath("/", "layout");
+  redirect("/setup");
 }
 
 /** Archive hides a category from forms but keeps its history. Unarchive brings it back. */
 export async function setCategoryArchived(form: FormData) {
-  const supabase = await db("/categories");
+  const supabase = await db("/setup");
   const { error } = await supabase
     .from("categories")
     .update({ archived_at: form.get("archive") === "1" ? new Date().toISOString() : null })
     .eq("id", text(form, "id"));
-  if (error) fail("/categories", error.message);
+  if (error) fail("/setup", error.message);
   revalidatePath("/", "layout");
-  redirect("/categories");
+  redirect("/setup");
 }
 
 export async function signIn(form: FormData) {
@@ -113,11 +125,45 @@ export async function signOut() {
   redirect("/login");
 }
 
-/** The partner choice is a cosmetic preference, so it lives in a cookie, not the database. */
+const YEAR = 60 * 60 * 24 * 365;
+
+/** Partner and trainer are cosmetic preferences, so they live in cookies, not the database. */
 export async function choosePartner(form: FormData) {
   const id = text(form, "partner");
-  if (PARTNERS.some((p) => p.id === id)) {
-    (await cookies()).set("partner", id, { maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
+  const caught = id.startsWith("dex:") && (await getCaught()).includes(Number(id.slice(4)));
+  if (caught || PARTNERS.some((p) => p.id === id)) {
+    (await cookies()).set("partner", id, { maxAge: YEAR, sameSite: "lax" });
   }
   redirect("/");
+}
+
+export async function chooseTrainer(form: FormData) {
+  const id = text(form, "trainer");
+  if (TRAINERS.some((t) => t.id === id)) {
+    (await cookies()).set("trainer", id, { maxAge: YEAR, sameSite: "lax" });
+  }
+  redirect("/setup");
+}
+
+/**
+ * Catch a wild Pokémon. Every entry you log earns one Poké Ball, so
+ * balls left = entries logged − Pokémon caught. Called from the Home scene.
+ */
+export async function catchPokemon(dex: number): Promise<{ ok: boolean; message?: string }> {
+  if (!Number.isInteger(dex) || dex < 1 || dex > MAX_DEX) return { ok: false, message: "It fled!" };
+
+  const [caught, totals] = await Promise.all([getCaught(), getMonthTotals()]);
+  if (caught.includes(dex)) return { ok: true };
+  const entries = totals.reduce((sum, t) => sum + t.entries, 0);
+  if (entries - caught.length <= 0) return { ok: false, message: "No Poké Balls left! Log an entry to earn one." };
+
+  if (isSupabaseConfigured) {
+    const supabase = await createClient();
+    const { error } = await supabase.from("catches").insert({ dex });
+    if (error) return { ok: false, message: error.message };
+  } else {
+    (await cookies()).set("caught", [...caught, dex].join("."), { maxAge: YEAR, sameSite: "lax" });
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

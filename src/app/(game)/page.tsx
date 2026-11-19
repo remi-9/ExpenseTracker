@@ -1,12 +1,23 @@
+/* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
 import Link from "next/link";
+import { PaySplit, StepLine } from "@/components/charts";
 import { PartnerPicker, PartnerSprite, type Mood } from "@/components/partner";
 import { Scene } from "@/components/scene";
 import { Typewriter } from "@/components/typewriter";
 import { Bar, CategoryIcon, hpTone, MonthPicker, Panel } from "@/components/ui";
-import { getCategories, getMonthTotals, getPartnerId, getTransactions } from "@/lib/data";
-import { dayLabel, money, monthLabel, parseMonth } from "@/lib/format";
+import { WildPokemon } from "@/components/wild";
+import {
+  getCategories,
+  getCaught,
+  getMonthTotals,
+  getPartnerId,
+  getPokemonNames,
+  getTrainerId,
+  getTransactions,
+} from "@/lib/data";
+import { dayLabel, money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
 import { getPlayer, getQuests, isShiny, summarizeMonth, walletHp, type MonthSummary } from "@/lib/game";
-import { partnerAt } from "@/lib/partners";
+import { partnerAt, sprite } from "@/lib/partners";
 
 function moodFor(s: MonthSummary): Mood {
   if (s.income === 0) return s.expense > 0 ? "worried" : "happy";
@@ -25,16 +36,19 @@ function narrate(s: MonthSummary, month: string, name: string): string {
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   const month = parseMonth((await searchParams).m);
-  const [categories, totals, transactions, partnerId] = await Promise.all([
+  const [categories, totals, transactions, partnerId, trainerId, caught, names] = await Promise.all([
     getCategories(),
     getMonthTotals(),
     getTransactions(month),
     getPartnerId(),
+    getTrainerId(),
+    getCaught(),
+    getPokemonNames(),
   ]);
 
   const summary = summarizeMonth(totals, month);
   const player = getPlayer(totals);
-  const partner = partnerAt(partnerId, player.level);
+  const partner = partnerAt(partnerId, player.level, names);
 
   if (!partner) {
     return (
@@ -47,7 +61,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         />
         <Panel title="Choose your partner">
           <PartnerPicker />
-          <p className="mt-2 text-muted">It evolves at Lv 5 and Lv 10. You can switch later on the Quests tab.</p>
+          <p className="mt-2 text-muted">It evolves at Lv 5 and Lv 10. You can switch later on the Setup tab.</p>
         </Panel>
       </>
     );
@@ -72,16 +86,24 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
     lines.push(`Set aside ${money(nextQuest.target - nextQuest.done)} more in ${nextQuest.category.name} to finish a quest.`);
   }
 
+  // Bank balance at the end of each of the last six months.
+  const balances = [-5, -4, -3, -2, -1, 0].map((n) => {
+    const m = shiftMonth(month, n);
+    return { label: monthLabel(m).slice(0, 3), value: summarizeMonth(totals, m).balance };
+  });
+
   return (
     <>
       <MonthPicker month={month} path="/" />
 
       <section className="box p-0!" aria-label="Wallet status">
         <Scene paused={mood === "fainted"}>
+          <img src={sprite.trainer(trainerId)} alt="" className={`pixel trainer ${mood === "fainted" ? "" : "running"}`} />
           <div className={`runner ${mood === "fainted" ? "" : "running"}`}>
             <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} />
           </div>
-          <div className="box absolute top-2 right-2 z-1 flex w-[min(60%,17rem)] flex-col gap-1 p-2!">
+          <WildPokemon balls={Math.max(0, player.entries - caught.length)} caught={caught} names={names} />
+          <div className="box absolute top-2 right-2 z-2 flex w-[min(58%,17rem)] flex-col gap-1 p-2!">
             <div className="flex items-baseline justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
               <span>
                 {partner.name}
@@ -110,7 +132,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       <Typewriter lines={lines} />
 
       <div className="grid grid-cols-2">
-        <Link href="/log" className="btn btn-primary py-3!">
+        <Link href="/log" className="btn btn-primary py-3!" data-sfx="confirm">
           Log an entry
         </Link>
         <Link href={`/stats?m=${month}`} className="btn py-3!">
@@ -118,30 +140,30 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         </Link>
       </div>
 
-      <dl className="grid grid-cols-2 sm:grid-cols-4">
-        {[
-          ["Earned", summary.income],
-          ["Spent", summary.expense],
-          ["Saved", summary.saving],
-          ["Bank balance", summary.balance],
-        ].map(([label, value]) => (
-          <div key={label} className="box">
-            <dt className="text-muted">{label}</dt>
-            <dd className="font-display text-xs leading-loose">{money(value as number)}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="grid sm:grid-cols-2">
+        <Panel title={`${monthLabel(month).split(" ")[0]}'s pay`} aside={<span>{money(summary.income)}</span>}>
+          {summary.income === 0 && summary.expense === 0 ? (
+            <p className="text-muted">Log your pay and this bar shows where it goes.</p>
+          ) : (
+            <PaySplit income={summary.income} expense={summary.expense} saving={summary.saving} />
+          )}
+        </Panel>
+
+        <Panel title="Bank balance" aside={<span>{money(summary.balance)}</span>}>
+          <StepLine points={balances} label="Bank balance at the end of each of the last six months" />
+        </Panel>
+      </div>
 
       <Panel
         title="Latest entries"
         aside={
-          <Link href={`/log?m=${month}`} className="text-blue underline">
+          <Link href={`/log?m=${month}`} className="underline">
             See all
           </Link>
         }
       >
         {transactions.length === 0 ? (
-          <p className="text-muted">Nothing logged this month. Each entry earns 10 XP.</p>
+          <p className="text-muted">Nothing logged this month. Each entry earns 10 XP and a Poké Ball.</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {transactions.slice(0, 5).map((t) => (

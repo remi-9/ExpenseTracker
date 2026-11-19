@@ -6,7 +6,7 @@ import { money, monthLabel } from "@/lib/format";
 import { getPlayer, summarizeMonth, walletHp, withEntry, withXp, xpFor } from "@/lib/game";
 import { partnerAt, sprite } from "@/lib/partners";
 import type { Kind, MonthTotal } from "@/lib/types";
-import { ResultSound } from "./sound";
+import { PlayOnMount } from "./sound";
 import { Typewriter } from "./typewriter";
 import { Bar, hpTone } from "./ui";
 
@@ -17,6 +17,7 @@ export function BattleResult({
   month,
   totals,
   partnerId,
+  names,
   demo,
 }: {
   kind: Kind;
@@ -25,6 +26,8 @@ export function BattleResult({
   month: string;
   totals: MonthTotal[];
   partnerId: string | undefined;
+  /** Pokémon names by dex number, for partners that were caught rather than chosen as starters. */
+  names: string[];
   /** Demo mode saves nothing, so the entry is previewed on top of the current numbers. */
   demo: boolean;
 }) {
@@ -37,8 +40,8 @@ export function BattleResult({
   const levelBefore = (demo ? player : withXp(player, -gain)).level;
   const levelAfter = (demo ? withXp(player, gain) : player).level;
 
-  const was = partnerAt(partnerId, levelBefore);
-  const now = partnerAt(partnerId, levelAfter);
+  const was = partnerAt(partnerId, levelBefore, names);
+  const now = partnerAt(partnerId, levelAfter, names);
   const name = was?.name ?? "Your partner";
   const leveledUp = levelAfter > levelBefore;
   const evolved = was && now && was.dex !== now.dex;
@@ -98,7 +101,12 @@ export function BattleResult({
         </div>
       )}
       <Typewriter lines={lines} plain />
-      <ResultSound kind={kind} levelUp={leveledUp} />
+      <PlayOnMount
+        sounds={[
+          kind === "expense" ? "hit" : kind === "income" ? "heal" : "deposit",
+          ...(evolved ? (["evolve"] as const) : leveledUp ? (["levelUp"] as const) : []),
+        ]}
+      />
     </section>
   );
 }

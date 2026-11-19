@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { BattleResult } from "@/components/battle";
+import { PlayOnMount } from "@/components/sound";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, MonthPicker, Panel } from "@/components/ui";
 import { addTransaction, deleteTransaction } from "@/lib/actions";
 import { isSupabaseConfigured } from "@/lib/config";
-import { getCategories, getMonthTotals, getPartnerId, getTransactions } from "@/lib/data";
+import { getCategories, getMonthTotals, getPartnerId, getPokemonNames, getTransactions } from "@/lib/data";
 import { dayLabel, money, parseMonth, today } from "@/lib/format";
 import type { Kind } from "@/lib/types";
 
@@ -23,11 +24,12 @@ export default async function LogPage({
   const params = await searchParams;
   const month = parseMonth(params.m);
   const kind = KINDS.find((k) => k.kind === params.kind)?.kind ?? "expense";
-  const [categories, transactions, totals, partnerId] = await Promise.all([
+  const [categories, transactions, totals, partnerId, names] = await Promise.all([
     getCategories(),
     getTransactions(month),
     getMonthTotals(),
     getPartnerId(),
+    getPokemonNames(),
   ]);
   const choices = categories.filter((c) => c.kind === kind && !c.archived_at);
 
@@ -37,7 +39,12 @@ export default async function LogPage({
 
   return (
     <>
-      {params.error && <Dialog tone="error">{params.error}</Dialog>}
+      {params.error && (
+        <>
+          <PlayOnMount sounds={["error"]} />
+          <Dialog tone="error">{params.error}</Dialog>
+        </>
+      )}
       {savedAmount > 0 && savedCategory && (
         <BattleResult
           key={params.t}
@@ -47,6 +54,7 @@ export default async function LogPage({
           month={month}
           totals={totals}
           partnerId={partnerId}
+          names={names}
           demo={!isSupabaseConfigured}
         />
       )}
@@ -69,7 +77,7 @@ export default async function LogPage({
         {choices.length === 0 ? (
           <p className="text-muted">
             No categories of this kind yet.{" "}
-            <Link href="/categories" className="text-blue underline">
+            <Link href="/setup" className="text-blue underline">
               Add one
             </Link>{" "}
             first.
@@ -119,7 +127,9 @@ export default async function LogPage({
               </label>
             </div>
 
-            <SubmitButton className="btn btn-primary py-3!">Save entry (+10 XP)</SubmitButton>
+            <SubmitButton className="btn btn-primary py-3!" sfx="none">
+              Save entry (+10 XP, +1 Poké Ball)
+            </SubmitButton>
           </form>
         )}
       </Panel>
@@ -149,7 +159,7 @@ export default async function LogPage({
                   <form action={deleteTransaction}>
                     <input type="hidden" name="id" value={t.id} />
                     <input type="hidden" name="m" value={month} />
-                    <SubmitButton className="px-2 text-red" pending="…">
+                    <SubmitButton className="px-2 text-red" pending="…" sfx="delete">
                       <span aria-label={`Delete ${t.note ?? t.category.name}`}>✕</span>
                     </SubmitButton>
                   </form>

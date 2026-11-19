@@ -2,9 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import { choosePartner } from "@/lib/actions";
-import { PARTNERS, sprite } from "@/lib/partners";
-import { cry } from "@/lib/sfx";
+import { choosePartner, chooseTrainer } from "@/lib/actions";
+import { PARTNERS, sprite, TRAINERS } from "@/lib/partners";
+import { cry, play } from "@/lib/sfx";
 
 export type Mood = "happy" | "worried" | "fainted";
 
@@ -30,8 +30,10 @@ export function PartnerSprite({
     <button
       type="button"
       className="relative block"
+      data-sfx="none"
       aria-label={`${shiny ? "Shiny " : ""}${name} looks ${mood}. Pet it.`}
       onClick={() => {
+        play(shiny ? "shiny" : "pet");
         cry(dex);
         setPets((n) => n + 1);
       }}
@@ -56,20 +58,76 @@ export function PartnerSprite({
   );
 }
 
-/** Starter selection. Posts the choice to a cookie-setting server action. */
-export function PartnerPicker({ current }: { current?: string }) {
+/**
+ * Partner selection: the twelve starter lines (which evolve as you level up),
+ * plus any Pokémon you have caught. Posts to a cookie-setting server action.
+ */
+export function PartnerPicker({
+  current,
+  caught = [],
+  names = [],
+}: {
+  current?: string;
+  caught?: number[];
+  names?: string[];
+}) {
   return (
-    <form action={choosePartner} className="grid grid-cols-3 sm:grid-cols-4">
-      {PARTNERS.map((p) => (
+    <form action={choosePartner} className="flex flex-col gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4">
+        {PARTNERS.map((p) => (
+          <button
+            key={p.id}
+            name="partner"
+            value={p.id}
+            data-sfx="confirm"
+            className={`btn flex-col gap-0! px-1! ${p.id === current ? "btn-selected" : ""}`}
+            aria-pressed={p.id === current}
+          >
+            <img src={sprite.still(p.stages[0].dex)} alt="" width={64} height={64} className="pixel" />
+            <span className="max-w-full truncate">{p.stages[0].name}</span>
+          </button>
+        ))}
+      </div>
+      {caught.length > 0 && (
+        <div>
+          <p className="mb-1 text-muted">Or one you caught (these stay as they are):</p>
+          <div className="flex flex-wrap">
+            {caught.map((dex) => (
+              <button
+                key={dex}
+                name="partner"
+                value={`dex:${dex}`}
+                data-sfx="confirm"
+                title={names[dex - 1] ?? `No. ${dex}`}
+                aria-label={names[dex - 1] ?? `No. ${dex}`}
+                aria-pressed={current === `dex:${dex}`}
+                className={`btn p-1! ${current === `dex:${dex}` ? "btn-selected" : ""}`}
+              >
+                <img src={sprite.icon(dex)} alt="" width={40} height={30} className="pixel" loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </form>
+  );
+}
+
+/** Choose which famous trainer represents you. */
+export function TrainerPicker({ current }: { current: string }) {
+  return (
+    <form action={chooseTrainer} className="grid grid-cols-4 sm:grid-cols-5">
+      {TRAINERS.map((t) => (
         <button
-          key={p.id}
-          name="partner"
-          value={p.id}
-          className={`btn flex-col gap-0! px-1! ${p.id === current ? "btn-selected" : ""}`}
-          aria-pressed={p.id === current}
+          key={t.id}
+          name="trainer"
+          value={t.id}
+          data-sfx="confirm"
+          className={`btn flex-col gap-0! px-1! ${t.id === current ? "btn-selected" : ""}`}
+          aria-pressed={t.id === current}
         >
-          <img src={sprite.still(p.stages[0].dex)} alt="" width={64} height={64} className="pixel" />
-          <span className="max-w-full truncate">{p.stages[0].name}</span>
+          <img src={sprite.trainer(t.id)} alt="" width={64} height={64} className="pixel" loading="lazy" />
+          <span className="max-w-full truncate">{t.name}</span>
         </button>
       ))}
     </form>

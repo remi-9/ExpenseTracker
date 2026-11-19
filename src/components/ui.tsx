@@ -19,8 +19,8 @@ export function Panel({
   return (
     <section className={`box ${className}`}>
       {title && (
-        <header className="mb-3 flex items-baseline justify-between gap-3">
-          <h2 className="font-display text-xs leading-relaxed">{title}</h2>
+        <header className="panel-title">
+          <h2>{title}</h2>
           {aside}
         </header>
       )}
@@ -72,21 +72,22 @@ export function MonthPicker({ month, path }: { month: string; path: string }) {
   const href = (n: number) => `${path}?m=${shiftMonth(month, n)}`;
   return (
     <nav aria-label="Month" className="flex items-center justify-between gap-2">
-      <Link href={href(-1)} className="btn" aria-label="Previous month">
+      <Link href={href(-1)} className="btn" aria-label="Previous month" data-sfx="page">
         ◀
       </Link>
       <h1 className="font-display text-center text-sm leading-relaxed">{monthLabel(month)}</h1>
-      <Link href={href(1)} className="btn" aria-label="Next month">
+      <Link href={href(1)} className="btn" aria-label="Next month" data-sfx="page">
         ▶
       </Link>
     </nav>
   );
 }
 
-/** A category's icon: a PokeAPI item sprite when it is an item name, otherwise the emoji as typed. */
+/** A category's icon: an item sprite ("nugget"), a Pokémon ("pkmn-25"), or the emoji as typed. */
 export function CategoryIcon({ icon, size = 30 }: { icon: string; size?: number }) {
   if (!/^[a-z0-9-]+$/.test(icon)) return <span aria-hidden>{icon} </span>;
-  return <img src={sprite.item(icon)} alt="" width={size} height={size} className="pixel icon" />;
+  const src = icon.startsWith("pkmn-") ? sprite.icon(Number(icon.slice(5))) : sprite.item(icon);
+  return <img src={src} alt="" width={size} height={size} className="pixel icon" />;
 }
 
 /** A plain dialog box, used for error messages. Narration uses <Typewriter />. */

@@ -12,7 +12,8 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/log", label: "Log", icon: "log" },
   { href: "/stats", label: "Stats", icon: "stats" },
   { href: "/quests", label: "Quests", icon: "quests" },
-  { href: "/categories", label: "Categories", icon: "categories" },
+  { href: "/dex", label: "Dex", icon: "dex" },
+  { href: "/setup", label: "Setup", icon: "setup" },
 ];
 
 /** Tab bar: pinned to the bottom of the screen on phones, under the header on wider screens. */
@@ -20,10 +21,15 @@ export function Tabs() {
   const pathname = usePathname();
   return (
     <nav aria-label="Main" className="tabs fixed inset-x-0 bottom-0 z-10 sm:static">
-      <ul className="box m-0! grid grid-cols-5 p-0! sm:m-1!">
+      <ul className="box m-0! grid grid-cols-6 p-0! sm:m-1!">
         {TABS.map((tab) => (
           <li key={tab.href}>
-            <Link href={tab.href} className="tab" aria-current={pathname === tab.href ? "page" : undefined}>
+            <Link
+              href={tab.href}
+              className="tab"
+              data-sfx="tab"
+              aria-current={pathname === tab.href ? "page" : undefined}
+            >
               <TabFace icon={tab.icon} label={tab.label} />
             </Link>
           </li>
@@ -54,7 +60,7 @@ export function ThemeToggle() {
   const mounted = useSyncExternalStore(noop, () => true, () => false);
   const dark = mounted && resolvedTheme === "dark";
   return (
-    <button type="button" className="btn" onClick={() => setTheme(dark ? "light" : "dark")}>
+    <button type="button" className="btn" data-sfx="toggle" onClick={() => setTheme(dark ? "light" : "dark")}>
       {dark ? "☀ Day" : "☾ Night"}
     </button>
   );

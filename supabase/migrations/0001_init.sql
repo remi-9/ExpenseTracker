@@ -1,4 +1,4 @@
--- Pocket Tracker schema: two tables and one view.
+-- Pocket Tracker schema: three tables and one view.
 -- Everything the app shows (balance, wallet HP, XP, badges) is derived from these.
 
 create table public.categories (
@@ -25,11 +25,20 @@ create table public.transactions (
   created_at  timestamptz not null default now()
 );
 
+-- The Pokédex: one row per Pokémon caught on the Home screen.
+create table public.catches (
+  user_id   uuid not null default auth.uid() references auth.users on delete cascade,
+  dex       int not null check (dex between 1 and 1025),
+  caught_at timestamptz not null default now(),
+  primary key (user_id, dex)
+);
+
 create index transactions_user_date_idx on public.transactions (user_id, occurred_on desc);
 
 -- Row-level security: you only ever see your own rows.
 alter table public.categories   enable row level security;
 alter table public.transactions enable row level security;
+alter table public.catches      enable row level security;
 
 create policy "own categories" on public.categories
   for all to authenticated
@@ -37,6 +46,11 @@ create policy "own categories" on public.categories
   with check (user_id = (select auth.uid()));
 
 create policy "own transactions" on public.transactions
+  for all to authenticated
+  using (user_id = (select auth.uid()))
+  with check (user_id = (select auth.uid()));
+
+create policy "own catches" on public.catches
   for all to authenticated
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));

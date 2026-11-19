@@ -29,6 +29,9 @@ export const demoCategories: Category[] = [
   cat("power", "Electricity", "expense", "thunder-stone", { is_fixed: true }),
   cat("food", "Food", "expense", "oran-berry"),
   cat("shopping", "Shopping", "expense", "poke-ball"),
+  cat("transport", "Transport", "expense", "bicycle", { monthly_target: 3000 }),
+  cat("games", "Games", "expense", "poke-toy"),
+  cat("subs", "Subscriptions", "expense", "vs-seeker", { is_fixed: true }),
 ];
 
 // [category, amount, day of month, note]
@@ -42,6 +45,13 @@ const monthPlan: [string, number, number, string | null][] = [
   ["food", 3200, 4, "Groceries"],
   ["shopping", 2450, 6, "Keyboard switches"],
   ["food", 980, 8, "Ramen night"],
+  ["transport", 640, 5, "Train card"],
+  ["transport", 380, 9, "Ride home"],
+  ["subs", 549, 7, "Music"],
+  ["games", 1290, 10, "New cartridge"],
+  ["food", 1450, 12, "Groceries"],
+  ["food", 420, 14, "Coffee beans"],
+  ["transport", 300, 15, null],
 ];
 
 export function demoTransactions(): Transaction[] {

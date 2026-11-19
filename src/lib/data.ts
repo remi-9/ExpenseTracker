@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { isSupabaseConfigured } from "./config";
 import { demoCategories, demoTotals, demoTransactions } from "./demo";
 import { shiftMonth } from "./format";
+import { DEFAULT_TRAINER, MAX_DEX, TRAINERS } from "./partners";
 import { createClient } from "./supabase/server";
 import type { Category, MonthTotal, Transaction } from "./types";
 
@@ -57,7 +58,46 @@ export async function getTransactions(month: string): Promise<Transaction[]> {
   return rows.map((r) => ({ ...r, amount: Number(r.amount) })) as unknown as Transaction[];
 }
 
-/** Which partner line the player picked (a cookie; see choosePartner). */
+/** Which partner the player picked (a cookie; see choosePartner). */
 export async function getPartnerId(): Promise<string | undefined> {
   return (await cookies()).get("partner")?.value;
+}
+
+/** Which trainer sprite the player picked (a cookie; see chooseTrainer). */
+export async function getTrainerId(): Promise<string> {
+  const id = (await cookies()).get("trainer")?.value;
+  return TRAINERS.some((t) => t.id === id) ? id! : DEFAULT_TRAINER;
+}
+
+/** Dex numbers of every Pokémon caught, oldest first. Demo mode keeps them in a cookie. */
+export async function getCaught(): Promise<number[]> {
+  if (!isSupabaseConfigured) {
+    const raw = (await cookies()).get("caught")?.value ?? "";
+    return raw.split(".").map(Number).filter((n) => n >= 1 && n <= MAX_DEX);
+  }
+  const supabase = await createClient();
+  const rows = check(await supabase.from("catches").select("dex").order("caught_at"));
+  return rows.map((r) => r.dex as number);
+}
+
+/**
+ * Display names for dex numbers 1–649 (index = dex − 1), from the free PokeAPI.
+ * Cached for a month. If the API can't be reached the list is empty and
+ * callers fall back to "No. 25".
+ */
+export async function getPokemonNames(): Promise<string[]> {
+  try {
+    const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${MAX_DEX}`, {
+      next: { revalidate: 60 * 60 * 24 * 30 },
+    });
+    const body = (await response.json()) as { results: { name: string }[] };
+    return body.results.map(({ name }) =>
+      name
+        .split("-")
+        .map((part) => part[0].toUpperCase() + part.slice(1))
+        .join(" "),
+    );
+  } catch {
+    return [];
+  }
 }

@@ -1,47 +1,84 @@
 import type { CSSProperties } from "react";
-import { Bar, CategoryIcon, MonthPicker, Panel } from "@/components/ui";
-import { getCategories, getMonthTotals } from "@/lib/data";
+import { SpendCalendar, Waffle, type Slice } from "@/components/charts";
+import { Hearts } from "@/components/sprite";
+import { CategoryIcon, MonthPicker, Panel } from "@/components/ui";
+import { getCategories, getMonthTotals, getTransactions } from "@/lib/data";
 import { money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
-import { summarizeMonth } from "@/lib/game";
+import { summarizeMonth, walletHp } from "@/lib/game";
 
 const shortMonth = (month: string) => monthLabel(month).slice(0, 3);
+const SERIES = 7; // categories that get their own colour; the rest fold into "Other"
 
 export default async function StatsPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   const month = parseMonth((await searchParams).m);
-  const [categories, totals] = await Promise.all([getCategories(), getMonthTotals()]);
+  const [categories, totals, transactions] = await Promise.all([
+    getCategories(),
+    getMonthTotals(),
+    getTransactions(month),
+  ]);
 
   // Six months ending at the selected one.
   const months = [-5, -4, -3, -2, -1, 0].map((n) => shiftMonth(month, n));
   const history = months.map((m) => ({ month: m, ...summarizeMonth(totals, m) }));
   const peak = Math.max(1, ...history.flatMap((h) => [h.income, h.expense]));
-
   const summary = history[history.length - 1];
+
+  // Hi-score: the month that ended with the most left over.
+  const allMonths = [...new Set(totals.map((t) => t.month.slice(0, 7)))];
+  const best = allMonths
+    .map((m) => ({ month: m, left: summarizeMonth(totals, m).remaining }))
+    .sort((a, b) => b.left - a.left)[0];
+
+  // Spending by category. A category keeps its colour (by its place in the list)
+  // whatever it ranks this month.
+  const expenseCategories = categories.filter((c) => c.kind === "expense");
   const spending = totals
     .filter((t) => t.month === `${month}-01` && t.kind === "expense")
     .sort((a, b) => b.total - a.total);
-  const biggest = spending[0]?.total ?? 0;
-  const category = (id: string) => categories.find((c) => c.id === id);
-  const fixed = spending.filter((t) => category(t.category_id)?.is_fixed).reduce((sum, t) => sum + t.total, 0);
+  const slices: Slice[] = [];
+  let other = 0;
+  for (const t of spending) {
+    const index = expenseCategories.findIndex((c) => c.id === t.category_id);
+    const c = expenseCategories[index];
+    if (!c || index >= SERIES) other += t.total;
+    else slices.push({ id: c.id, name: c.name, value: t.total, color: `var(--c${index + 1})`, icon: <CategoryIcon icon={c.icon} size={24} /> });
+  }
+  if (other > 0) slices.push({ id: "other", name: "Other", value: other, color: "var(--muted)" });
+  const fixed = spending
+    .filter((t) => categories.find((c) => c.id === t.category_id)?.is_fixed)
+    .reduce((sum, t) => sum + t.total, 0);
+
+  // Spending per day of the month.
+  const byDay = new Map<number, number>();
+  for (const t of transactions) {
+    if (t.category.kind !== "expense") continue;
+    const day = Number(t.occurred_on.slice(8));
+    byDay.set(day, (byDay.get(day) ?? 0) + t.amount);
+  }
 
   return (
     <>
       <MonthPicker month={month} path="/stats" />
 
-      <dl className="grid grid-cols-3">
-        {[
-          ["Fixed bills", fixed],
-          ["Everything else", summary.expense - fixed],
-          ["Left over", summary.remaining],
-        ].map(([label, value]) => (
-          <div key={label} className="box">
-            <dt className="text-muted">{label}</dt>
-            <dd className="font-display text-xs leading-loose">{money(value as number)}</dd>
-          </div>
-        ))}
-      </dl>
+      <section className="box hud" aria-label="Score">
+        <div>
+          <span className="text-muted">Score</span>
+          <strong>{money(summary.remaining)}</strong>
+          <span className="text-muted">left over this month</span>
+        </div>
+        <div>
+          <span className="text-muted">Hi-score</span>
+          <strong>{best ? money(best.left) : "—"}</strong>
+          <span className="text-muted">{best ? monthLabel(best.month) : "no months yet"}</span>
+        </div>
+        <div>
+          <span className="text-muted">Life</span>
+          <Hearts ratio={walletHp(summary)} />
+        </div>
+      </section>
 
       <Panel
-        title="Earned and spent, last six months"
+        title="Earned and spent"
         aside={
           <span className="flex gap-3">
             <span className="legend" style={{ "--tone": "var(--chart-earned)" } as CSSProperties}>
@@ -97,31 +134,22 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         </table>
       </Panel>
 
-      <Panel title={`Where ${monthLabel(month)} went`}>
-        {spending.length === 0 ? (
+      <Panel title={`Where ${monthLabel(month).split(" ")[0]} went`} aside={<span>{money(summary.expense)}</span>}>
+        {slices.length === 0 ? (
           <p className="text-muted">No spending logged this month.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {spending.map((t) => {
-              const c = category(t.category_id);
-              return (
-                <li key={t.category_id}>
-                  <div className="flex justify-between gap-3">
-                    <span>
-                      {c && <CategoryIcon icon={c.icon} />}
-                      {c?.name}
-                    </span>
-                    <span>
-                      {money(t.total)}
-                      <span className="text-muted"> · {Math.round((t.total / summary.expense) * 100)}%</span>
-                    </span>
-                  </div>
-                  <Bar ratio={t.total / biggest} tone="red" label={`${c?.name} spending`} />
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <Waffle slices={slices} total={summary.expense} />
+            <p className="mt-3 text-muted">
+              Each square is 1% of the month&apos;s spending. Fixed bills {money(fixed)} · everything else{" "}
+              {money(summary.expense - fixed)}
+            </p>
+          </>
         )}
+      </Panel>
+
+      <Panel title="Day by day">
+        <SpendCalendar month={month} byDay={byDay} />
       </Panel>
     </>
   );

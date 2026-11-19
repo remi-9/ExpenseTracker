@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { play } from "@/lib/sfx";
 
 const MS_PER_CHARACTER = 22;
 
@@ -16,15 +17,16 @@ export function Typewriter({ lines, plain }: { lines: string[]; plain?: boolean 
 
 function Typing({ text, plain }: { text: string; plain?: boolean }) {
   const [shown, setShown] = useState(0);
+  const count = useRef(0); // shared with the click handler so a click can jump to the end
   const done = shown >= text.length;
 
   useEffect(() => {
     const instant = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const timer = setInterval(() => {
-      setShown((n) => {
-        if (n >= text.length) clearInterval(timer);
-        return instant ? text.length : n + 1;
-      });
+      const n = (count.current = instant ? text.length : Math.min(text.length, count.current + 1));
+      setShown(n);
+      if (n % 3 === 0 && text[n - 1] !== " ") play("tick"); // a soft tick as the text appears
+      if (n >= text.length) clearInterval(timer);
     }, MS_PER_CHARACTER);
     return () => clearInterval(timer);
   }, [text]);
@@ -33,7 +35,8 @@ function Typing({ text, plain }: { text: string; plain?: boolean }) {
     <button
       type="button"
       className={`dialog text-xl ${plain ? "" : "box"}`}
-      onClick={() => setShown(text.length)}
+      data-sfx="none"
+      onClick={() => setShown((count.current = text.length))}
       aria-label={text}
     >
       <span className="invisible" aria-hidden>

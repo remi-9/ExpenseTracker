@@ -44,7 +44,7 @@ Redirect URLs and set **Site URL** to your Vercel URL.
 
 ```
 supabase/
-  migrations/0001_init.sql   schema: 2 tables, 1 view, RLS
+  migrations/0001_init.sql   schema: 3 tables, 1 view, RLS
   seed.sql                   starter categories
 src/
   proxy.ts                   session refresh + login redirect (Next 16's "middleware")
@@ -53,8 +53,8 @@ src/
     data.ts                  every read from Supabase
     actions.ts               every write to Supabase (server actions)
     game.ts                  all game rules: summary, XP, levels, quests, badges
-    partners.ts              partner lines, evolution levels, item icons, PokeAPI sprite URLs
-    sfx.ts                   synthesized sound effects and cries
+    partners.ts              partners, trainers, icons, category presets, sprite URLs
+    sfx.ts                   the synth: every sound effect and the music
     demo.ts                  sample data for demo mode
     format.ts                money and month helpers
   components/
@@ -62,18 +62,21 @@ src/
     typewriter.tsx           dialog box that types its lines out
     battle.tsx               the result shown after logging an entry
     submit.tsx               submit button with a saving state
-    sprite.tsx               tab icons drawn as character grids
-    partner.tsx              partner Pokémon sprite and the starter picker
+    sprite.tsx               tab icons, chest, shield and hearts drawn as character grids
+    charts.tsx               pay split, stepped line, waffle and calendar charts
+    wild.tsx                 wild Pokémon that wander through Home and can be caught
+    partner.tsx              partner sprite, partner picker, trainer picker
     scene.tsx                Home scene: six environments that scroll past
-    sound.tsx                sound toggle, menu ticks, music, entry sounds
+    sound.tsx                sound toggle, click sounds, music
     nav.tsx                  tab bar and theme toggle
   app/
     (game)/template.tsx      short entrance animation on every tab change
-    (game)/page.tsx          Home: partner scene, wallet HP, narration, latest entries
+    (game)/page.tsx          Home: scene, wallet HP, narration, pay split, balance trend
     (game)/log/              add and browse entries
-    (game)/stats/            six-month chart and where the month went
-    (game)/quests/           trainer card, quests, badges, partner picker
-    (game)/categories/       add and archive categories
+    (game)/stats/            score strip, six-month chart, waffle, spending calendar
+    (game)/quests/           trainer card, quests, badges
+    (game)/dex/              Pokédex of everything you have caught
+    (game)/setup/            trainer, partner and categories
     login/ · auth/callback/  magic-link login
     globals.css              theme tokens and the pixel building blocks
 ```
@@ -85,8 +88,9 @@ There is no client-side state library and no API layer.
 
 | Table | What it holds |
 | --- | --- |
-| `categories` | name, `kind` (`income` / `expense` / `saving`), `icon` (a PokeAPI item name or an emoji), `is_fixed`, optional `monthly_target` |
+| `categories` | name, `kind` (`income` / `expense` / `saving`), `icon` (an item sprite name, `pkmn-25` for a Pokémon, or an emoji), `is_fixed`, optional `monthly_target` |
 | `transactions` | category, positive `amount`, `occurred_on`, note |
+| `catches` | one row per Pokémon caught (`dex` number, `caught_at`) |
 | `month_totals` (view) | total and entry count per month per category |
 
 How the spreadsheet maps onto it:
@@ -104,9 +108,10 @@ The starting bank balance is one `Opening Balance` income entry.
 
 ## The game
 
-All of it is computed from `month_totals` in [`src/lib/game.ts`](src/lib/game.ts).
-Nothing game-related is stored, so you can change the rules at any time and
-your level simply recalculates.
+Almost all of it is computed from `month_totals` in [`src/lib/game.ts`](src/lib/game.ts),
+so you can change the rules at any time and your level simply recalculates.
+The only game state that is stored is the Pokédex (`catches`); your trainer and
+partner choices are cookies.
 
 - **Partner:** pick one of twelve starters on first visit (change it on the Quests tab). It shivers when wallet HP is low, faints when the month is overspent, and evolves at levels 5 and 10. Click it to pet it. The choice is a cookie, not a database row.
 - **Logging is a battle:** after you save an entry the Log tab plays the result. Spending hits your partner's HP ("super effective" at 10% of the month's income or more, "not very effective" at 1% or less), income heals it, and savings go to the PC. Enough XP levels it up or evolves it on the spot. The result is worked out from the entry and the month's totals (`components/battle.tsx`).
@@ -115,7 +120,9 @@ your level simply recalculates.
 - **XP:** 10 per entry logged, plus 1 per ₱100 saved. Levels need 100, 300, 600, 1000… XP.
 - **Quests:** any saving category with a target ("set aside ₱10,000") or expense category with a target ("keep Food under ₱6,000").
 - **Badges:** the eight Kanto gym badges, listed in `game.ts`; each is a name plus an `earned()` function.
-- **Trainer card:** rank, money, savings, entries and badges, at the top of the Quests tab.
+- **Trainer card:** rank, money, savings, entries and badges, at the top of the Quests tab. Pick which famous trainer you are on the Setup tab.
+- **Wild Pokémon:** random Pokémon (dex 1–649) wander through the Home scene. Tap one to throw a Poké Ball. Every entry you log earns one ball, so balls left = entries − catches. Catches fill the Dex tab, and any caught Pokémon can be your partner (caught partners don't evolve).
+- **Other classics:** savings quests are treasure chests that open when the goal is met, budgets are shields that crack when blown, and the Stats tab has an arcade score strip with a hi-score (your best month) and ten hearts of life.
 
 ## Pokémon resources
 
@@ -130,7 +137,9 @@ from the PokeAPI project's public GitHub repos; the URL builders are in
 | Gym badges | same repo, `badges/{1-8}.png` | badge tiles |
 | Item icons | same repo, `items/{name}.png` | category icons, Poké Ball in the header |
 | Cries | [PokeAPI/cries](https://github.com/PokeAPI/cries) `cries/pokemon/latest/{dex}.ogg` | click your partner |
-| Data API | [pokeapi.co](https://pokeapi.co/docs/v2) (free, no key) | not called yet; use it for names, types or evolution chains |
+| Menu icons | same repo, `pokemon/versions/generation-vii/icons/{dex}.png` | category icons, partner picker |
+| Trainer sprites | [Pokémon Showdown](https://play.pokemonshowdown.com/sprites/trainers/) `trainers/{name}.png` | trainer in the scene and on the card |
+| Data API | [pokeapi.co](https://pokeapi.co/docs/v2) (free, no key) | Pokémon names (`getPokemonNames` in `data.ts`, cached for a month) |
 
 Other useful sources: [Pokémon Showdown sprites](https://play.pokemonshowdown.com/sprites/)
 and [msikma/pokesprite](https://github.com/msikma/pokesprite) (box and item icons).
@@ -144,16 +153,20 @@ and non-commercial.
 
 Sound is off until you press **♪** in the header, and stays quiet by design.
 
-- **Effects** are synthesized in the browser (`sfx.ts`): a menu tick and a chime when an entry is saved. No audio files.
-- **Cry:** click your partner.
-- **Music:** an original eight-bar chiptune loop, written for this app and played by the same synth (`LEAD` and `BASS` in `sfx.ts`), so there is no file and nothing to license. Edit the note lists to change the tune.
+- **Effects** are synthesized in the browser by a small three-channel synth in `sfx.ts` (square, triangle and noise). There are about twenty: tab changes, month arrows, chips, dialog text ticks, an impact when spending lands, a rising heal for income, coins dropping for savings, level-up and evolution fanfares, a sting when a wild Pokémon appears, the ball throw and wobble, and a catch jingle.
+- **Choosing a sound:** give any element `data-sfx="name"` (a key of `SOUNDS` in `sfx.ts`), or `data-sfx="none"` to silence it. Plain buttons and links get `select`.
+- **Cry:** click your partner, or tap a wild Pokémon you already own.
+- **Music:** an original sixteen-bar chiptune loop written for this app, with lead, bass, a soft arpeggio and light drums (`LEAD` and `BASS` in `sfx.ts`). There is no file and nothing to license. Edit the note lists to change the tune.
 - **Your own track instead:** save it as `public/audio/pokemon-center.mp3` and restart `bun dev`; it replaces the built-in loop at 12% volume. The folder is gitignored. Game soundtracks are copyrighted recordings, which is why none is included.
 
 ## Extending it
 
 | To add… | Do this |
 | --- | --- |
-| A category | Categories page. No code. |
+| A category | Setup tab: one tap from Quick add, or make your own. No code. |
+| A quick-add preset | Add an entry to `PRESETS` in `partners.ts`. |
+| A trainer | Add an entry to `TRAINERS` in `partners.ts` (any name from the Showdown trainers folder). |
+| A sound | Add an entry to `SOUNDS` in `sfx.ts`. |
 | An icon choice | Add an item name to `ITEM_ICONS` in `partners.ts`. |
 | A quest | Give a category a monthly target. No code. |
 | A badge | Add an entry to `BADGES` in `game.ts`. |
