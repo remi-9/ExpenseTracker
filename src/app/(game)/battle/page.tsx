@@ -53,11 +53,20 @@ export default async function BattlePage({ searchParams }: { searchParams: Promi
   const potions = 1 + questsDone + (healthy ? 1 : 0);
 
   const supplies = [
-    `Your team battles at Lv ${level}: five levels for each trainer level (you are Lv ${player.level}).`,
-    `You start with ${potions} ${potions === 1 ? "Potion" : "Potions"}: one, plus one per quest complete this month (${questsDone})${healthy ? ", plus one for keeping wallet HP above half" : ""}.`,
-    tired
-      ? "This month is overspent, so your team starts tired, at 70% HP."
-      : "Your team starts at full HP. An overspent month would start it at 70%.",
+    {
+      icon: "rare-candy",
+      text: `Your team battles at Lv ${level}: five levels for each trainer level (you are Lv ${player.level}).`,
+    },
+    {
+      icon: "potion",
+      text: `You start with ${potions} ${potions === 1 ? "Potion" : "Potions"}: one, plus one per quest complete this month (${questsDone})${healthy ? ", plus one for keeping wallet HP above half" : ""}.`,
+    },
+    {
+      icon: "oran-berry",
+      text: tired
+        ? "This month is overspent, so your team starts tired, at 70% HP."
+        : "Your team starts at full HP. An overspent month would start it at 70%.",
+    },
   ];
 
   return (

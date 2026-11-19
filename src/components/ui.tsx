@@ -2,8 +2,9 @@
 // Small pixel-styled pieces shared by every page.
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { monthLabel, shiftMonth } from "@/lib/format";
+import { dayLabel, money, monthLabel, shiftMonth } from "@/lib/format";
 import { sprite } from "@/lib/partners";
+import type { Transaction } from "@/lib/types";
 
 export function Panel({
   title,
@@ -96,5 +97,40 @@ export function Dialog({ children, tone }: { children: ReactNode; tone?: "error"
     <p className={`box text-xl ${tone === "error" ? "text-red" : ""}`} role={tone === "error" ? "alert" : undefined}>
       {children}
     </p>
+  );
+}
+
+/** Entries in aligned columns: date, what, amount. `tossHref` adds a ✕ that asks before deleting. */
+export function EntryList({
+  entries,
+  tossHref,
+}: {
+  entries: Transaction[];
+  tossHref?: (entry: Transaction) => string;
+}) {
+  return (
+    <ul className="entries">
+      {entries.map((t) => (
+        <li key={t.id}>
+          <span className="text-muted">{dayLabel(t.occurred_on)}</span>
+          <span className="truncate">
+            <CategoryIcon icon={t.category.icon} />
+            {t.category.name}
+            {t.note && <span className="text-muted"> · {t.note}</span>}
+          </span>
+          <span className={`amount ${t.category.kind === "income" ? "text-green" : ""}`}>
+            {t.category.kind === "income" ? "+" : "−"}
+            {money(t.amount)}
+          </span>
+          {tossHref ? (
+            <Link href={tossHref(t)} className="px-1 text-red" aria-label={`Toss ${t.note ?? t.category.name}`}>
+              ✕
+            </Link>
+          ) : (
+            <span />
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }

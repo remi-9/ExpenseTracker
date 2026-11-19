@@ -141,7 +141,7 @@ async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: s
       </div>
 
       {item && !adding && (
-        <div className="battle-bottom p-0!">
+        <div className="battle-bottom">
           <p className="window battle-text">
             <CategoryIcon icon={item.icon} />
             {item.name}: a {item.is_fixed ? "fixed monthly bill" : `${label.toLowerCase()} category`}
@@ -242,7 +242,7 @@ async function Options() {
   return (
     <section className="window options" aria-label="Options">
       <form action={setOption} className="option" data-menu>
-        <span>Text speed</span>
+        <span className="option-label">Text speed</span>
         {SPEEDS.map((speed) => (
           <button key={speed} name="speed" value={speed} className="menu-item" aria-pressed={options.speed === speed} data-sfx="chip">
             {speed}
@@ -250,7 +250,7 @@ async function Options() {
         ))}
       </form>
       <form action={setOption} className="option" data-menu>
-        <span>Frame</span>
+        <span className="option-label">Frame</span>
         {FRAMES.map((frame) => (
           <button key={frame} name="frame" value={frame} className="menu-item" aria-pressed={options.frame === frame} data-sfx="chip">
             {frame}
@@ -258,11 +258,11 @@ async function Options() {
         ))}
       </form>
       <div className="option">
-        <span>Sound</span>
+        <span className="option-label">Sound</span>
         <SoundSwitch />
       </div>
       <div className="option">
-        <span>Screen</span>
+        <span className="option-label">Screen</span>
         <ThemeToggle />
       </div>
       <p className="mt-2 text-muted">

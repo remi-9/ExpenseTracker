@@ -1,13 +1,16 @@
+/* eslint-disable @next/next/no-img-element -- tiny remote pixel sprite */
 import Link from "next/link";
 import { BattleResult } from "@/components/battle";
 import { PlayOnMount } from "@/components/sound";
+import { Hearts } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
-import { CategoryIcon, Dialog, MonthPicker, Panel } from "@/components/ui";
+import { CategoryIcon, Dialog, EntryList, MonthPicker, Panel } from "@/components/ui";
 import { addTransaction, deleteTransaction } from "@/lib/actions";
 import { isSupabaseConfigured } from "@/lib/config";
 import { getCategories, getMonthTotals, getPartnerId, getPokemonNames, getTransactions } from "@/lib/data";
 import { dayLabel, money, parseMonth, today } from "@/lib/format";
-import { summarizeMonth } from "@/lib/game";
+import { getPlayer, summarizeMonth, walletHp } from "@/lib/game";
+import { partnerAt, sprite } from "@/lib/partners";
 import type { Kind } from "@/lib/types";
 
 // Step 1 of the form: what kind of entry is it?
@@ -42,6 +45,7 @@ export default async function LogPage({
   ]);
   const choices = categories.filter((c) => c.kind === current.kind && !c.archived_at);
   const summary = summarizeMonth(totals, month);
+  const partner = partnerAt(partnerId, getPlayer(totals).level, names);
 
   // Set by addTransaction after a save: play the result of that entry.
   const savedAmount = Number(params.saved);
@@ -72,7 +76,7 @@ export default async function LogPage({
       )}
 
       {tossing && (
-        <div className="battle-bottom p-0!">
+        <div className="battle-bottom">
           <p className="window battle-text" role="alert">
             Toss {tossing.note ?? tossing.category.name}, {money(tossing.amount)} from {dayLabel(tossing.occurred_on)}?
             It can&apos;t be undone.
@@ -98,7 +102,7 @@ export default async function LogPage({
           <dl className="window money-box">
             <dt>Money</dt>
             <dd>{money(summary.balance)}</dd>
-            <dt>Left this month</dt>
+            <dt title="Left from this month's income">Left</dt>
             <dd>{money(summary.remaining)}</dd>
           </dl>
           <nav className="window menu" aria-label="Kind of entry" data-menu>
@@ -115,6 +119,13 @@ export default async function LogPage({
               </Link>
             ))}
           </nav>
+          {partner && (
+            <div className="window keeper">
+              <img src={sprite.pokemon(partner.dex)} alt="" className="pixel sprite-card" />
+              <Hearts ratio={walletHp(summary)} size={16} />
+              <span className="leading-tight text-muted">{partner.name} is minding the wallet.</span>
+            </div>
+          )}
         </div>
 
         <section className="window" aria-label="New entry">
@@ -185,33 +196,7 @@ export default async function LogPage({
         {transactions.length === 0 ? (
           <p className="text-muted">No entries this month. Use the counter above to add the first one.</p>
         ) : (
-          <ul className="flex flex-col">
-            {transactions.map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center justify-between gap-3 border-b-4 border-dotted border-track py-1 last:border-0"
-              >
-                <span className="min-w-0 truncate">
-                  <span className="text-muted">{dayLabel(t.occurred_on)}</span> <CategoryIcon icon={t.category.icon} />
-                  {t.category.name}
-                  {t.note && <span className="text-muted"> · {t.note}</span>}
-                </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className={t.category.kind === "income" ? "text-green" : ""}>
-                    {t.category.kind === "income" ? "+" : "−"}
-                    {money(t.amount)}
-                  </span>
-                  <Link
-                    href={`/log?m=${month}&del=${t.id}`}
-                    className="px-2 text-red"
-                    aria-label={`Toss ${t.note ?? t.category.name}`}
-                  >
-                    ✕
-                  </Link>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <EntryList entries={transactions} tossHref={(t) => `/log?m=${month}&del=${t.id}`} />
         )}
       </Panel>
     </>

@@ -159,14 +159,14 @@ const HEART = [".kk...kk.", "krrk.krrk", "krrrkrrrk", "krrrrrrrk", ".krrrrrk.", 
 const HALF_HEART = HEART.map((row) => [...row].map((c, x) => (c === "r" && x > 4 ? "e" : c)).join(""));
 
 /** Wallet HP as ten hearts, the way an adventure game counts life. */
-export function Hearts({ ratio }: { ratio: number }) {
+export function Hearts({ ratio, size = 22 }: { ratio: number; size?: number }) {
   const halves = Math.round(Math.max(0, Math.min(1, ratio || 0)) * 20);
   return (
-    <span className="inline-flex flex-wrap gap-0.5" role="img" aria-label={`${halves / 2} of 10 hearts`}>
+    <span className="inline-flex gap-0.5" role="img" aria-label={`${halves / 2} of 10 hearts`}>
       {Array.from({ length: 10 }, (_, i) => {
         const fill = Math.max(0, Math.min(2, halves - i * 2));
         const palette = { k: INK, r: fill === 0 ? "var(--track)" : "var(--red)", e: "var(--track)" };
-        return <Sprite key={i} rows={fill === 1 ? HALF_HEART : HEART} palette={palette} size={22} />;
+        return <Sprite key={i} rows={fill === 1 ? HALF_HEART : HEART} palette={palette} size={size} />;
       })}
     </span>
   );

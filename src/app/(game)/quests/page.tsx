@@ -47,7 +47,7 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
             {badges.filter((b) => b.has).length} / {badges.length} badges
           </span>
         </header>
-        <div className="flex items-end gap-3 pt-2">
+        <div className="flex items-center gap-4 pt-3">
           <img src={sprite.trainer(trainer.id)} alt="" className="pixel sprite-card shrink-0" />
           {partner && <PartnerSprite dex={partner.dex} name={partner.name} shiny={shiny} card />}
           <dl className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-4 leading-tight">

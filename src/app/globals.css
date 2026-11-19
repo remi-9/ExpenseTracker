@@ -31,6 +31,9 @@
   --heat-2: #d2584d;
   --heat-3: #a82c23;
   --heat-4: #6e1812;
+  /* Title bars and other dark strips: dark in both themes, so they never glare at night. */
+  --bar: #1c2434;
+  --bar-ink: #fbfdf2;
   --bevel-light: rgb(255 255 255 / 0.9);
   --bevel-dark: rgb(28 36 52 / 0.14);
 }
@@ -60,6 +63,8 @@
   --heat-2: #c85a52;
   --heat-3: #ee7a6e;
   --heat-4: #ffb3a8;
+  --bar: #323d6b;
+  --bar-ink: #eef2e0;
   --bevel-light: rgb(255 255 255 / 0.12);
   --bevel-dark: rgb(0 0 0 / 0.35);
 }
@@ -137,8 +142,8 @@ body::before {
   gap: 0.75rem;
   margin: -1rem -1rem 0.9rem;
   padding: 0.45rem 1rem;
-  background: var(--ink);
-  color: var(--panel);
+  background: var(--bar);
+  color: var(--bar-ink);
 }
 .panel-title h2 {
   font-family: var(--font-display);
@@ -156,7 +161,7 @@ body::before {
   margin-inline-end: calc(0.6rem + 12px);
 }
 .panel-title .legend::before {
-  border-color: var(--panel);
+  border-color: var(--bar-ink);
 }
 .panel-title .legend {
   white-space: nowrap;
@@ -338,7 +343,7 @@ code {
 }
 .window {
   margin: 4px;
-  padding: 0.55rem 0.8rem;
+  padding: 0.7rem 0.9rem;
   background: var(--panel);
   border: 4px solid var(--frame);
   box-shadow:
@@ -414,6 +419,7 @@ code {
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-content: center;
+  gap: 0.15rem 0;
 }
 
 /* Start menu: a bar of icons along the bottom on phones… */
@@ -441,8 +447,8 @@ code {
   display: none;
 }
 .start-menu .menu-item[aria-current] {
-  background: var(--ink);
-  color: var(--panel);
+  background: var(--bar);
+  color: var(--bar-ink);
 }
 /* …and a list down the side, with the cursor, on wide screens. */
 @media (min-width: 1024px) {
@@ -487,8 +493,8 @@ code {
 
 .btn-selected,
 .btn-selected:hover {
-  background: var(--ink);
-  color: var(--panel);
+  background: var(--bar);
+  color: var(--bar-ink);
 }
 
 /* ---- Sprites -------------------------------------------------------------------
@@ -708,14 +714,25 @@ code {
   min-height: 0;
 }
 /* Message window beside a command window. Stacked on phones. */
-.battle-bottom {
+/* Windows and panels carry a 4px margin for their pixel border; grids of them add
+   8px more, so everything sits 16px apart, the same as the gap between sections. */
+.battle-bottom,
+.shop,
+.bag,
+.tiles {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  padding: 0.25rem;
+  gap: 0.5rem;
+}
+.box > .battle-bottom {
+  padding: 0.5rem;
 }
 @media (min-width: 640px) {
   .battle-bottom {
-    grid-template-columns: minmax(0, 1fr) 16rem;
+    grid-template-columns: minmax(0, 1fr) 15rem;
+  }
+  .tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 /* A choice that carries a line of description (paths, upgrades). */
@@ -728,6 +745,9 @@ code {
 }
 .menu-item.path::before {
   top: 0.75rem;
+}
+.menu-item.path > span:last-child {
+  text-transform: none;
 }
 
 /* ---- Party screen (components/party.tsx) ---------------------------------------- */
@@ -791,8 +811,10 @@ button.party-slot:focus-visible {
   }
   .party-slot.lead > img {
     align-self: center;
-    width: 96px;
-    height: 96px;
+    margin-bottom: 0.5rem;
+  }
+  .party-slot.lead .party-info {
+    flex: 0 0 auto;
   }
 }
 .btn.move {
@@ -863,8 +885,8 @@ button.party-slot:focus-visible {
   opacity: 0;
 }
 .chip:has(input:checked) {
-  background: var(--ink);
-  color: var(--panel);
+  background: var(--bar);
+  color: var(--bar-ink);
 }
 .chip:has(input:focus-visible) {
   outline: 4px solid var(--blue);
@@ -1241,11 +1263,12 @@ button.party-slot:focus-visible {
 
 /* Arcade-style score strip on the Stats tab. */
 .hud {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.75rem 1.25rem;
-  background: var(--ink);
-  color: var(--panel);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  background: var(--bar);
+  color: var(--bar-ink);
 }
 .hud > div {
   display: flex;
@@ -1260,7 +1283,10 @@ button.party-slot:focus-visible {
   color: var(--gold);
 }
 .hud .text-muted {
-  color: color-mix(in srgb, var(--panel) 65%, transparent);
+  color: color-mix(in srgb, var(--bar-ink) 70%, transparent);
+}
+.hud strong {
+  color: #ffcc47;
 }
 
 /* Icon pickers on the Setup tab scroll inside their own frame. */
@@ -1286,8 +1312,8 @@ button.chip:hover {
   align-items: center;
   justify-content: space-between;
   padding: 0.25rem;
-  background: var(--ink);
-  color: var(--panel);
+  background: var(--bar);
+  color: var(--bar-ink);
 }
 .pc-header h1 {
   display: flex;
@@ -1360,10 +1386,7 @@ a.pc-cell:focus-visible,
 }
 .menu.submenu .menu-item {
   width: auto;
-  flex: 1;
-}
-.bag {
-  display: grid;
+  padding-right: 1.25rem;
 }
 @media (min-width: 640px) {
   .bag {
@@ -1382,8 +1405,11 @@ a.pc-cell:focus-visible,
   gap: 0 0.25rem;
   padding: 0.2rem 0;
 }
-.option > span:first-child {
-  width: 9rem;
+.option {
+  min-height: 2.75rem;
+}
+.option-label {
+  width: 10rem;
   font-family: var(--font-display);
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -1416,8 +1442,10 @@ a.pc-cell:focus-visible,
 }
 
 /* ---- Log tab: laid out like a shop counter ---------------------------------------- */
-.shop {
-  display: grid;
+.shop > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 @media (min-width: 640px) {
   .shop {
@@ -1426,20 +1454,22 @@ a.pc-cell:focus-visible,
   }
 }
 .money-box {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
 }
 .money-box dt {
   font-family: var(--font-display);
   font-size: 0.55rem;
-  line-height: 2;
+  line-height: 1.6;
   text-transform: uppercase;
   color: var(--muted);
 }
 .money-box dd {
   text-align: right;
   font-family: var(--font-display);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   line-height: 1.6;
 }
 .menu.two-up {
@@ -1448,4 +1478,94 @@ a.pc-cell:focus-visible,
   max-height: 14rem;
   overflow-y: auto;
   border: 4px solid var(--track);
+}
+
+/* ---- Small shared pieces ------------------------------------------------------------ */
+/* A short label, e.g. "Demo" beside the app name. */
+.tag {
+  padding: 0.1rem 0.4rem;
+  background: var(--gold);
+  color: #1c2434;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  line-height: 1.8;
+  text-transform: uppercase;
+}
+/* A list of entries: date, what, amount (and an action), in aligned columns. */
+.entries li {
+  display: grid;
+  grid-template-columns: 3.6rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  border-bottom: 4px dotted var(--track);
+}
+.entries li:last-child {
+  border-bottom: 0;
+}
+.entries .amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* A line of text led by an item sprite, for short explanatory lists. */
+.facts li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+}
+
+/* The partner keeping the counter on the Log tab. */
+.keeper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: center;
+}
+@media (max-width: 639px) {
+  .keeper {
+    display: none;
+  }
+}
+
+/* ---- Phones ---------------------------------------------------------------------- */
+@media (max-width: 639px) {
+  /* Home: the partner's status moves under the scene (see the Home page). */
+  .scene-status {
+    display: none;
+  }
+  /* Battle: smaller status boxes, and the opponent stands a little higher, so
+     nothing covers anything else on a narrow screen. */
+  .hpbox {
+    gap: 0.1rem;
+    width: 46%;
+    padding: 0.2rem 0.4rem;
+    border-width: 3px;
+  }
+  .hpbox-foe {
+    top: 0.25rem;
+    left: 0.25rem;
+  }
+  .hpbox-me {
+    right: 0.25rem;
+    bottom: 0.25rem;
+  }
+  .hpbox-me .hp-types .type {
+    display: none;
+  }
+  .wild,
+  .arena-foe {
+    left: 72%;
+    bottom: 45%;
+  }
+  .arena-rival {
+    display: none;
+  }
+  /* Setup's sub-menu becomes two tidy rows. */
+  .menu.submenu {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
 }

@@ -3,7 +3,7 @@ import { SpendCalendar, Waffle, type Slice } from "@/components/charts";
 import { Hearts } from "@/components/sprite";
 import { CategoryIcon, MonthPicker, Panel } from "@/components/ui";
 import { getCategories, getMonthTotals, getTransactions } from "@/lib/data";
-import { money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
+import { dayLabel, money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
 import { summarizeMonth, walletHp } from "@/lib/game";
 
 const shortMonth = (month: string) => monthLabel(month).slice(0, 3);
@@ -55,6 +55,18 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
     const day = Number(t.occurred_on.slice(8));
     byDay.set(day, (byDay.get(day) ?? 0) + t.amount);
   }
+
+  // The five most expensive days, each with the entry that cost the most.
+  const biggestDays = [...byDay]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([day, total]) => {
+      const date = `${month}-${String(day).padStart(2, "0")}`;
+      const top = transactions
+        .filter((t) => t.occurred_on === date && t.category.kind === "expense")
+        .sort((a, b) => b.amount - a.amount)[0];
+      return { date, total, top };
+    });
 
   return (
     <>
@@ -149,7 +161,29 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
       </Panel>
 
       <Panel title="Day by day">
-        <SpendCalendar month={month} byDay={byDay} />
+        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-[auto_minmax(0,1fr)]">
+          <SpendCalendar month={month} byDay={byDay} />
+          <div>
+            <h3 className="mb-1 font-display text-[0.65rem] leading-loose text-muted uppercase">Biggest days</h3>
+            {biggestDays.length === 0 ? (
+              <p className="text-muted">Nothing spent yet this month.</p>
+            ) : (
+              <ol className="entries">
+                {biggestDays.map(({ date, total, top }) => (
+                  <li key={date}>
+                    <span className="text-muted">{dayLabel(date)}</span>
+                    <span className="truncate">
+                      {top && <CategoryIcon icon={top.category.icon} />}
+                      {top?.note ?? top?.category.name}
+                    </span>
+                    <span className="amount">{money(total)}</span>
+                    <span />
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
       </Panel>
     </>
   );

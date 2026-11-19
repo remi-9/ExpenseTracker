@@ -4,7 +4,7 @@ import { PaySplit, StepLine } from "@/components/charts";
 import { PartnerPicker, PartnerSprite, type Mood } from "@/components/partner";
 import { Scene } from "@/components/scene";
 import { Typewriter } from "@/components/typewriter";
-import { Bar, CategoryIcon, hpTone, MonthPicker, Panel } from "@/components/ui";
+import { Bar, EntryList, hpTone, MonthPicker, Panel } from "@/components/ui";
 import { WildPokemon } from "@/components/wild";
 import {
   getCategories,
@@ -15,7 +15,7 @@ import {
   getTrainerId,
   getTransactions,
 } from "@/lib/data";
-import { dayLabel, money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
+import { money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
 import { getPlayer, getQuests, isShiny, summarizeMonth, walletHp, type MonthSummary } from "@/lib/game";
 import { partnerAt, sprite } from "@/lib/partners";
 
@@ -103,7 +103,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
             <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} />
           </div>
           <WildPokemon balls={Math.max(0, player.entries - caught.length)} caught={caught} names={names} />
-          <div className="hpbox hpbox-me z-2">
+          <div className="hpbox hpbox-me scene-status">
             <div className="flex items-baseline justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
               <span>
                 {partner.name}
@@ -120,7 +120,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
             </p>
           </div>
         </Scene>
-        <div className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-x-2 p-3">
+        {/* On a phone the status box would cover the scene, so name and HP sit here instead. */}
+        <div className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-x-2 gap-y-1.5 p-3">
+          <p className="col-span-3 flex justify-between font-display text-[0.65rem] leading-relaxed sm:hidden">
+            <span>
+              {partner.name}
+              {shiny && <span className="star" title="Shiny" />}
+            </span>
+            <span>Lv {player.level}</span>
+          </p>
+          <span className="font-display text-[0.6rem] text-gold sm:hidden">HP</span>
+          <span className="sm:hidden">
+            <Bar ratio={hp} tone={hpTone(hp)} label="Share of this month's income left" />
+          </span>
+          <span className="text-muted sm:hidden">{money(Math.max(0, summary.remaining))}</span>
           <span className="font-display text-[0.6rem] text-blue">XP</span>
           <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />
           <span className="text-muted">
@@ -130,7 +143,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       </section>
 
       {/* Message on the left, commands on the right, as in a battle. */}
-      <div className="battle-bottom p-0!">
+      <div className="battle-bottom">
         <Typewriter lines={lines} />
         <nav className="window menu commands" aria-label="Shortcuts" data-menu>
           <Link href="/log" className="menu-item" data-sfx="confirm">
@@ -148,7 +161,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         </nav>
       </div>
 
-      <div className="grid sm:grid-cols-2">
+      <div className="tiles">
         <Panel title={`${monthLabel(month).split(" ")[0]}'s pay`} aside={<span>{money(summary.income)}</span>}>
           {summary.income === 0 && summary.expense === 0 ? (
             <p className="text-muted">Log your pay and this bar shows where it goes.</p>
@@ -173,21 +186,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         {transactions.length === 0 ? (
           <p className="text-muted">Nothing logged this month. Each entry earns 10 XP and a Poké Ball.</p>
         ) : (
-          <ul className="flex flex-col gap-1">
-            {transactions.slice(0, 5).map((t) => (
-              <li key={t.id} className="flex justify-between gap-3">
-                <span className="truncate">
-                  <CategoryIcon icon={t.category.icon} />
-                  {t.note ?? t.category.name}
-                  <span className="text-muted"> · {dayLabel(t.occurred_on)}</span>
-                </span>
-                <span className={t.category.kind === "income" ? "text-green" : ""}>
-                  {t.category.kind === "income" ? "+" : "−"}
-                  {money(t.amount)}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <EntryList entries={transactions.slice(0, 5)} />
         )}
       </Panel>
     </>

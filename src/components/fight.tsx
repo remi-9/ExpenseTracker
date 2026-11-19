@@ -416,7 +416,7 @@ function HpBox({ who, side, team, numbers }: { who: Battler; side: Side; team: B
         <span className="truncate">{who.name}</span>
         <span className="shrink-0">Lv {who.level}</span>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="hp-types flex items-center gap-1">
         {who.types.map((t) => (
           <Type key={t} id={t} />
         ))}

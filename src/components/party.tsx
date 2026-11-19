@@ -50,13 +50,11 @@ export function PartyScreen({
         const state = p.hp <= 0 ? "out" : i === active ? "active" : "";
         const body = (
           <>
-            <img
-              src={i === 0 ? sprite.still(p.dex) : sprite.icon(p.dex)}
-              alt=""
-              width={i === 0 ? 72 : 40}
-              height={i === 0 ? 72 : 30}
-              className="pixel shrink-0"
-            />
+            {i === 0 ? (
+              <img src={sprite.pokemon(p.dex)} alt="" className="pixel sprite-card shrink-0" />
+            ) : (
+              <img src={sprite.icon(p.dex)} alt="" width={40} height={30} className="pixel shrink-0" />
+            )}
             <span className="party-info">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate font-display text-[0.6rem] leading-relaxed uppercase">{p.name}</span>

@@ -36,6 +36,11 @@ export default async function GameLayout({ children }: { children: React.ReactNo
           <Link href="/" className="flex items-center gap-2 font-display text-sm leading-relaxed">
             <img src={sprite.item("poke-ball")} alt="" width={30} height={30} className="pixel" />
             {APP_NAME}
+            {!isSupabaseConfigured && (
+              <span className="tag" title="Sample data. Nothing is saved until you connect Supabase.">
+                Demo
+              </span>
+            )}
           </Link>
           <div className="flex items-center">
             <SoundToggle />
@@ -47,10 +52,6 @@ export default async function GameLayout({ children }: { children: React.ReactNo
             )}
           </div>
         </header>
-
-        {!isSupabaseConfigured && (
-          <p className="text-center text-muted">Demo mode: sample data, nothing is saved.</p>
-        )}
 
         <main>{children}</main>
       </div>

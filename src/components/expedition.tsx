@@ -96,8 +96,8 @@ export function Expedition({
   potions: number;
   /** An overspent month: the team starts a run at 70% HP. */
   tired: boolean;
-  /** Plain-language lines explaining how your budget set the numbers above. */
-  supplies: string[];
+  /** Plain-language lines explaining how your budget set the numbers above, each with an item sprite. */
+  supplies: { icon: string; text: string }[];
   balls: number;
   /** Dex number of a wild Pokémon met on Home: fight it right away, outside a run. */
   wild?: number;
@@ -278,12 +278,12 @@ export function Expedition({
         <RunBar run={run} biome={biome.name} />
         <section className="box p-0!">
           <div className="arena arena-short" style={{ backgroundImage: `url(${backdrop(biome.bg)})` }}>
-            <p className="battle-text absolute inset-x-2 bottom-2">
+            <p className="window battle-text absolute inset-x-1 bottom-1">
               Floor {run.floor}: {biome.name}.{" "}
               {untilBoss === 0 ? "The gym leader is waiting." : `Gym battle in ${untilBoss} ${untilBoss === 1 ? "floor" : "floors"}.`}
             </p>
           </div>
-          <div className="grid gap-0 p-2 sm:grid-cols-3">
+          <div className="grid gap-2 p-2 sm:grid-cols-3">
             {phase.paths.map((node) => (
               <button
                 key={node.kind}
@@ -313,7 +313,7 @@ export function Expedition({
           <header className="panel-title">
             <h2>{phase.note}</h2>
           </header>
-          <div className="grid sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-3">
             {phase.options.map((id) => {
               const boon = BOONS.find((b) => b.id === id)!;
               return (
@@ -364,16 +364,16 @@ export function Expedition({
     <>
       <section className="box p-0!">
         <div className="arena arena-short" style={{ backgroundImage: `url(${backdrop("route")})` }}>
-          <p className="battle-text absolute inset-x-2 bottom-2">
+          <p className="window battle-text absolute inset-x-1 bottom-1">
             Climb as far as you can. HP carries over between battles, and the run ends when your whole team has fainted.
           </p>
         </div>
-        <div className="flex flex-col gap-3 p-3">
-          <ul className="flex flex-col gap-1">
-            {supplies.map((line) => (
-              <li key={line} className="flex gap-2">
-                <span className="star mt-3 shrink-0" />
-                {line}
+        <div className="flex flex-col gap-4 p-4">
+          <ul className="facts">
+            {supplies.map(({ icon, text }) => (
+              <li key={icon}>
+                <img src={sprite.item(icon)} alt="" width={30} height={30} className="pixel" />
+                {text}
               </li>
             ))}
           </ul>
@@ -381,7 +381,7 @@ export function Expedition({
             Every fifth floor is a gym battle. Trainers and gym leaders give upgrades; wild Pokémon you catch join the
             run, so a small team should head for tall grass first. {best ? `Your best: floor ${best.floor}.` : ""}
           </p>
-          <div className="grid gap-0 sm:grid-cols-2">
+          <div className="flex flex-wrap justify-end">
             {saved && (
               <button className="btn py-3!" data-sfx="confirm" onClick={() => toMap(saved)}>
                 Continue from floor {saved.floor}

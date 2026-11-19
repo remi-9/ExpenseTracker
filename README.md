@@ -150,6 +150,11 @@ Building blocks, all in `globals.css`: `.window` (a framed message or menu box),
 (choices with a ▶ cursor), `.menu.commands` (the 2 × 2 box) and `.battle-bottom` (message beside commands).
 Any element with `data-menu` gets arrow-key navigation between its choices.
 
+Spacing follows one rule: windows and panels carry a 4px margin for their pixel border, and grids of them
+(`.battle-bottom`, `.tiles`, `.shop`, `.bag`) add an 8px gap, so everything sits 16px apart, the same as the
+gap between sections. Title bars and other dark strips use `--bar`, which stays dark in both themes.
+Lists of entries share `EntryList` (`ui.tsx`), so dates, names and amounts line up everywhere.
+
 ## Battles
 
 The Battle tab is a roguelike expedition; the rules are in [`src/lib/fight.ts`](src/lib/fight.ts).
