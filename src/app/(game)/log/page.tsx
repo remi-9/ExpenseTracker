@@ -7,15 +7,24 @@ import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, EntryAmount, EntryWhat, MonthPicker, Panel } from "@/components/ui";
 import { addTransaction, deleteTransaction, logMonthly, updateTransaction } from "@/lib/actions";
 import { getCategories, getMonthTotals, getPartnerId, getPokemonNames, getTransactions } from "@/lib/data";
-import { dayLong, money, parseMonth, shiftMonth, today } from "@/lib/format";
+import { dayLabel, dayLong, money, parseMonth, shiftMonth, today } from "@/lib/format";
 import { getPlayer, summarizeMonth, walletHp } from "@/lib/game";
 import { partnerAt, sprite } from "@/lib/partners";
-import type { Kind, Transaction } from "@/lib/types";
+import type { Kind } from "@/lib/types";
 
 const KINDS: { kind: Kind; label: string; ask: string }[] = [
   { kind: "expense", label: "I spent", ask: "On what?" },
   { kind: "income", label: "I earned", ask: "From what?" },
   { kind: "saving", label: "I saved", ask: "Into what?" },
+];
+
+/** Entry cards per page: three rows of four on a wide screen. */
+const PAGE_SIZE = 12;
+const FILTERS: { kind?: Kind; label: string }[] = [
+  { label: "All" },
+  { kind: "expense", label: "Spent" },
+  { kind: "income", label: "Earned" },
+  { kind: "saving", label: "Saved" },
 ];
 
 const DONE: Record<string, string> = {
@@ -40,6 +49,9 @@ export default async function LogPage({
     edit?: string;
     del?: string;
     done?: string;
+    /** Entries shown below: one kind only, and which page of them. */
+    show?: string;
+    p?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -77,9 +89,15 @@ export default async function LogPage({
   const todays = transactions.filter((t) => t.occurred_on === today());
   const spentToday = todays.filter((t) => t.category.kind === "expense").reduce((sum, t) => sum + t.amount, 0);
 
-  // Entries, newest day first.
-  const days = new Map<string, Transaction[]>();
-  for (const t of transactions) days.set(t.occurred_on, [...(days.get(t.occurred_on) ?? []), t]);
+  // The month's entries as cards, newest first: optionally one kind only, a page at a time.
+  const show = FILTERS.find((f) => f.kind === params.show)?.kind;
+  const shown = show ? transactions.filter((t) => t.category.kind === show) : transactions;
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const page = Math.min(pages, Math.max(1, Number(params.p) || 1));
+  const cards = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Pass null for "all kinds"; leave the kind out to keep the current filter.
+  const entriesHref = (p: number, kind: Kind | null | undefined = show) =>
+    `/log?m=${month}${kind ? `&show=${kind}` : ""}${p > 1 ? `&p=${p}` : ""}`;
 
   return (
     <>
@@ -350,30 +368,81 @@ export default async function LogPage({
 
       <MonthPicker month={month} path="/log" />
 
-      <Panel title="Entries" aside={<span>{transactions.length}</span>}>
-        {transactions.length === 0 ? (
-          <p className="text-muted">No entries this month. Use the counter above to add the first one.</p>
+      <Panel
+        title="Entries"
+        aside={
+          shown.length > 0 ? (
+            <span>
+              {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, shown.length)} of {shown.length}
+            </span>
+          ) : undefined
+        }
+      >
+        <nav className="mb-3 flex flex-wrap" aria-label="Show">
+          {FILTERS.map((f) => (
+            <Link
+              key={f.label}
+              href={entriesHref(1, f.kind ?? null)}
+              scroll={false}
+              className={`chip ${f.kind === show ? "chip-on" : ""}`}
+              aria-current={f.kind === show ? "true" : undefined}
+              data-sfx="chip"
+            >
+              {f.label}
+            </Link>
+          ))}
+        </nav>
+
+        {cards.length === 0 ? (
+          <p className="text-muted">
+            {transactions.length === 0
+              ? "No entries this month. Use the counter above to add the first one."
+              : "Nothing of this kind this month."}
+          </p>
         ) : (
-          [...days].map(([date, list]) => (
-            <section key={date} className="mb-3 last:mb-0">
-              <h3 className="day-head">
-                <span>{dayLong(date)}</span>
-                <span>
-                  {money(list.filter((t) => t.category.kind === "expense").reduce((sum, t) => sum + t.amount, 0))} spent
-                </span>
-              </h3>
-              <ul className="entries by-day">
-                {list.map((t) => (
-                  <li key={t.id}>
-                    <Link href={`/log?m=${month}&edit=${t.id}`} aria-label={`Edit ${t.note ?? t.category.name}`}>
-                      <EntryWhat entry={t} />
-                      <EntryAmount entry={t} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))
+          <ul className="cards">
+            {cards.map((t) => (
+              <li key={t.id}>
+                <Link
+                  href={`/log?m=${month}&edit=${t.id}`}
+                  className="card"
+                  data-kind={t.category.kind}
+                  aria-label={`Edit ${t.note ?? t.category.name}, ${money(t.amount)}, ${dayLong(t.occurred_on)}`}
+                >
+                  <span className="card-date">{dayLabel(t.occurred_on)}</span>
+                  <CategoryIcon icon={t.category.icon} size={48} />
+                  <span className="card-amount">
+                    {t.category.kind === "income" ? "+" : "−"}
+                    {money(t.amount)}
+                  </span>
+                  <span className="card-name">{t.category.name}</span>
+                  <span className="card-note">{t.note ?? "\u00a0"}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {pages > 1 && (
+          <nav className="mt-3 flex items-center justify-center gap-2" aria-label="Pages">
+            {page > 1 ? (
+              <Link href={entriesHref(page - 1)} scroll={false} className="btn icon" aria-label="Previous page" data-sfx="page">
+                ◀
+              </Link>
+            ) : (
+              <span className="btn icon invisible">◀</span>
+            )}
+            <span className="font-display text-[0.65rem]">
+              Page {page} of {pages}
+            </span>
+            {page < pages ? (
+              <Link href={entriesHref(page + 1)} scroll={false} className="btn icon" aria-label="Next page" data-sfx="page">
+                ▶
+              </Link>
+            ) : (
+              <span className="btn icon invisible">▶</span>
+            )}
+          </nav>
         )}
       </Panel>
     </>

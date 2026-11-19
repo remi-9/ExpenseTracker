@@ -102,7 +102,8 @@ The Log screen is built for speed, because logging is the thing you do most.
 - **Sums work.** `5390+764` or `14000-6154` is added up for you; commas and a peso sign are ignored.
 - **Kind and category are one tap each.** Switching between spent, earned and saved is instant and keeps what you typed.
 - **Dates:** Today, Yesterday, or another day. When you browse a past month, new entries default to that month.
-- **Undo and edit.** The result of a save has an Undo button. Any entry in the list opens for editing when you tap it; tossing it asks first.
+- **Undo and edit.** The result of a save has an Undo button. Any entry card opens for editing when you tap it; tossing it asks first.
+- **Entries are cards,** twelve to a page: a strip in the kind's colour (red spent, blue earned, violet saved), the item, the amount, the category and note. Filter them to one kind with the chips above.
 - **Monthly checklist.** Categories marked as coming round every month (pay, rent, bills, savings) are listed with last month's amount filled in. One tap logs each; the list shows what is still to do, and Home reminds you.
 
 Mark a category as monthly when you create it, or from its entry in the Bag under Setup.
@@ -266,5 +267,5 @@ Sound is off until you press the note button in the header, and stays quiet by d
 Kept out until they are needed:
 
 - Multiple bank accounts and transfers between them
-- Searching or filtering entries
+- Searching entries by text
 - CSV import and export
