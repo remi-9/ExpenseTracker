@@ -1485,13 +1485,6 @@ a.pc-cell:focus-visible,
   font-size: 0.7rem;
   line-height: 1.6;
 }
-.menu.two-up {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  max-height: 14rem;
-  overflow-y: auto;
-  border: 4px solid var(--track);
-}
 
 /* ---- Small shared pieces ------------------------------------------------------------ */
 /* A short label, e.g. "Demo" beside the app name. */
@@ -1507,7 +1500,7 @@ a.pc-cell:focus-visible,
 /* A list of entries: date, what, amount (and an action), in aligned columns. */
 .entries li {
   display: grid;
-  grid-template-columns: 3.6rem minmax(0, 1fr) auto auto;
+  grid-template-columns: 3.6rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.6rem;
   padding: 0.3rem 0;
@@ -1640,4 +1633,93 @@ a.pc-cell:focus-visible,
   left: 0.5rem;
   top: 0.5rem;
   z-index: 40;
+}
+
+/* ---- Entry form (Log tab) ---------------------------------------------------------- */
+.entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+/* There is one category list per kind of entry. Only the list for the checked
+   kind shows, so switching kind is instant and nothing typed is lost. */
+.kind-cats {
+  display: none;
+}
+.entry-form:has(input[name="kind"][value="expense"]:checked) .kind-cats[data-kind="expense"],
+.entry-form:has(input[name="kind"][value="income"]:checked) .kind-cats[data-kind="income"],
+.entry-form:has(input[name="kind"][value="saving"]:checked) .kind-cats[data-kind="saving"] {
+  display: block;
+}
+/* The date field appears only when "Another day" is chosen. */
+.when-date {
+  display: none;
+  width: auto;
+  margin: 4px;
+}
+.entry-form:has(input[name="when"][value="date"]:checked) .when-date {
+  display: block;
+}
+
+/* Monthly checklist: the item, then either what was logged or a one-tap form. */
+.checklist li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3rem;
+  border-bottom: 4px dotted var(--track);
+}
+.checklist li:last-child {
+  border-bottom: 0;
+}
+.checklist form {
+  display: flex;
+  align-items: center;
+}
+.checklist .field {
+  width: 7.5rem;
+  padding: 0.2rem 0.5rem;
+  text-align: right;
+}
+
+/* Entries grouped by day; each row opens the entry for editing. */
+.day-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--track);
+  color: var(--muted);
+}
+.entries.by-day li {
+  display: block;
+  padding: 0;
+}
+.entries.by-day a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.5rem;
+}
+.entries.by-day a:hover,
+.entries.by-day a:focus-visible {
+  background: color-mix(in srgb, var(--gold) 28%, transparent);
+  outline: none;
+}
+
+/* The three kinds of entry sit in one even row, whatever the screen width. */
+.entry-form [role="radiogroup"] {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.entry-form [role="radiogroup"] .chip {
+  justify-content: center;
+  padding-inline: 0.25rem;
+}
+@media (max-width: 639px) {
+  .checklist .field {
+    width: 5.5rem;
+  }
 }

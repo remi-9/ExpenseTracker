@@ -2,11 +2,14 @@
 // What you see right after logging an entry: spending hits your partner's HP,
 // income heals it, savings go to the PC, and enough XP levels it up or evolves it.
 // Everything is worked out from the entry and the month's totals; nothing is stored.
+import Link from "next/link";
+import { deleteTransaction } from "@/lib/actions";
 import { money, monthLabel } from "@/lib/format";
 import { getPlayer, summarizeMonth, walletHp, withEntry, withXp, xpFor } from "@/lib/game";
 import { partnerAt, sprite } from "@/lib/partners";
 import type { Kind, MonthTotal } from "@/lib/types";
 import { PlayOnMount } from "./sound";
+import { SubmitButton } from "./submit";
 import { Typewriter } from "./typewriter";
 import { Bar, hpTone } from "./ui";
 
@@ -18,7 +21,7 @@ export function EntryResult({
   totals,
   partnerId,
   names,
-  demo,
+  entryId,
 }: {
   kind: Kind;
   amount: number;
@@ -28,17 +31,18 @@ export function EntryResult({
   partnerId: string | undefined;
   /** Pokémon names by dex number, for partners that were caught rather than chosen as starters. */
   names: string[];
-  /** Demo mode saves nothing, so the entry is previewed on top of the current numbers. */
-  demo: boolean;
+  /** The entry just saved, so it can be undone or edited from here. */
+  entryId: string;
 }) {
   const current = summarizeMonth(totals, month);
   const player = getPlayer(totals);
   const gain = xpFor(kind, amount);
 
-  const before = demo ? current : withEntry(current, kind, -amount);
-  const after = demo ? withEntry(current, kind, amount) : current;
-  const levelBefore = (demo ? player : withXp(player, -gain)).level;
-  const levelAfter = (demo ? withXp(player, gain) : player).level;
+  // The totals already include this entry; take it off to see where things stood before.
+  const before = withEntry(current, kind, -amount);
+  const after = current;
+  const levelBefore = withXp(player, -gain).level;
+  const levelAfter = player.level;
 
   const was = partnerAt(partnerId, levelBefore, names);
   const now = partnerAt(partnerId, levelAfter, names);
@@ -64,7 +68,6 @@ export function EntryResult({
   }
   lines.push(leveledUp ? `${name} gained ${gain} XP and grew to Lv ${levelAfter}!` : `${name} gained ${gain} XP.`);
   if (evolved) lines.push(`What? ${was.name} is evolving!`, `Congratulations! ${was.name} evolved into ${now.name}!`);
-  if (demo) lines.push("Demo mode: this entry was a preview and was not saved.");
 
   const hp = walletHp(after);
   return (
@@ -101,6 +104,19 @@ export function EntryResult({
         </div>
       )}
       <Typewriter lines={lines} plain />
+      <div className="flex flex-wrap items-center justify-end gap-x-4">
+        <Link href={`/log?m=${month}&edit=${entryId}`} className="text-blue underline">
+          Edit
+        </Link>
+        <form action={deleteTransaction}>
+          <input type="hidden" name="id" value={entryId} />
+          <input type="hidden" name="m" value={month} />
+          <input type="hidden" name="undo" value="1" />
+          <SubmitButton className="btn" pending="Undoing…" sfx="delete">
+            Undo
+          </SubmitButton>
+        </form>
+      </div>
       <PlayOnMount
         sounds={[
           kind === "expense" ? "hit" : kind === "income" ? "heal" : "deposit",

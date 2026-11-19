@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
-import { today } from "./format";
-import { getCaught, getMonthTotals, getTeam } from "./data";
+import { parseAmount, today, yesterday } from "./format";
+import { getCaught, getCategories, getDemoEdits, getMonthTotals, getTeam } from "./data";
+import { DEMO_LIMIT, type DemoEdits } from "./demo";
 import { PATTERNS, TONES } from "./backdrop";
 import { FRAMES, SPEEDS } from "./options";
 import { DEFAULT_ICON, MAX_DEX, PARTNERS, PRESETS, TRAINERS } from "./partners";
@@ -22,44 +23,116 @@ async function db(path: string) {
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
 
-export async function addTransaction(form: FormData) {
-  const amount = Number(text(form, "amount"));
-  const occurred_on = text(form, "occurred_on") || today();
-  const category_id = text(form, "category_id");
-  if (!category_id) fail("/log", "Pick a category.");
-  if (!(amount > 0)) fail("/log", "Enter an amount above zero.");
+type Entry = { category_id: string; amount: number; occurred_on: string; note: string | null };
 
-  // Demo mode skips the insert; the Log page then plays the result as a preview.
-  if (isSupabaseConfigured) {
-    const supabase = await createClient();
-    const { error } = await supabase.from("transactions").insert({
-      category_id,
-      amount,
-      occurred_on,
-      note: text(form, "note") || null,
-    });
-    if (error) fail("/log", error.message);
-    revalidatePath("/", "layout");
-  }
+const writeDemo = async (edits: DemoEdits) =>
+  (await cookies()).set("demo", JSON.stringify(edits), { maxAge: YEAR, sameSite: "lax" });
 
-  // The Log page turns these into the battle-style result (see components/entry-result.tsx).
-  const result = new URLSearchParams({
-    m: occurred_on.slice(0, 7),
-    kind: text(form, "kind"),
-    saved: String(amount),
-    cat: category_id,
-    t: String(Date.now()),
-  });
-  redirect(`/log?${result}`);
+/** Reads the entry form. Sends the user back with a message if something is missing. */
+async function readEntry(form: FormData, back: string): Promise<Entry> {
+  const kind = text(form, "kind");
+  // The form has one list of categories per kind; the checked one for the chosen kind counts.
+  const category_id = text(form, `category_${kind}`) || text(form, "category_id");
+  const amount = parseAmount(text(form, "amount"));
+  if (!category_id) fail(back, "Pick a category.");
+  if (amount === null) fail(back, "Enter an amount, like 1500 or 5390+764.");
+  if (amount! <= 0) fail(back, "The amount has to be above zero.");
+
+  const when = text(form, "when");
+  const occurred_on = when === "yesterday" ? yesterday() : when === "today" ? today() : text(form, "occurred_on") || today();
+  return { category_id, amount: amount!, occurred_on, note: text(form, "note") || null };
 }
 
-export async function deleteTransaction(form: FormData) {
-  const back = `/log?m=${text(form, "m")}`;
-  const supabase = await db(back);
-  const { error } = await supabase.from("transactions").delete().eq("id", text(form, "id"));
+/** Saves a new entry and returns its id. Demo mode keeps it in a cookie instead. */
+async function insertEntry(entry: Entry, back: string): Promise<string> {
+  if (!isSupabaseConfigured) {
+    const edits = await getDemoEdits();
+    const id = `mine-${Date.now()}`;
+    await writeDemo({ ...edits, added: [...edits.added, { id, ...entry }].slice(-DEMO_LIMIT) });
+    return id;
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("transactions").insert(entry).select("id").single();
   if (error) fail(back, error.message);
   revalidatePath("/", "layout");
-  redirect(back);
+  return data!.id as string;
+}
+
+async function removeEntry(id: string, back: string) {
+  if (!isSupabaseConfigured) {
+    const edits = await getDemoEdits();
+    const mine = edits.added.some((e) => e.id === id);
+    return writeDemo({
+      added: edits.added.filter((e) => e.id !== id),
+      removed: mine ? edits.removed : [...edits.removed, id],
+    });
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  if (error) fail(back, error.message);
+  revalidatePath("/", "layout");
+}
+
+/** Where to land after a save, with what the Log page needs to play the result and keep your choices. */
+async function afterSave(entry: Entry, id: string): Promise<never> {
+  const kind = (await getCategories()).find((c) => c.id === entry.category_id)?.kind ?? "expense";
+  const result = new URLSearchParams({
+    m: entry.occurred_on.slice(0, 7),
+    kind,
+    cat: entry.category_id,
+    saved: String(entry.amount),
+    id,
+    t: String(Date.now()),
+  });
+  return redirect(`/log?${result}`);
+}
+
+export async function addTransaction(form: FormData) {
+  const entry = await readEntry(form, "/log");
+  return afterSave(entry, await insertEntry(entry, "/log"));
+}
+
+/** One tap from the monthly checklist: the category and amount, dated today (or in the month being viewed). */
+export async function logMonthly(form: FormData) {
+  const month = text(form, "m");
+  const back = `/log?m=${month}`;
+  const amount = parseAmount(text(form, "amount"));
+  if (amount === null || amount <= 0) fail(back, "Enter an amount, like 1500.");
+  const entry: Entry = {
+    category_id: text(form, "category_id"),
+    amount: amount!,
+    occurred_on: today().startsWith(month) || !month ? today() : `${month}-01`,
+    note: null,
+  };
+  return afterSave(entry, await insertEntry(entry, back));
+}
+
+export async function updateTransaction(form: FormData) {
+  const id = text(form, "id");
+  const back = `/log?m=${text(form, "m")}&edit=${id}`;
+  const entry = await readEntry(form, back);
+  if (isSupabaseConfigured) {
+    const supabase = await createClient();
+    const { error } = await supabase.from("transactions").update(entry).eq("id", id);
+    if (error) fail(back, error.message);
+    revalidatePath("/", "layout");
+  } else {
+    // Demo entries live in a cookie: swap the old one for the edited one.
+    const edits = await getDemoEdits();
+    const mine = edits.added.some((e) => e.id === id);
+    await writeDemo({
+      added: [...edits.added.filter((e) => e.id !== id), { id: `mine-${Date.now()}`, ...entry }].slice(-DEMO_LIMIT),
+      removed: mine ? edits.removed : [...edits.removed, id],
+    });
+  }
+  redirect(`/log?m=${entry.occurred_on.slice(0, 7)}&done=updated`);
+}
+
+/** Toss an entry. `undo=1` is the Undo button right after a save, which lands back on the form. */
+export async function deleteTransaction(form: FormData) {
+  const month = text(form, "m");
+  await removeEntry(text(form, "id"), `/log?m=${month}`);
+  redirect(`/log?m=${month}&done=${form.get("undo") ? "undone" : "tossed"}`);
 }
 
 export async function addCategory(form: FormData) {
@@ -92,6 +165,18 @@ export async function addPreset(form: FormData) {
   if (error) fail("/setup", error.code === "23505" ? `"${preset.name}" already exists.` : error.message);
   revalidatePath("/", "layout");
   redirect("/setup");
+}
+
+/** Whether a category happens every month, which puts it on the monthly checklist. */
+export async function setCategoryMonthly(form: FormData) {
+  const supabase = await db("/setup");
+  const { error } = await supabase
+    .from("categories")
+    .update({ is_fixed: form.get("monthly") === "1" })
+    .eq("id", text(form, "id"));
+  if (error) fail("/setup", error.message);
+  revalidatePath("/", "layout");
+  redirect(`/setup?s=bag&pocket=${text(form, "pocket")}&c=${text(form, "id")}`);
 }
 
 /** Archive hides a category from forms but keeps its history. Unarchive brings it back. */

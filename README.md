@@ -16,8 +16,9 @@ bun dev
 ```
 
 Open http://localhost:3000. With no Supabase keys the app starts in **demo
-mode**: sample data, nothing saved. Logging an entry still plays its result as a
-preview, so it is the quickest way to look around.
+mode**: sample data, plus up to 40 entries of your own kept in a browser cookie.
+You can add, edit, undo and toss entries, so it is the quickest way to try the
+flow. Categories can't be changed until Supabase is connected.
 
 ## Connect Supabase
 
@@ -93,11 +94,24 @@ src/
 Pages are server components that call `data.ts`; forms post to `actions.ts`.
 There is no client-side state library and no API layer.
 
+## Logging an entry
+
+The Log screen is built for speed, because logging is the thing you do most.
+
+- **The cursor starts in the amount.** Type it, press Enter, done. After a save the form clears and takes the cursor again, keeping the kind and category you just used.
+- **Sums work.** `5390+764` or `14000-6154` is added up for you; commas and a peso sign are ignored.
+- **Kind and category are one tap each.** Switching between spent, earned and saved is instant and keeps what you typed.
+- **Dates:** Today, Yesterday, or another day. When you browse a past month, new entries default to that month.
+- **Undo and edit.** The result of a save has an Undo button. Any entry in the list opens for editing when you tap it; tossing it asks first.
+- **Monthly checklist.** Categories marked as coming round every month (pay, rent, bills, savings) are listed with last month's amount filled in. One tap logs each; the list shows what is still to do, and Home reminds you.
+
+Mark a category as monthly when you create it, or from its entry in the Bag under Setup.
+
 ## Data model
 
 | Table | What it holds |
 | --- | --- |
-| `categories` | name, `kind` (`income` / `expense` / `saving`), `icon` (an item sprite name, `pkmn-25` for a Pokémon, or an emoji), `is_fixed`, optional `monthly_target` |
+| `categories` | name, `kind` (`income` / `expense` / `saving`), `icon` (an item sprite name, `pkmn-25` for a Pokémon, or an emoji), `is_fixed` (comes round every month), optional `monthly_target` |
 | `transactions` | category, positive `amount`, `occurred_on`, note |
 | `catches` | one row per Pokémon caught (`dex` number, `caught_at`) |
 | `month_totals` (view) | total and entry count per month per category |
@@ -107,7 +121,7 @@ How the spreadsheet maps onto it:
 | Spreadsheet | Here |
 | --- | --- |
 | Income columns (Salary, Second salary, Other income) | `income` categories |
-| Fixed columns (Family, Relatives, Internet, Electricity) | `expense` categories with `is_fixed` |
+| Fixed columns (Family, Relatives, Internet, Electricity) | `expense` categories with `is_fixed`, which puts them on the monthly checklist |
 | Save column | a `saving` category with a monthly goal |
 | Expenses sheet rows | transactions |
 | Bank tracker | **Bank balance** = all income − all expenses (savings stay in the bank) |
@@ -145,7 +159,7 @@ The interface borrows the layouts of the handheld games rather than a web dashbo
 | Dex | the party screen, then PC boxes of 30 with a detail window for the one you pick |
 | Setup, Bag | pockets on the left, the items in that pocket on the right, a description window below |
 | Setup, Options | one setting per line with its choices beside it: text speed, frame colour, backdrop colour, backdrop pattern, sound, day or night |
-| Log | a shop counter: a money window and the kind of entry on the left, the entry on the right; tossing an entry asks YES / NO |
+| Log | a shop counter: a money window and your partner on the left, the entry on the right; tossing an entry asks YES / NO |
 | Quests | a trainer card with a badge case along the bottom |
 
 Building blocks, all in `globals.css`: `.window` (a framed message or menu box), `.menu` and `.menu-item`
@@ -249,9 +263,8 @@ Sound is off until you press the note button in the header, and stays quiet by d
 
 ## Not built yet (on purpose)
 
-Kept out of the skeleton until they are needed:
+Kept out until they are needed:
 
-- Editing an entry (delete and re-add for now)
-- One-tap "log this month's fixed bills"
 - Multiple bank accounts and transfers between them
-- CSV import/export
+- Searching or filtering entries
+- CSV import and export

@@ -82,7 +82,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
   const lines = [narrate(summary, month, partner.name)];
   if (topHit && topName) lines.push(`Its toughest opponent so far is ${topName}, at ${money(topHit.total)}.`);
   if (shiny) lines.push(`Every quest is complete, so ${partner.name} is shining this month!`);
-  else if (nextQuest) {
+  // What comes round every month and has not been logged yet.
+  const waiting = categories.filter(
+    (c) => c.is_fixed && !c.archived_at && !totals.some((t) => t.month === `${month}-01` && t.category_id === c.id),
+  );
+  if (waiting.length > 0) {
+    const first = waiting.slice(0, 3).map((c) => c.name).join(", ");
+    lines.push(`Still to log this month: ${first}${waiting.length > 3 ? ` and ${waiting.length - 3} more` : ""}.`);
+  } else if (nextQuest) {
     lines.push(`Set aside ${money(nextQuest.target - nextQuest.done)} more in ${nextQuest.category.name} to finish a quest.`);
   }
 

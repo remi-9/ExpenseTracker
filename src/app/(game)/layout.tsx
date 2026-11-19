@@ -42,7 +42,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
             <img src={sprite.item("poke-ball")} alt="" width={30} height={30} className="pixel" />
             {APP_NAME}
             {!isSupabaseConfigured && (
-              <span className="tag" title="Sample data. Nothing is saved until you connect Supabase.">
+              <span className="tag" title="Sample data. What you add is kept in this browser only, until you connect Supabase.">
                 Demo
               </span>
             )}

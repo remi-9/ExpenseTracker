@@ -6,7 +6,7 @@ import { PlayOnMount, SoundSwitch } from "@/components/sound";
 import { Icon } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, Panel } from "@/components/ui";
-import { addCategory, addPreset, setCategoryArchived, setOption } from "@/lib/actions";
+import { addCategory, addPreset, setCategoryArchived, setCategoryMonthly, setOption } from "@/lib/actions";
 import { getCategories, getCaught, getOptions, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
 import { money } from "@/lib/format";
 import type { CSSProperties } from "react";
@@ -40,7 +40,7 @@ const detail = (c: Category) =>
     : c.monthly_target != null
       ? `${c.kind === "saving" ? "Goal" : "Budget"} ${money(c.monthly_target)}`
       : c.is_fixed
-        ? "Fixed bill"
+        ? "Monthly"
         : "";
 
 export default async function SetupPage({
@@ -146,21 +146,32 @@ async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: s
         <div className="battle-bottom">
           <p className="window battle-text">
             <CategoryIcon icon={item.icon} />
-            {item.name}: a {item.is_fixed ? "fixed monthly bill" : `${label.toLowerCase()} category`}
+            {item.name}: a {label.toLowerCase()} category
             {item.monthly_target != null &&
               ` with a ${item.kind === "saving" ? "goal" : "budget"} of ${money(item.monthly_target)} a month`}
-            .{item.archived_at ? " It is archived, so it is hidden when you log." : ""}
+            .{item.is_fixed ? " It comes round every month, so it is on the monthly checklist." : ""}
+            {item.archived_at ? " It is archived, so it is hidden when you log." : ""}
           </p>
-          <form action={setCategoryArchived} className="window menu" data-menu>
-            <input type="hidden" name="id" value={item.id} />
-            <input type="hidden" name="archive" value={item.archived_at ? "0" : "1"} />
-            <SubmitButton className="menu-item" pending="…" sfx="page">
-              {item.archived_at ? "Restore" : "Archive"}
-            </SubmitButton>
-            <Link href="/log" className="menu-item">
+          <div className="window menu" data-menu>
+            <form action={setCategoryMonthly}>
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="pocket" value={kind} />
+              <input type="hidden" name="monthly" value={item.is_fixed ? "0" : "1"} />
+              <SubmitButton className="menu-item" pending="…" sfx="chip">
+                {item.is_fixed ? "Not monthly" : "Make monthly"}
+              </SubmitButton>
+            </form>
+            <form action={setCategoryArchived}>
+              <input type="hidden" name="id" value={item.id} />
+              <input type="hidden" name="archive" value={item.archived_at ? "0" : "1"} />
+              <SubmitButton className="menu-item" pending="…" sfx="page">
+                {item.archived_at ? "Restore" : "Archive"}
+              </SubmitButton>
+            </form>
+            <Link href={`/log?kind=${kind}&cat=${item.id}`} className="menu-item">
               Log an entry
             </Link>
-          </form>
+          </div>
         </div>
       )}
 
@@ -220,12 +231,10 @@ async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: s
                 <input name="emoji" maxLength={4} className="field w-20!" />
               </label>
             </fieldset>
-            {kind === "expense" && (
-              <label className="flex items-center gap-2 sm:col-span-2">
-                <input name="is_fixed" type="checkbox" className="size-5 accent-(--red)" />
-                Fixed monthly bill
-              </label>
-            )}
+            <label className="flex items-center gap-2 sm:col-span-2">
+              <input name="is_fixed" type="checkbox" className="size-5 accent-(--red)" />
+              Comes round every month (adds it to the monthly checklist)
+            </label>
             <div className="sm:col-span-2">
               <SubmitButton pending="Adding…" sfx="confirm">
                 Add to bag

@@ -41,3 +41,31 @@ export function dayLabel(date: string): string {
     timeZone: "UTC",
   }).format(new Date(Date.UTC(y, m - 1, d)));
 }
+
+/** A date with its weekday, e.g. "Sun, Nov 15". */
+export function dayLong(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat(LOCALE, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+/** Yesterday as YYYY-MM-DD in the app's time zone. */
+export function yesterday(): string {
+  const [y, m, d] = today().split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
+}
+
+/**
+ * Read an amount as typed: "1,500", "₱1500.50", or a quick sum such as "5390+764"
+ * or "14000-6154". Returns null if it isn't a number or a sum of numbers.
+ */
+export function parseAmount(input: string): number | null {
+  const text = input.replace(/[\s,₱]/g, "");
+  if (!/^\d+(\.\d+)?([+-]\d+(\.\d+)?)*$/.test(text)) return null;
+  const total = (text.match(/[+-]?\d+(\.\d+)?/g) ?? []).reduce((sum, part) => sum + Number(part), 0);
+  return Math.round(total * 100) / 100;
+}

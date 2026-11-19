@@ -2,7 +2,7 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { isSupabaseConfigured } from "./config";
-import { demoCategories, demoTotals, demoTransactions } from "./demo";
+import { demoCategories, demoTotals, demoTransactions, NO_EDITS, type DemoEdits } from "./demo";
 import type { BattleData, Species } from "./fight";
 import { shiftMonth } from "./format";
 import { PATTERNS, TONES, type Pattern, type Tone } from "./backdrop";
@@ -14,6 +14,16 @@ import type { Category, MonthTotal, Transaction } from "./types";
 function check<T>(result: { data: T | null; error: { message: string } | null }): T {
   if (result.error) throw new Error(result.error.message);
   return result.data as T;
+}
+
+/** Demo mode only: the entries added and removed in this browser (see demo.ts). */
+async function loadDemoEdits(): Promise<DemoEdits> {
+  try {
+    const raw = (await cookies()).get("demo")?.value;
+    return raw ? { ...NO_EDITS, ...(JSON.parse(raw) as DemoEdits) } : NO_EDITS;
+  } catch {
+    return NO_EDITS;
+  }
 }
 
 async function loadCategories(): Promise<Category[]> {
@@ -34,7 +44,7 @@ async function loadCategories(): Promise<Category[]> {
 
 /** Every month × category total. Small (rows ≈ months × categories), so we load it all. */
 async function loadMonthTotals(): Promise<MonthTotal[]> {
-  if (!isSupabaseConfigured) return demoTotals();
+  if (!isSupabaseConfigured) return demoTotals(demoTransactions(await getDemoEdits()));
   const supabase = await createClient();
   const rows = check(
     await supabase.from("month_totals").select("month, category_id, kind, total, entries"),
@@ -47,7 +57,7 @@ async function loadTransactions(month: string): Promise<Transaction[]> {
   const from = `${month}-01`;
   const to = `${shiftMonth(month, 1)}-01`;
   if (!isSupabaseConfigured) {
-    return demoTransactions().filter((t) => t.occurred_on >= from && t.occurred_on < to);
+    return demoTransactions(await getDemoEdits()).filter((t) => t.occurred_on >= from && t.occurred_on < to);
   }
   const supabase = await createClient();
   const rows = check(
@@ -170,6 +180,7 @@ async function loadOptions(): Promise<{ frame: string; speed: Speed; tone: Tone;
 
 // Each read runs at most once per request, however many components ask for it
 // (the layout's start menu and the page often want the same data).
+export const getDemoEdits = cache(loadDemoEdits);
 export const getCategories = cache(loadCategories);
 export const getMonthTotals = cache(loadMonthTotals);
 export const getTransactions = cache(loadTransactions);

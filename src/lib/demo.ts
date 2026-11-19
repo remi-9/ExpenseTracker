@@ -21,9 +21,9 @@ const cat = (
 });
 
 export const demoCategories: Category[] = [
-  cat("salary", "Salary", "income", "nugget"),
+  cat("salary", "Salary", "income", "nugget", { is_fixed: true }),
   cat("side", "Side gig", "income", "stardust"),
-  cat("save", "Save", "saving", "amulet-coin", { monthly_target: 8000 }),
+  cat("save", "Save", "saving", "amulet-coin", { monthly_target: 8000, is_fixed: true }),
   cat("rent", "Rent", "expense", "secret-key", { is_fixed: true }),
   cat("internet", "Internet", "expense", "pal-pad", { is_fixed: true }),
   cat("power", "Electricity", "expense", "thunder-stone", { is_fixed: true }),
@@ -54,7 +54,19 @@ const monthPlan: [string, number, number, string | null][] = [
   ["transport", 300, 15, null],
 ];
 
-export function demoTransactions(): Transaction[] {
+/**
+ * What you have changed in demo mode, kept in a cookie so the app can be tried
+ * for real before Supabase is connected: entries added, and ids of entries removed.
+ */
+export type DemoEdits = {
+  added: { id: string; category_id: string; amount: number; occurred_on: string; note: string | null }[];
+  removed: string[];
+};
+export const NO_EDITS: DemoEdits = { added: [], removed: [] };
+/** A cookie holds about 4 KB, so the demo keeps the most recent entries only. */
+export const DEMO_LIMIT = 40;
+
+export function demoTransactions(edits: DemoEdits = NO_EDITS): Transaction[] {
   const thisMonth = today().slice(0, 7);
   const out: Transaction[] = [];
   for (const offset of [0, -1, -2]) {
@@ -71,12 +83,18 @@ export function demoTransactions(): Transaction[] {
       });
     });
   }
-  return out.sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
+  for (const entry of edits.added) {
+    const category = demoCategories.find((c) => c.id === entry.category_id);
+    if (category) out.push({ ...entry, category });
+  }
+  return out
+    .filter((t) => !edits.removed.includes(t.id))
+    .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on) || b.id.localeCompare(a.id));
 }
 
-export function demoTotals(): MonthTotal[] {
+export function demoTotals(transactions: Transaction[]): MonthTotal[] {
   const map = new Map<string, MonthTotal>();
-  for (const t of demoTransactions()) {
+  for (const t of transactions) {
     const month = `${t.occurred_on.slice(0, 7)}-01`;
     const key = `${month}|${t.category_id}`;
     const row = map.get(key) ?? { month, category_id: t.category_id, kind: t.category.kind, total: 0, entries: 0 };
