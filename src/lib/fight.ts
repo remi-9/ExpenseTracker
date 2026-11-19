@@ -158,6 +158,9 @@ export function pickFoeMove(foe: Battler, target: Battler, chart: number[][]): M
   return attacks.reduce((best, m) => (worth(m) > worth(best) ? m : best));
 }
 
+/** True with probability p. */
+export const chance = (p: number) => Math.random() < p;
+
 /** Chance that a thrown ball holds: better the lower the target's HP. */
 export const catchChance = (target: Battler) => 0.2 + 0.75 * (1 - target.hp / target.maxHp);
 

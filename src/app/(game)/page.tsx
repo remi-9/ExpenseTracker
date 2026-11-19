@@ -129,15 +129,23 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         </div>
       </section>
 
-      <Typewriter lines={lines} />
-
-      <div className="grid grid-cols-2">
-        <Link href="/log" className="btn btn-primary py-3!" data-sfx="confirm">
-          Log an entry
-        </Link>
-        <Link href={`/stats?m=${month}`} className="btn py-3!">
-          See the stats
-        </Link>
+      {/* Message on the left, commands on the right, as in a battle. */}
+      <div className="battle-bottom p-0!">
+        <Typewriter lines={lines} />
+        <nav className="window menu commands" aria-label="Shortcuts" data-menu>
+          <Link href="/log" className="menu-item" data-sfx="confirm">
+            Log
+          </Link>
+          <Link href="/battle" className="menu-item" data-sfx="confirm">
+            Battle
+          </Link>
+          <Link href={`/stats?m=${month}`} className="menu-item">
+            Stats
+          </Link>
+          <Link href={`/quests?m=${month}`} className="menu-item">
+            Quests
+          </Link>
+        </nav>
       </div>
 
       <div className="grid sm:grid-cols-2">

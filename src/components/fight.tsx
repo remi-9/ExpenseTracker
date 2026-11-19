@@ -8,18 +8,19 @@ import { catchPokemon } from "@/lib/actions";
 import {
   backdrop,
   catchChance,
+  chance,
   effectiveness,
   pickFoeMove,
   strike,
-  TYPE_COLOR,
-  TYPES,
   type Battler,
   type Boons,
   type Encounter,
   type Move,
 } from "@/lib/fight";
 import { sprite } from "@/lib/partners";
+import { textPace } from "@/lib/options";
 import { play } from "@/lib/sfx";
+import { HpBar, PartyScreen, Type } from "./party";
 
 export type FightResult = {
   outcome: "win" | "lose" | "caught" | "fled";
@@ -44,7 +45,7 @@ type State = {
   foe: number;
   potions: number;
   /** main: choose an action · forced: must switch after a faint · busy: a turn is playing out. */
-  menu: "main" | "moves" | "team" | "forced" | "busy" | "done";
+  menu: "main" | "moves" | "bag" | "team" | "forced" | "busy" | "done";
   text: string;
   /** Animation class currently on each sprite. */
   fx: Record<Side, string>;
@@ -108,8 +109,9 @@ export function Fight({
     const s: State = structuredClone(st);
     s.menu = "busy";
     const show = () => setSt(structuredClone(s));
+    const pace = textPace();
     const pause = async (ms: number) => {
-      await wait(ms);
+      await wait(ms * pace);
       if (!alive.current) throw LEFT;
     };
     const say = async (text: string, ms = 950) => {
@@ -229,7 +231,7 @@ export function Fight({
         play("throw");
         s.ball = true;
         await say("You threw a Poké Ball!", 1900);
-        const held = Math.random() < catchChance(theirs());
+        const held = chance(catchChance(theirs()));
         const result = held ? await catchPokemon(theirs().dex) : null;
         if (result?.ok) return await finish("caught", `Gotcha! ${theirs().name} was caught!`, "caught");
         s.ball = false;
@@ -265,7 +267,7 @@ export function Fight({
           !!myMove.quick !== !!foeMove.quick
             ? !!myMove.quick
             : mine().spe === theirs().spe
-              ? Math.random() < 0.5
+              ? chance(0.5)
               : mine().spe > theirs().spe;
         order = first ? ["me", "foe"] : ["foe", "me"];
       }
@@ -287,6 +289,10 @@ export function Fight({
   const me = st.party[st.me];
   const foe = st.foes[st.foe];
   const open = (menu: State["menu"]) => setSt({ ...st, menu });
+  // The move under the pointer or keyboard focus; its details show beside the move list.
+  const [peek, setPeek] = useState(0);
+  const peeked = me.moves[peek] ?? me.moves[0];
+  const peekEff = effectiveness(peeked.type, foe, chart);
 
   return (
     <section className="box p-0!" aria-label="Battle">
@@ -306,123 +312,100 @@ export function Fight({
         <HpBox who={me} side="me" team={st.party} numbers />
       </div>
 
-      <p className="battle-text" role="status">
-        {st.text}
-      </p>
+      {/* Message on the left, commands on the right, as in the games. */}
+      <div className="battle-bottom">
+        {st.menu === "moves" ? (
+          <div className="window menu commands" data-menu>
+            {me.moves.map((move, i) => (
+              <button
+                key={move.name}
+                className="menu-item"
+                data-sfx="none"
+                disabled={move.heal ? me.heals <= 0 || me.hp >= me.maxHp : false}
+                onMouseEnter={() => setPeek(i)}
+                onFocus={() => setPeek(i)}
+                onClick={() => turn({ type: "move", move })}
+              >
+                {move.name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="window battle-text" role="status">
+            {st.menu === "bag" ? "Use which item?" : st.text}
+          </p>
+        )}
 
-      <div className="p-2">
         {st.menu === "main" && (
-          <div className="grid grid-cols-2 sm:grid-cols-4">
-            <button className="btn btn-primary py-3!" data-sfx="confirm" onClick={() => open("moves")}>
+          <div className="window menu commands" data-menu>
+            <button className="menu-item" data-sfx="confirm" onClick={() => open("moves")}>
               Fight
             </button>
-            {wild && (
-              <button className="btn py-3!" data-sfx="none" onClick={() => turn({ type: "ball" })}>
-                <img src={sprite.item("poke-ball")} alt="" width={24} height={24} className="pixel" />
-                Ball ×{balls}
-              </button>
-            )}
+            <button className="menu-item" data-sfx="confirm" onClick={() => open("bag")}>
+              Bag
+            </button>
+            <button className="menu-item" data-sfx="confirm" onClick={() => open("team")}>
+              Pokémon
+            </button>
+            <button className="menu-item" data-sfx="none" onClick={() => turn({ type: "run" })}>
+              Run
+            </button>
+          </div>
+        )}
+
+        {st.menu === "moves" && (
+          <div className="window menu" data-menu>
+            <p className="flex items-center justify-between gap-2 px-2">
+              <span className="font-display text-[0.6rem] uppercase text-muted">Type</span>
+              <Type id={peeked.type} />
+            </p>
+            <p className="px-2 leading-tight">
+              {peeked.heal
+                ? `Heals 40% HP. ${me.heals} left.`
+                : `Power ${peeked.power} · ${peeked.accuracy}%${peeked.quick ? " · goes first" : ""}`}
+              {!peeked.heal && peekEff > 1 && <b className="block text-green">Super effective</b>}
+              {!peeked.heal && peekEff < 1 && peekEff > 0 && <b className="block text-red">Not very effective</b>}
+              {!peeked.heal && peekEff === 0 && <b className="block text-red">No effect</b>}
+            </p>
+            <button className="menu-item" data-sfx="page" onClick={() => open("main")}>
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {st.menu === "bag" && (
+          <div className="window menu" data-menu>
             <button
-              className="btn py-3!"
+              className="menu-item"
               data-sfx="none"
               disabled={st.potions <= 0 || me.hp >= me.maxHp}
               onClick={() => turn({ type: "potion" })}
             >
               <img src={sprite.item("potion")} alt="" width={24} height={24} className="pixel" />
-              Potion ×{st.potions}
+              Potion <small>×{st.potions}</small>
             </button>
-            <button className="btn py-3!" onClick={() => open("team")}>
-              Team
+            <button className="menu-item" data-sfx="none" disabled={!wild} onClick={() => turn({ type: "ball" })}>
+              <img src={sprite.item("poke-ball")} alt="" width={24} height={24} className="pixel" />
+              Poké Ball <small>×{balls}</small>
             </button>
-            {wild && (
-              <button className="btn py-3!" data-sfx="none" onClick={() => turn({ type: "run" })}>
-                Run
-              </button>
-            )}
-          </div>
-        )}
-
-        {st.menu === "moves" && (
-          <div className="grid grid-cols-2">
-            {me.moves.map((move) => {
-              const eff = effectiveness(move.type, foe, chart);
-              const spent = move.heal ? me.heals <= 0 || me.hp >= me.maxHp : false;
-              return (
-                <button
-                  key={move.name}
-                  className="btn move"
-                  data-sfx="none"
-                  disabled={spent}
-                  onClick={() => turn({ type: "move", move })}
-                >
-                  <span className="flex w-full items-center justify-between gap-2">
-                    {move.name}
-                    <Type id={move.type} />
-                  </span>
-                  <span className="font-body text-base text-muted">
-                    {move.heal
-                      ? `Heal 40% · ${me.heals} left`
-                      : `Power ${move.power} · ${move.accuracy}%${move.quick ? " · goes first" : ""}`}
-                    {!move.heal && eff > 1 && <b className="text-green"> · super effective</b>}
-                    {!move.heal && eff < 1 && eff > 0 && <b className="text-red"> · weak</b>}
-                    {!move.heal && eff === 0 && <b className="text-red"> · no effect</b>}
-                  </span>
-                </button>
-              );
-            })}
-            <button className="btn col-span-2" data-sfx="page" onClick={() => open("main")}>
-              Back
+            <button className="menu-item" data-sfx="page" onClick={() => open("main")}>
+              Cancel
             </button>
-          </div>
-        )}
-
-        {(st.menu === "team" || st.menu === "forced") && (
-          <div className="grid sm:grid-cols-2">
-            {st.party.map((p, i) => (
-              <button
-                key={`${p.dex}-${i}`}
-                className="btn move"
-                data-sfx="none"
-                disabled={p.hp <= 0 || i === st.me}
-                onClick={() => turn({ type: "switch", to: i })}
-              >
-                <span className="flex w-full items-center gap-2">
-                  <img src={sprite.icon(p.dex)} alt="" width={40} height={30} className="pixel" />
-                  {p.name}
-                  <span className="ml-auto font-body text-base text-muted">
-                    {p.hp <= 0 ? "Fainted" : i === st.me ? "In battle" : `Lv ${p.level}`}
-                  </span>
-                </span>
-                <HpBar who={p} />
-              </button>
-            ))}
-            {st.menu === "team" && (
-              <button className="btn sm:col-span-2" data-sfx="page" onClick={() => open("main")}>
-                Back
-              </button>
-            )}
           </div>
         )}
       </div>
+
+      {(st.menu === "team" || st.menu === "forced") && (
+        <div className="p-2">
+          <PartyScreen party={st.party} active={st.me} onPick={(to) => turn({ type: "switch", to })} />
+          {st.menu === "team" && (
+            <button className="window menu-item mt-2 w-auto!" data-sfx="page" onClick={() => open("main")}>
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
     </section>
-  );
-}
-
-function Type({ id }: { id: number }) {
-  return (
-    <span className="type" style={{ background: TYPE_COLOR[id] }}>
-      {TYPES[id]}
-    </span>
-  );
-}
-
-export function HpBar({ who }: { who: Battler }) {
-  const ratio = Math.max(0, who.hp / who.maxHp);
-  const tone = ratio > 0.5 ? "var(--green)" : ratio > 0.2 ? "var(--gold)" : "var(--red)";
-  return (
-    <span className="hpbar" role="meter" aria-label={`${who.name} HP`} aria-valuemin={0} aria-valuemax={who.maxHp} aria-valuenow={who.hp}>
-      <span style={{ width: `${ratio * 100}%`, background: tone }} />
-    </span>
   );
 }
 

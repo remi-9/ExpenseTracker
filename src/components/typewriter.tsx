@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { textPace } from "@/lib/options";
 import { play } from "@/lib/sfx";
 
 const MS_PER_CHARACTER = 22;
@@ -27,14 +28,14 @@ function Typing({ text, plain }: { text: string; plain?: boolean }) {
       setShown(n);
       if (n % 3 === 0 && text[n - 1] !== " ") play("tick"); // a soft tick as the text appears
       if (n >= text.length) clearInterval(timer);
-    }, MS_PER_CHARACTER);
+    }, MS_PER_CHARACTER * textPace());
     return () => clearInterval(timer);
   }, [text]);
 
   return (
     <button
       type="button"
-      className={`dialog text-xl ${plain ? "" : "box"}`}
+      className={`dialog text-xl ${plain ? "" : "window"}`}
       data-sfx="none"
       onClick={() => setShown((count.current = text.length))}
       aria-label={text}

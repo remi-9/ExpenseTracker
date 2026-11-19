@@ -56,6 +56,7 @@ src/
     partners.ts              partners, trainers, icons, category presets, sprite URLs
     sfx.ts                   the synth: every sound effect and both tunes
     fight.ts                 battle rules and roguelike content (moves, damage, areas, upgrades)
+    options.ts               text speed and window frame options
     demo.ts                  sample data for demo mode
     format.ts                money and month helpers
   components/
@@ -67,20 +68,22 @@ src/
     charts.tsx               pay split, stepped line, waffle and calendar charts
     wild.tsx                 wild Pokémon that turn up on Home; tap one to battle it
     fight.tsx                the turn-based battle screen
+    party.tsx                the party screen (lead on the left, the rest stacked on the right)
     expedition.tsx           the roguelike run: floors, paths, upgrades
     partner.tsx              partner sprite, partner picker, trainer picker
     scene.tsx                Home scene: battle backdrops that fade from place to place
     sound.tsx                sound toggle, click sounds, music
-    nav.tsx                  tab bar and theme toggle
+    nav.tsx                  start menu, arrow-key menu navigation, theme toggle
   app/
     (game)/template.tsx      short entrance animation on every tab change
     (game)/page.tsx          Home: scene, wallet HP, narration, pay split, balance trend
-    (game)/log/              add and browse entries
+    (game)/layout.tsx        page frame: content, start menu and save summary
+    (game)/log/              the counter: add entries, browse them, toss with a yes/no
     (game)/stats/            score strip, six-month chart, waffle, spending calendar
     (game)/quests/           trainer card, quests, badges
     (game)/battle/           expeditions and wild battles
-    (game)/dex/              your team and the Pokédex
-    (game)/setup/            trainer, partner and categories
+    (game)/dex/              party screen and PC boxes
+    (game)/setup/            Bag (categories), Trainer, Partner, Options
     login/ · auth/callback/  magic-link login
     globals.css              theme tokens and the pixel building blocks
 ```
@@ -128,6 +131,24 @@ partner choices are cookies.
 - **Wild Pokémon:** random Pokémon (dex 1–649) turn up in the Home scene. Tap one to battle it. Every entry you log earns one Poké Ball, so balls left = entries − catches; a ball is only used up by a successful catch.
 - **Team:** your partner plus up to five Pokémon you have caught, chosen on the Dex tab. A caught Pokémon can also be made your partner (caught partners don't evolve).
 - **Other classics:** savings quests are treasure chests that open when the goal is met, budgets are shields that crack when blown, and the Stats tab has an arcade score strip with a hi-score (your best month) and ten hearts of life.
+
+## Menus
+
+The interface borrows the layouts of the handheld games rather than a web dashboard.
+
+| Screen | Laid out like |
+| --- | --- |
+| Navigation | the start menu: a list down the right with a ▶ cursor and a save-style summary under it (a bar of icons along the bottom on phones) |
+| Home, battles | a message window on the left and a 2 × 2 command box on the right (FIGHT / BAG / POKéMON / RUN in battle) |
+| Dex | the party screen, then PC boxes of 30 with a detail window for the one you pick |
+| Setup → Bag | pockets on the left, the items in that pocket on the right, a description window below |
+| Setup → Options | one setting per line with its choices beside it: text speed, frame colour, sound, day or night |
+| Log | a shop counter: a money window and the kind of entry on the left, the entry on the right; tossing an entry asks YES / NO |
+| Quests | a trainer card with a badge case along the bottom |
+
+Building blocks, all in `globals.css`: `.window` (a framed message or menu box), `.menu` and `.menu-item`
+(choices with a ▶ cursor), `.menu.commands` (the 2 × 2 box) and `.battle-bottom` (message beside commands).
+Any element with `data-menu` gets arrow-key navigation between its choices.
 
 ## Battles
 
@@ -197,10 +218,11 @@ Sound is off until you press **♪** in the header, and stays quiet by design.
 
 | To add… | Do this |
 | --- | --- |
-| A category | Setup tab: one tap from Quick add, or make your own. No code. |
+| A category | Setup → Bag → pick a pocket → New item: one tap from the suggestions, or make your own. No code. |
 | A quick-add preset | Add an entry to `PRESETS` in `partners.ts`. |
 | A trainer | Add an entry to `TRAINERS` in `partners.ts` (any name from the Showdown trainers folder). |
 | A sound | Add an entry to `SOUNDS` in `sfx.ts`. |
+| A frame colour | Add an id to `FRAMES` in `options.ts` and a `.app[data-frame="…"]` rule in `globals.css`. |
 | A run upgrade | Add an entry to `BOONS` in `fight.ts` (its id is the item sprite shown), then apply it in `fight.tsx` or `expedition.tsx`. |
 | An expedition area | Add an entry to `BIOMES` in `fight.ts`: a name, a Showdown backdrop and favoured type ids. |
 | An icon choice | Add an item name to `ITEM_ICONS` in `partners.ts`. |

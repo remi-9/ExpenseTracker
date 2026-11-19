@@ -54,6 +54,7 @@ const ICONS = {
   log: [".xxxxxx.", ".x....x.", ".x.xx.x.", ".x....x.", ".x.xx.x.", ".x....x.", ".xxxxxx.", "........"],
   stats: ["......xx", "......xx", "...xx.xx", "...xx.xx", "xx.xx.xx", "xx.xx.xx", "xx.xx.xx", "........"],
   quests: ["xxxxxxxx", "x.xxxx.x", "x.xxxx.x", ".xxxxxx.", "..xxxx..", "...xx...", "..xxxx..", "........"],
+  bag: ["..xxxx..", ".x....x.", "xxxxxxxx", "xxxxxxxx", "xxx..xxx", "xxxxxxxx", "xxxxxxxx", "........"],
   battle: ["x......x", "xx....xx", ".xx..xx.", "..xxxx..", "..xxxx..", ".xx..xx.", "xx....xx", "x......x"],
   dex: ["..xxxx..", ".x....x.", "x......x", "xxx..xxx", "xxx..xxx", "xxxxxxxx", ".xxxxxx.", "..xxxx.."],
   setup: ["...xx...", ".x.xx.x.", "..xxxx..", "xxx..xxx", "xxx..xxx", "..xxxx..", ".x.xx.x.", "...xx..."],

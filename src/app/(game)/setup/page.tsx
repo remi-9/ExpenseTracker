@@ -1,174 +1,273 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
+import Link from "next/link";
+import { ThemeToggle } from "@/components/nav";
 import { PartnerPicker, TrainerPicker } from "@/components/partner";
-import { PlayOnMount } from "@/components/sound";
+import { PlayOnMount, SoundSwitch } from "@/components/sound";
+import { Icon } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, Panel } from "@/components/ui";
-import { addCategory, addPreset, setCategoryArchived } from "@/lib/actions";
-import { getCategories, getCaught, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
+import { addCategory, addPreset, setCategoryArchived, setOption } from "@/lib/actions";
+import { getCategories, getCaught, getOptions, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
 import { money } from "@/lib/format";
+import { FRAMES, SPEEDS } from "@/lib/options";
 import { ITEM_ICONS, PRESETS, sprite } from "@/lib/partners";
-import type { Kind } from "@/lib/types";
+import type { Category, Kind } from "@/lib/types";
 
-const GROUPS: [Kind, string][] = [
+// Setup is a small menu of its own, like a game's pause menu.
+const SCREENS = [
+  ["bag", "Bag"],
+  ["trainer", "Trainer"],
+  ["partner", "Partner"],
+  ["options", "Options"],
+] as const;
+type Screen = (typeof SCREENS)[number][0];
+
+// The Bag has a pocket for each kind of category.
+const POCKETS: [Kind, string][] = [
+  ["expense", "Spending"],
   ["income", "Income"],
   ["saving", "Savings"],
-  ["expense", "Spending"],
 ];
 
 // The first 151 Pokémon are offered as icons too.
 const POKEMON_ICONS = Array.from({ length: 151 }, (_, i) => i + 1);
 
-export default async function SetupPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
-  const [categories, trainerId, partnerId, caught, names] = await Promise.all([
-    getCategories(),
-    getTrainerId(),
-    getPartnerId(),
-    getCaught(),
-    getPokemonNames(),
-  ]);
-  const presets = PRESETS.map((p, index) => ({ ...p, index })).filter(
-    (p) => !categories.some((c) => c.name.toLowerCase() === p.name.toLowerCase()),
-  );
+const detail = (c: Category) =>
+  c.archived_at
+    ? "Archived"
+    : c.monthly_target != null
+      ? `${c.kind === "saving" ? "Goal" : "Budget"} ${money(c.monthly_target)}`
+      : c.is_fixed
+        ? "Fixed bill"
+        : "";
+
+export default async function SetupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; s?: string; pocket?: string; c?: string; new?: string }>;
+}) {
+  const params = await searchParams;
+  const screen: Screen = SCREENS.find(([id]) => id === params.s)?.[0] ?? "bag";
 
   return (
     <>
-      {error && (
+      {params.error && (
         <>
           <PlayOnMount sounds={["error"]} />
-          <Dialog tone="error">{error}</Dialog>
+          <Dialog tone="error">{params.error}</Dialog>
         </>
       )}
 
-      <Panel title="Your trainer">
-        <TrainerPicker current={trainerId} />
-      </Panel>
+      <nav className="window menu submenu" aria-label="Setup" data-menu>
+        {SCREENS.map(([id, label]) => (
+          <Link key={id} href={`/setup?s=${id}`} className="menu-item" data-sfx="tab" aria-current={id === screen ? "page" : undefined}>
+            {label}
+          </Link>
+        ))}
+      </nav>
 
-      <Panel title="Your partner">
-        <PartnerPicker current={partnerId} caught={caught} names={names} />
-      </Panel>
-
-      <Panel title="Categories">
-        {GROUPS.map(([kind, label]) => {
-          const rows = categories.filter((c) => c.kind === kind);
-          return (
-            <div key={kind} className="mb-3">
-              <h3 className="font-display text-[0.65rem] leading-loose text-muted">{label}</h3>
-              {rows.length === 0 ? (
-                <p className="text-muted">None yet.</p>
-              ) : (
-                <ul className="flex flex-col">
-                  {rows.map((c) => (
-                    <li
-                      key={c.id}
-                      className={`flex items-center justify-between gap-3 py-0.5 ${c.archived_at ? "text-muted" : ""}`}
-                    >
-                      <span className="min-w-0 truncate">
-                        <CategoryIcon icon={c.icon} />
-                        {c.name}
-                        {c.is_fixed && <span className="text-muted"> · fixed bill</span>}
-                        {c.monthly_target != null && (
-                          <span className="text-muted">
-                            {" "}
-                            · {kind === "saving" ? "goal" : "budget"} {money(c.monthly_target)}
-                          </span>
-                        )}
-                      </span>
-                      <form action={setCategoryArchived}>
-                        <input type="hidden" name="id" value={c.id} />
-                        <input type="hidden" name="archive" value={c.archived_at ? "0" : "1"} />
-                        <SubmitButton className="text-blue underline" pending="…">
-                          {c.archived_at ? "Restore" : "Archive"}
-                        </SubmitButton>
-                      </form>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </Panel>
-
-      {presets.length > 0 && (
-        <Panel title="Quick add">
-          <form action={addPreset} className="flex flex-wrap">
-            {presets.map((p) => (
-              <button key={p.name} name="preset" value={p.index} className="chip" data-sfx="confirm">
-                <CategoryIcon icon={p.icon} />
-                {p.name}
-              </button>
-            ))}
-          </form>
-          <p className="mt-2 text-muted">One tap adds it. Set a goal or budget by making your own below.</p>
+      {screen === "bag" && <Bag pocket={params.pocket} selected={params.c} adding={!!params.new} />}
+      {screen === "trainer" && (
+        <Panel title="Who are you?">
+          <TrainerPicker current={await getTrainerId()} />
         </Panel>
       )}
-
-      <Panel title="Make your own">
-        <form action={addCategory} className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            Name
-            <input name="name" required placeholder="e.g. Groceries" className="field" />
-          </label>
-          <label className="flex flex-col gap-1">
-            Type
-            <select name="kind" className="field" defaultValue="expense">
-              <option value="expense">Spending</option>
-              <option value="income">Income</option>
-              <option value="saving">Savings</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 sm:col-span-2">
-            Monthly target (optional)
-            <input
-              name="monthly_target"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Savings goal or spending budget: turns it into a quest"
-              className="field"
-            />
-          </label>
-          <fieldset className="sm:col-span-2">
-            <legend className="mb-1">Icon</legend>
-            <details open>
-              <summary className="cursor-pointer text-muted">Items ({ITEM_ICONS.length})</summary>
-              <div className="icon-grid">
-                {ITEM_ICONS.map((item) => (
-                  <label key={item} className="chip p-1!" title={item.replaceAll("-", " ")}>
-                    <input type="radio" name="icon" value={item} aria-label={item.replaceAll("-", " ")} />
-                    <img src={sprite.item(item)} alt="" width={30} height={30} className="pixel" loading="lazy" />
-                  </label>
-                ))}
-              </div>
-            </details>
-            <details>
-              <summary className="cursor-pointer text-muted">Pokémon ({POKEMON_ICONS.length})</summary>
-              <div className="icon-grid">
-                {POKEMON_ICONS.map((dex) => (
-                  <label key={dex} className="chip p-0.5!" title={names[dex - 1] ?? `No. ${dex}`}>
-                    <input type="radio" name="icon" value={`pkmn-${dex}`} aria-label={names[dex - 1] ?? `No. ${dex}`} />
-                    <img src={sprite.icon(dex)} alt="" width={40} height={30} className="pixel" loading="lazy" />
-                  </label>
-                ))}
-              </div>
-            </details>
-            <label className="mt-2 flex items-center gap-2">
-              or an emoji
-              <input name="emoji" maxLength={4} className="field w-20!" />
-            </label>
-          </fieldset>
-          <label className="flex items-center gap-2 sm:col-span-2">
-            <input name="is_fixed" type="checkbox" className="size-5 accent-(--red)" />
-            Fixed monthly bill
-          </label>
-          <div className="sm:col-span-2">
-            <SubmitButton pending="Adding…" sfx="confirm">
-              Add category
-            </SubmitButton>
-          </div>
-        </form>
-      </Panel>
+      {screen === "partner" && <Partner />}
+      {screen === "options" && <Options />}
     </>
+  );
+}
+
+async function Partner() {
+  const [partnerId, caught, names] = await Promise.all([getPartnerId(), getCaught(), getPokemonNames()]);
+  return (
+    <Panel title="Choose your partner">
+      <PartnerPicker current={partnerId} caught={caught} names={names} />
+    </Panel>
+  );
+}
+
+/** Categories, laid out like the Bag: pockets on the left, items on the right, a note below. */
+async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: string; adding: boolean }) {
+  const [categories, names] = await Promise.all([getCategories(), getPokemonNames()]);
+  const kind = POCKETS.find(([k]) => k === pocket)?.[0] ?? "expense";
+  const label = POCKETS.find(([k]) => k === kind)![1];
+  const items = categories.filter((c) => c.kind === kind);
+  const item = items.find((c) => c.id === selected) ?? (adding ? undefined : items[0]);
+  const presets = PRESETS.map((p, index) => ({ ...p, index })).filter(
+    (p) => p.kind === kind && !categories.some((c) => c.name.toLowerCase() === p.name.toLowerCase()),
+  );
+  const href = (extra: string) => `/setup?s=bag&pocket=${kind}${extra}`;
+
+  return (
+    <>
+      <div className="bag">
+        <nav className="window menu" aria-label="Pockets" data-menu>
+          <span className="mx-auto py-1 text-muted">
+            <Icon name="bag" size={56} />
+          </span>
+          {POCKETS.map(([k, name]) => (
+            <Link
+              key={k}
+              href={`/setup?s=bag&pocket=${k}`}
+              className="menu-item"
+              data-sfx="page"
+              aria-current={k === kind ? "true" : undefined}
+            >
+              {name}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="window menu bag-items" data-menu>
+          {items.map((c) => (
+            <Link
+              key={c.id}
+              href={href(`&c=${c.id}`)}
+              scroll={false}
+              className={`menu-item ${c.archived_at ? "opacity-50" : ""}`}
+              data-sfx="chip"
+              aria-current={c.id === item?.id ? "true" : undefined}
+            >
+              <CategoryIcon icon={c.icon} size={24} />
+              {c.name}
+              <small>{detail(c)}</small>
+            </Link>
+          ))}
+          <Link href={href("&new=1")} scroll={false} className="menu-item" data-sfx="confirm" aria-current={adding ? "true" : undefined}>
+            + New {label.toLowerCase()} item
+          </Link>
+        </div>
+      </div>
+
+      {item && !adding && (
+        <div className="battle-bottom p-0!">
+          <p className="window battle-text">
+            <CategoryIcon icon={item.icon} />
+            {item.name}: a {item.is_fixed ? "fixed monthly bill" : `${label.toLowerCase()} category`}
+            {item.monthly_target != null &&
+              ` with a ${item.kind === "saving" ? "goal" : "budget"} of ${money(item.monthly_target)} a month`}
+            .{item.archived_at ? " It is archived, so it is hidden when you log." : ""}
+          </p>
+          <form action={setCategoryArchived} className="window menu" data-menu>
+            <input type="hidden" name="id" value={item.id} />
+            <input type="hidden" name="archive" value={item.archived_at ? "0" : "1"} />
+            <SubmitButton className="menu-item" pending="…" sfx="page">
+              {item.archived_at ? "Restore" : "Archive"}
+            </SubmitButton>
+            <Link href="/log" className="menu-item">
+              Log an entry
+            </Link>
+          </form>
+        </div>
+      )}
+
+      {adding && (
+        <Panel title={`New ${label.toLowerCase()} item`}>
+          {presets.length > 0 && (
+            <>
+              <form action={addPreset} className="flex flex-wrap">
+                {presets.map((p) => (
+                  <button key={p.name} name="preset" value={p.index} className="chip" data-sfx="confirm">
+                    <CategoryIcon icon={p.icon} />
+                    {p.name}
+                  </button>
+                ))}
+              </form>
+              <p className="mt-1 mb-3 text-muted">One tap adds any of these. Or make your own:</p>
+            </>
+          )}
+          <form action={addCategory} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="kind" value={kind} />
+            <label className="flex flex-col gap-1">
+              Name
+              <input name="name" required placeholder="e.g. Groceries" className="field" />
+            </label>
+            {kind !== "income" && (
+              <label className="flex flex-col gap-1">
+                {kind === "saving" ? "Monthly goal (optional)" : "Monthly budget (optional)"}
+                <input name="monthly_target" type="number" min="0" step="0.01" placeholder="Turns it into a quest" className="field" />
+              </label>
+            )}
+            <fieldset className="sm:col-span-2">
+              <legend className="mb-1">Icon</legend>
+              <details open>
+                <summary className="cursor-pointer text-muted">Items ({ITEM_ICONS.length})</summary>
+                <div className="icon-grid">
+                  {ITEM_ICONS.map((icon) => (
+                    <label key={icon} className="chip p-1!" title={icon.replaceAll("-", " ")}>
+                      <input type="radio" name="icon" value={icon} aria-label={icon.replaceAll("-", " ")} />
+                      <img src={sprite.item(icon)} alt="" width={30} height={30} className="pixel" loading="lazy" />
+                    </label>
+                  ))}
+                </div>
+              </details>
+              <details>
+                <summary className="cursor-pointer text-muted">Pokémon ({POKEMON_ICONS.length})</summary>
+                <div className="icon-grid">
+                  {POKEMON_ICONS.map((dex) => (
+                    <label key={dex} className="chip p-0.5!" title={names[dex - 1] ?? `No. ${dex}`}>
+                      <input type="radio" name="icon" value={`pkmn-${dex}`} aria-label={names[dex - 1] ?? `No. ${dex}`} />
+                      <img src={sprite.icon(dex)} alt="" width={40} height={30} className="pixel" loading="lazy" />
+                    </label>
+                  ))}
+                </div>
+              </details>
+              <label className="mt-2 flex items-center gap-2">
+                or an emoji
+                <input name="emoji" maxLength={4} className="field w-20!" />
+              </label>
+            </fieldset>
+            {kind === "expense" && (
+              <label className="flex items-center gap-2 sm:col-span-2">
+                <input name="is_fixed" type="checkbox" className="size-5 accent-(--red)" />
+                Fixed monthly bill
+              </label>
+            )}
+            <div className="sm:col-span-2">
+              <SubmitButton pending="Adding…" sfx="confirm">
+                Add to bag
+              </SubmitButton>
+            </div>
+          </form>
+        </Panel>
+      )}
+    </>
+  );
+}
+
+/** The Options screen: one setting per line, choices to the right, the current one marked. */
+async function Options() {
+  const options = await getOptions();
+  return (
+    <section className="window options" aria-label="Options">
+      <form action={setOption} className="option" data-menu>
+        <span>Text speed</span>
+        {SPEEDS.map((speed) => (
+          <button key={speed} name="speed" value={speed} className="menu-item" aria-pressed={options.speed === speed} data-sfx="chip">
+            {speed}
+          </button>
+        ))}
+      </form>
+      <form action={setOption} className="option" data-menu>
+        <span>Frame</span>
+        {FRAMES.map((frame) => (
+          <button key={frame} name="frame" value={frame} className="menu-item" aria-pressed={options.frame === frame} data-sfx="chip">
+            {frame}
+          </button>
+        ))}
+      </form>
+      <div className="option">
+        <span>Sound</span>
+        <SoundSwitch />
+      </div>
+      <div className="option">
+        <span>Screen</span>
+        <ThemeToggle />
+      </div>
+      <p className="mt-2 text-muted">
+        Text speed sets how fast messages type out and battles move. Frame changes the colour of every message window.
+      </p>
+    </section>
   );
 }

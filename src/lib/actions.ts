@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
 import { today } from "./format";
 import { getCaught, getMonthTotals, getTeam } from "./data";
+import { FRAMES, SPEEDS } from "./options";
 import { DEFAULT_ICON, MAX_DEX, PARTNERS, PRESETS, TRAINERS } from "./partners";
 import type { Kind } from "./types";
 import { createClient } from "./supabase/server";
@@ -154,7 +155,17 @@ export async function chooseTrainer(form: FormData) {
   if (TRAINERS.some((t) => t.id === id)) {
     (await cookies()).set("trainer", id, { maxAge: YEAR, sameSite: "lax" });
   }
-  redirect("/setup");
+  redirect("/setup?s=trainer");
+}
+
+/** Options screen: frame colour and text speed. */
+export async function setOption(form: FormData) {
+  const jar = await cookies();
+  const frame = text(form, "frame");
+  const speed = text(form, "speed");
+  if ((FRAMES as readonly string[]).includes(frame)) jar.set("frame", frame, { maxAge: YEAR, sameSite: "lax" });
+  if ((SPEEDS as readonly string[]).includes(speed)) jar.set("speed", speed, { maxAge: YEAR, sameSite: "lax" });
+  redirect("/setup?s=options");
 }
 
 /**

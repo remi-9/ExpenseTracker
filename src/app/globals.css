@@ -285,23 +285,204 @@ code {
   text-decoration: underline dotted;
 }
 
-/* ---- Tab bar -------------------------------------------------------------- */
-.tab {
+/* ---- Page frame: content on the left, start menu on the right ------------------- */
+.app {
+  margin-inline: auto;
+  max-width: 48rem;
+  padding: 1rem 0.75rem 7rem;
+}
+.app-side .save-info {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .app {
+    display: grid;
+    grid-template-columns: minmax(0, 48rem) 13.5rem;
+    gap: 1rem;
+    align-items: start;
+    max-width: 63rem;
+    padding: 1.5rem 1rem;
+  }
+  .app-side {
+    position: sticky;
+    top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .app-side .save-info {
+    display: block;
+  }
+}
+
+/* ---- Windows and menus ---------------------------------------------------------
+   A window is the framed box games use for messages and menus. Its coloured band
+   is the "frame" option (Setup → Options), set by data-frame on .app. */
+.app {
+  --frame: #3b6fb5;
+}
+.app[data-frame="2"] {
+  --frame: #c8443c;
+}
+.app[data-frame="3"] {
+  --frame: #2f9a56;
+}
+.app[data-frame="4"] {
+  --frame: #d99a13;
+}
+.app[data-frame="5"] {
+  --frame: #7a5ac8;
+}
+.app[data-frame="6"] {
+  --frame: var(--ink);
+}
+.window {
+  margin: 4px;
+  padding: 0.55rem 0.8rem;
+  background: var(--panel);
+  border: 4px solid var(--frame);
+  box-shadow:
+    0 -4px 0 0 var(--ink),
+    0 4px 0 0 var(--ink),
+    -4px 0 0 0 var(--ink),
+    4px 0 0 0 var(--ink),
+    4px 8px 0 0 color-mix(in srgb, var(--ink) 25%, transparent),
+    8px 4px 0 0 color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+/* A list of choices with a ▶ cursor on the one under the pointer or focus. */
+.menu {
   display: flex;
   flex-direction: column;
+}
+.menu-item {
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0.5rem 0.25rem;
-  font-size: 1rem;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.3rem 0.5rem 0.3rem 1.5rem;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  line-height: 1.9;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-item::before {
+  content: "▶";
+  position: absolute;
+  left: 0.3rem;
+  font-size: 0.6rem;
+  visibility: hidden;
+}
+.menu-item:hover::before,
+.menu-item:focus-visible::before,
+.menu-item[aria-current]::before,
+.menu-item[aria-pressed="true"]::before,
+.menu-item:has(input:checked)::before {
+  visibility: visible;
+}
+.menu-item[aria-current],
+.menu-item[aria-pressed="true"],
+.menu-item:has(input:checked) {
+  color: var(--red);
+}
+.menu-item:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.menu-item:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--gold) 30%, transparent);
+}
+.menu-item input {
+  position: absolute;
+  opacity: 0;
+}
+/* Extra detail on a menu line, in the plain text face. */
+.menu-item small {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 1.1rem;
   line-height: 1;
+  text-transform: none;
   color: var(--muted);
 }
-.tab:hover {
-  color: var(--ink);
+/* Four commands in two rows, as in a battle. */
+.menu.commands {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: center;
 }
-.tab[aria-current="page"] {
+
+/* Start menu: a bar of icons along the bottom on phones… */
+.start-menu {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin: 0;
+  padding: 0;
+}
+.start-menu .menu-item {
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0.45rem 0.1rem;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1;
+  text-transform: none;
+  color: var(--muted);
+}
+.start-menu .menu-item::before {
+  display: none;
+}
+.start-menu .menu-item[aria-current] {
   background: var(--ink);
   color: var(--panel);
+}
+/* …and a list down the side, with the cursor, on wide screens. */
+@media (min-width: 1024px) {
+  .start-menu {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    margin: 4px;
+    padding: 0.5rem 0.25rem;
+  }
+  .start-menu .menu-item {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 0.6rem;
+    padding: 0.4rem 0.5rem 0.4rem 1.6rem;
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    line-height: 1.9;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .start-menu .menu-item::before {
+    display: block;
+  }
+  .start-menu .menu-item[aria-current] {
+    background: none;
+    color: var(--red);
+  }
+}
+.save-info > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.save-info dt {
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  line-height: 2.4;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .btn-selected,
@@ -519,17 +700,100 @@ code {
   background: var(--track);
 }
 .battle-text {
-  margin: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  min-height: 3.2rem;
-  background: var(--panel);
-  border: 4px solid var(--ink);
-  font-size: 1.3rem;
-  line-height: 1.2;
+  min-height: 4.4rem;
+  font-size: 1.35rem;
+  line-height: 1.25;
 }
 .arena .battle-text {
-  margin: 0;
   min-height: 0;
+}
+/* Message window beside a command window. Stacked on phones. */
+.battle-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0.25rem;
+}
+@media (min-width: 640px) {
+  .battle-bottom {
+    grid-template-columns: minmax(0, 1fr) 16rem;
+  }
+}
+/* A choice that carries a line of description (paths, upgrades). */
+.menu-item.path {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: auto;
+  padding: 0.6rem 0.7rem 0.6rem 1.6rem;
+}
+.menu-item.path::before {
+  top: 0.75rem;
+}
+
+/* ---- Party screen (components/party.tsx) ---------------------------------------- */
+.party {
+  display: grid;
+  gap: 6px;
+}
+.party-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.4rem;
+  padding: 0.3rem 0.6rem;
+  text-align: left;
+  background: color-mix(in srgb, var(--c1) 22%, var(--panel));
+  border: 4px solid var(--ink);
+  box-shadow: inset 0 -6px 0 0 color-mix(in srgb, var(--c1) 30%, transparent);
+}
+.party-info {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.party-slot.active {
+  background: color-mix(in srgb, var(--gold) 40%, var(--panel));
+  box-shadow: inset 0 -6px 0 0 color-mix(in srgb, var(--gold) 45%, transparent);
+}
+.party-slot.out {
+  background: color-mix(in srgb, var(--red) 28%, var(--panel));
+  box-shadow: none;
+}
+.party-slot.empty {
+  justify-content: center;
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--muted);
+  box-shadow: none;
+  color: var(--muted);
+}
+button.party-slot:not(:disabled) {
+  cursor: pointer;
+}
+button.party-slot:not(:disabled):hover,
+button.party-slot:focus-visible {
+  outline: 4px solid var(--red);
+  outline-offset: 0;
+}
+@media (min-width: 640px) {
+  .party {
+    grid-template-columns: 2fr 3fr;
+  }
+  /* The lead takes the whole left column. */
+  .party-slot.lead {
+    grid-row: 1 / span 5;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    padding: 0.75rem;
+  }
+  .party-slot.lead > img {
+    align-self: center;
+    width: 96px;
+    height: 96px;
+  }
 }
 .btn.move {
   flex-direction: column;
@@ -1014,4 +1278,174 @@ button.chip {
 }
 button.chip:hover {
   background: color-mix(in srgb, var(--gold) 35%, var(--panel));
+}
+
+/* ---- PC box (Dex tab) ------------------------------------------------------------- */
+.pc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem;
+  background: var(--ink);
+  color: var(--panel);
+}
+.pc-header h1 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  line-height: 1.8;
+  text-transform: uppercase;
+}
+.pc-header small {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1;
+  text-transform: none;
+  opacity: 0.75;
+}
+.pc {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  /* Box wallpaper: soft diagonal stripes. */
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--c3) 22%, var(--panel)) 0 16px,
+    color-mix(in srgb, var(--c3) 32%, var(--panel)) 16px 32px
+  );
+}
+@media (min-width: 640px) {
+  .pc {
+    grid-template-columns: minmax(0, 1fr) 14rem;
+    align-items: start;
+  }
+}
+.pc-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+.pc-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+}
+a.pc-cell:hover,
+a.pc-cell:focus-visible,
+.pc-cell[aria-current] {
+  outline: 4px solid var(--red);
+  outline-offset: -2px;
+  background: var(--panel);
+}
+.pc-cell .pip {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+}
+.pc-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+/* ---- Bag and Options (Setup tab) ------------------------------------------------ */
+/* Sub-menu across the top of Setup. */
+.menu.submenu {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.menu.submenu .menu-item {
+  width: auto;
+  flex: 1;
+}
+.bag {
+  display: grid;
+}
+@media (min-width: 640px) {
+  .bag {
+    grid-template-columns: 13rem minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.bag-items {
+  max-height: 22rem;
+  overflow-y: auto;
+}
+.option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.25rem;
+  padding: 0.2rem 0;
+}
+.option > span:first-child {
+  width: 9rem;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+.option .menu-item {
+  width: auto;
+}
+
+/* Eight badge slots along the bottom of the trainer card. */
+.badge-case {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  border: 4px solid var(--ink);
+}
+.badge-case li {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  background: var(--panel);
+}
+.badge-case img {
+  width: 80%;
+}
+.badge-case .unearned {
+  filter: var(--silhouette);
+  opacity: 0.2;
+}
+
+/* ---- Log tab: laid out like a shop counter ---------------------------------------- */
+.shop {
+  display: grid;
+}
+@media (min-width: 640px) {
+  .shop {
+    grid-template-columns: 14rem minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.money-box {
+  display: flex;
+  flex-direction: column;
+}
+.money-box dt {
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  line-height: 2;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.money-box dd {
+  text-align: right;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.menu.two-up {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 4px solid var(--track);
 }

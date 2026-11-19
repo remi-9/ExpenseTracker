@@ -1,9 +1,11 @@
 // The only file that reads from Supabase. Pages call these and never query directly.
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { isSupabaseConfigured } from "./config";
 import { demoCategories, demoTotals, demoTransactions } from "./demo";
 import type { BattleData, Species } from "./fight";
 import { shiftMonth } from "./format";
+import { DEFAULT_OPTIONS, FRAMES, SPEEDS, type Speed } from "./options";
 import { DEFAULT_TRAINER, MAX_DEX, TRAINERS } from "./partners";
 import { createClient } from "./supabase/server";
 import type { Category, MonthTotal, Transaction } from "./types";
@@ -13,7 +15,7 @@ function check<T>(result: { data: T | null; error: { message: string } | null })
   return result.data as T;
 }
 
-export async function getCategories(): Promise<Category[]> {
+async function loadCategories(): Promise<Category[]> {
   if (!isSupabaseConfigured) return demoCategories;
   const supabase = await createClient();
   const rows = check(
@@ -30,7 +32,7 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 /** Every month × category total. Small (rows ≈ months × categories), so we load it all. */
-export async function getMonthTotals(): Promise<MonthTotal[]> {
+async function loadMonthTotals(): Promise<MonthTotal[]> {
   if (!isSupabaseConfigured) return demoTotals();
   const supabase = await createClient();
   const rows = check(
@@ -40,7 +42,7 @@ export async function getMonthTotals(): Promise<MonthTotal[]> {
 }
 
 /** Entries for one month (YYYY-MM), newest first. */
-export async function getTransactions(month: string): Promise<Transaction[]> {
+async function loadTransactions(month: string): Promise<Transaction[]> {
   const from = `${month}-01`;
   const to = `${shiftMonth(month, 1)}-01`;
   if (!isSupabaseConfigured) {
@@ -60,18 +62,18 @@ export async function getTransactions(month: string): Promise<Transaction[]> {
 }
 
 /** Which partner the player picked (a cookie; see choosePartner). */
-export async function getPartnerId(): Promise<string | undefined> {
+async function loadPartnerId(): Promise<string | undefined> {
   return (await cookies()).get("partner")?.value;
 }
 
 /** Which trainer sprite the player picked (a cookie; see chooseTrainer). */
-export async function getTrainerId(): Promise<string> {
+async function loadTrainerId(): Promise<string> {
   const id = (await cookies()).get("trainer")?.value;
   return TRAINERS.some((t) => t.id === id) ? id! : DEFAULT_TRAINER;
 }
 
 /** Dex numbers of every Pokémon caught, oldest first. Demo mode keeps them in a cookie. */
-export async function getCaught(): Promise<number[]> {
+async function loadCaught(): Promise<number[]> {
   if (!isSupabaseConfigured) {
     const raw = (await cookies()).get("caught")?.value ?? "";
     return raw.split(".").map(Number).filter((n) => n >= 1 && n <= MAX_DEX);
@@ -86,7 +88,7 @@ export async function getCaught(): Promise<number[]> {
  * Cached for a month. If the API can't be reached the list is empty and
  * callers fall back to "No. 25".
  */
-export async function getPokemonNames(): Promise<string[]> {
+async function loadPokemonNames(): Promise<string[]> {
   try {
     const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${MAX_DEX}`, {
       next: { revalidate: 60 * 60 * 24 * 30 },
@@ -104,7 +106,7 @@ export async function getPokemonNames(): Promise<string[]> {
 }
 
 /** Up to five caught Pokémon that travel with your partner (a cookie; see toggleTeam). */
-export async function getTeam(): Promise<number[]> {
+async function loadTeam(): Promise<number[]> {
   const raw = (await cookies()).get("team")?.value ?? "";
   const caught = await getCaught();
   return raw
@@ -131,7 +133,7 @@ async function csvRows(file: string): Promise<number[][]> {
  * Types, base stats and the type chart for dex 1–649, built from three small
  * PokeAPI data files and cached for a month. Returns null if they can't be reached.
  */
-export async function getBattleData(): Promise<BattleData | null> {
+async function loadBattleData(): Promise<BattleData | null> {
   try {
     const [stats, types, efficacy] = await Promise.all([
       csvRows("pokemon_stats"),
@@ -149,3 +151,27 @@ export async function getBattleData(): Promise<BattleData | null> {
     return null;
   }
 }
+
+/** Frame colour and text speed chosen on the Options screen (cookies; see setOption). */
+async function loadOptions(): Promise<{ frame: string; speed: Speed }> {
+  const jar = await cookies();
+  const frame = jar.get("frame")?.value ?? "";
+  const speed = jar.get("speed")?.value ?? "";
+  return {
+    frame: (FRAMES as readonly string[]).includes(frame) ? frame : DEFAULT_OPTIONS.frame,
+    speed: (SPEEDS as readonly string[]).includes(speed) ? (speed as Speed) : DEFAULT_OPTIONS.speed,
+  };
+}
+
+// Each read runs at most once per request, however many components ask for it
+// (the layout's start menu and the page often want the same data).
+export const getCategories = cache(loadCategories);
+export const getMonthTotals = cache(loadMonthTotals);
+export const getTransactions = cache(loadTransactions);
+export const getPartnerId = cache(loadPartnerId);
+export const getTrainerId = cache(loadTrainerId);
+export const getCaught = cache(loadCaught);
+export const getPokemonNames = cache(loadPokemonNames);
+export const getTeam = cache(loadTeam);
+export const getBattleData = cache(loadBattleData);
+export const getOptions = cache(loadOptions);

@@ -71,6 +71,16 @@ export function SoundToggle() {
   );
 }
 
+/** A second on/off switch (Options screen). The header's SoundToggle does the actual work. */
+export function SoundSwitch() {
+  const on = useSyncExternalStore(subscribeSound, isSoundOn, () => false);
+  return (
+    <button type="button" className="btn" data-sfx="none" aria-pressed={on} onClick={() => setSoundOn(!on)}>
+      {on ? "♪ On" : "♪ Off"}
+    </button>
+  );
+}
+
 /** Plays effects once when it appears on the page, e.g. the result of a just-logged entry. */
 export function PlayOnMount({ sounds }: { sounds: SfxName[] }) {
   const key = sounds.join();

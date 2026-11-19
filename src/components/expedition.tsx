@@ -25,7 +25,8 @@ import {
 } from "@/lib/fight";
 import { sprite } from "@/lib/partners";
 import { play, setMusicTheme } from "@/lib/sfx";
-import { Fight, HpBar, type FightResult } from "./fight";
+import { Fight, type FightResult } from "./fight";
+import { PartyScreen } from "./party";
 
 type Run = {
   floor: number;
@@ -286,7 +287,7 @@ export function Expedition({
             {phase.paths.map((node) => (
               <button
                 key={node.kind}
-                className="btn move"
+                className="window menu-item path"
                 data-sfx={node.kind === "boss" ? "boss" : "confirm"}
                 onClick={() => choose(node)}
               >
@@ -316,7 +317,7 @@ export function Expedition({
             {phase.options.map((id) => {
               const boon = BOONS.find((b) => b.id === id)!;
               return (
-                <button key={id} className="btn move" data-sfx="none" onClick={() => takeBoon(id)}>
+                <button key={id} className="window menu-item path" data-sfx="none" onClick={() => takeBoon(id)}>
                   <span className="flex items-center gap-2">
                     <img src={sprite.item(id)} alt="" width={30} height={30} className="pixel" />
                     {boon.name}
@@ -430,23 +431,10 @@ function TeamList({ party }: { party: Battler[] }) {
   return (
     <section className="box">
       <header className="panel-title">
-        <h2>Your team</h2>
+        <h2>Pokémon</h2>
         <span>Lv {party[0]?.level}</span>
       </header>
-      <ul className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
-        {party.map((p, i) => (
-          <li key={`${p.dex}-${i}`} className={`flex items-center gap-2 ${p.hp <= 0 ? "text-muted" : ""}`}>
-            <img src={sprite.icon(p.dex)} alt="" width={40} height={30} className="pixel shrink-0" />
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="flex justify-between gap-2">
-                <span className="truncate">{p.name}</span>
-                <span className="shrink-0">{p.hp <= 0 ? "Fainted" : `${p.hp} / ${p.maxHp}`}</span>
-              </span>
-              <HpBar who={p} />
-            </span>
-          </li>
-        ))}
-      </ul>
+      <PartyScreen party={party} />
     </section>
   );
 }

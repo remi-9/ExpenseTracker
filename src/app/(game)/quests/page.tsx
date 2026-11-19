@@ -2,19 +2,20 @@
 import { PartnerSprite } from "@/components/partner";
 import { Chest, Shield } from "@/components/sprite";
 import { Bar, CategoryIcon, MonthPicker, Panel } from "@/components/ui";
-import { getCategories, getMonthTotals, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
+import { getCategories, getCaught, getMonthTotals, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
 import { money, monthLabel, parseMonth } from "@/lib/format";
 import { BADGES, getPlayer, getQuests, isShiny, summarizeMonth } from "@/lib/game";
 import { partnerAt, sprite, TRAINERS } from "@/lib/partners";
 
 export default async function QuestsPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   const month = parseMonth((await searchParams).m);
-  const [categories, totals, partnerId, trainerId, names] = await Promise.all([
+  const [categories, totals, partnerId, trainerId, names, caught] = await Promise.all([
     getCategories(),
     getMonthTotals(),
     getPartnerId(),
     getTrainerId(),
     getPokemonNames(),
+    getCaught(),
   ]);
   const player = getPlayer(totals);
   const partner = partnerAt(partnerId, player.level, names);
@@ -31,6 +32,7 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
     ["Name", trainer.name],
     ["Rank", `Lv ${player.level} ${player.rank}`],
     ["Money", money(balance)],
+    ["Pokédex", String(caught.length)],
     ["Saved", money(player.saved)],
     ["Entries", String(player.entries)],
   ];
@@ -59,6 +61,14 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
         </div>
         <div className="flex flex-col gap-1">
           <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />
+          {/* The badge case along the bottom of the card. */}
+          <ul className="badge-case">
+            {badges.map((b) => (
+              <li key={b.id} title={b.has ? b.name : `${b.name}: ${b.how}`}>
+                <img src={sprite.badge(b.sprite)} alt={b.has ? b.name : `${b.name}, not earned`} className={b.has ? "" : "unearned"} />
+              </li>
+            ))}
+          </ul>
           <p className="text-muted">
             {player.xpForNext - player.xpIntoLevel} XP to Lv {player.level + 1}
             {partner?.nextName && ` · ${partner.name} evolves into ${partner.nextName} at Lv ${partner.evolvesAt}`}
