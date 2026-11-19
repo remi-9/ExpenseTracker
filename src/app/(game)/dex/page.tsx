@@ -1,39 +1,77 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
-import { Bar, Panel } from "@/components/ui";
-import { choosePartner } from "@/lib/actions";
-import { getCaught, getMonthTotals, getPartnerId, getPokemonNames } from "@/lib/data";
+import Link from "next/link";
+import { PlayOnMount } from "@/components/sound";
+import { Bar, Dialog, Panel } from "@/components/ui";
+import { choosePartner, toggleTeam } from "@/lib/actions";
+import { getCaught, getMonthTotals, getPartnerId, getPokemonNames, getTeam } from "@/lib/data";
 import { getPlayer } from "@/lib/game";
-import { MAX_DEX, sprite } from "@/lib/partners";
+import { MAX_DEX, partnerAt, sprite } from "@/lib/partners";
 
-export default async function DexPage() {
-  const [caught, totals, names, partnerId] = await Promise.all([
+export default async function DexPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
+  const [caught, totals, names, partnerId, team] = await Promise.all([
     getCaught(),
     getMonthTotals(),
     getPokemonNames(),
     getPartnerId(),
+    getTeam(),
   ]);
-  const balls = Math.max(0, getPlayer(totals).entries - caught.length);
-  const latest = caught[caught.length - 1];
+  const player = getPlayer(totals);
+  const partner = partnerAt(partnerId, player.level, names);
+  const balls = Math.max(0, player.entries - caught.length);
   const sorted = [...caught].sort((a, b) => a - b);
   const nameOf = (dex: number) => names[dex - 1] ?? `No. ${dex}`;
+  const members = team.filter((dex) => dex !== partner?.dex);
 
   return (
     <>
+      {error && (
+        <>
+          <PlayOnMount sounds={["error"]} />
+          <Dialog tone="error">{error}</Dialog>
+        </>
+      )}
+
+      <Panel
+        title="Your team"
+        aside={
+          <Link href="/battle" className="underline">
+            Battle
+          </Link>
+        }
+      >
+        <ol className="grid grid-cols-3 sm:grid-cols-6">
+          {Array.from({ length: 6 }, (_, i) => {
+            const dex = i === 0 ? partner?.dex : members[i - 1];
+            return (
+              <li key={i} className={`medal p-1! ${dex ? "" : "locked"}`}>
+                {dex ? (
+                  <img src={sprite.still(dex)} alt="" width={64} height={64} className="pixel" />
+                ) : (
+                  <span className="grid size-16 place-items-center font-display text-xs">{i + 1}</span>
+                )}
+                <span className="max-w-full truncate leading-tight">
+                  {dex ? nameOf(dex) : "Empty"}
+                  {i === 0 && <span className="block text-muted">Partner</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="mt-2 text-muted">
+          Your partner always leads. Add up to five Pokémon you have caught; they all battle at the same level.
+        </p>
+      </Panel>
+
       <section className="box flex items-center gap-4" aria-label="Pokédex progress">
-        {latest ? (
-          <img src={sprite.pokemon(latest)} alt="" className="pixel h-20 shrink-0" />
-        ) : (
-          <img src={sprite.item("poke-ball")} alt="" width={60} height={60} className="pixel shrink-0" />
-        )}
+        <img src={sprite.item("poke-ball")} alt="" width={48} height={48} className="pixel shrink-0" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h1 className="font-display text-sm leading-relaxed">
             Pokédex {caught.length} / {MAX_DEX}
           </h1>
           <Bar ratio={caught.length / MAX_DEX} tone="red" label="Pokédex completion" />
           <p className="text-muted">
-            <img src={sprite.item("poke-ball")} alt="" width={24} height={24} className="pixel icon" />
-            {balls} Poké {balls === 1 ? "Ball" : "Balls"} left
-            {latest ? ` · latest catch: ${nameOf(latest)}` : ""}
+            {balls} Poké {balls === 1 ? "Ball" : "Balls"} left. Every entry you log earns one.
           </p>
         </div>
       </section>
@@ -41,29 +79,39 @@ export default async function DexPage() {
       <Panel title="Caught">
         {sorted.length === 0 ? (
           <p className="text-muted">
-            Nothing caught yet. Wild Pokémon wander across the Home screen: tap one to throw a Poké Ball. Every entry
-            you log earns one ball.
+            Nothing caught yet. Wild Pokémon turn up on Home and on expeditions in the Battle tab: wear one down, then
+            throw a Poké Ball.
           </p>
         ) : (
-          <form action={choosePartner} className="grid grid-cols-3 sm:grid-cols-5">
-            {sorted.map((dex) => (
-              <button
-                key={dex}
-                name="partner"
-                value={`dex:${dex}`}
-                data-sfx="confirm"
-                title={`Make ${nameOf(dex)} your partner`}
-                aria-pressed={partnerId === `dex:${dex}`}
-                className={`btn flex-col gap-0! px-1! ${partnerId === `dex:${dex}` ? "btn-selected" : ""}`}
-              >
-                <img src={sprite.still(dex)} alt="" width={72} height={72} className="pixel" loading="lazy" />
-                <span className="font-body text-base leading-none text-muted">No. {String(dex).padStart(3, "0")}</span>
-                <span className="max-w-full truncate">{nameOf(dex)}</span>
-              </button>
-            ))}
-          </form>
+          <ul className="grid grid-cols-2 sm:grid-cols-4">
+            {sorted.map((dex) => {
+              const onTeam = team.includes(dex);
+              const isPartner = partnerId === `dex:${dex}`;
+              return (
+                <li key={dex} className="medal p-2!">
+                  <img src={sprite.still(dex)} alt="" width={72} height={72} className="pixel" loading="lazy" />
+                  <span className="text-muted leading-none">No. {String(dex).padStart(3, "0")}</span>
+                  <span className="max-w-full truncate font-display text-[0.6rem] leading-relaxed">{nameOf(dex)}</span>
+                  <div className="flex flex-wrap justify-center gap-x-3">
+                    <form action={toggleTeam}>
+                      <input type="hidden" name="dex" value={dex} />
+                      <button className="text-blue underline" data-sfx={onTeam ? "page" : "confirm"}>
+                        {onTeam ? "Remove" : "Add to team"}
+                      </button>
+                    </form>
+                    {!isPartner && (
+                      <form action={choosePartner}>
+                        <button name="partner" value={`dex:${dex}`} className="text-blue underline" data-sfx="confirm">
+                          Make partner
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
-        {sorted.length > 0 && <p className="mt-2 text-muted">Tap one to make it your partner.</p>}
       </Panel>
     </>
   );

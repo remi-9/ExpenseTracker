@@ -2,6 +2,7 @@
 import { cookies } from "next/headers";
 import { isSupabaseConfigured } from "./config";
 import { demoCategories, demoTotals, demoTransactions } from "./demo";
+import type { BattleData, Species } from "./fight";
 import { shiftMonth } from "./format";
 import { DEFAULT_TRAINER, MAX_DEX, TRAINERS } from "./partners";
 import { createClient } from "./supabase/server";
@@ -99,5 +100,52 @@ export async function getPokemonNames(): Promise<string[]> {
     );
   } catch {
     return [];
+  }
+}
+
+/** Up to five caught Pokémon that travel with your partner (a cookie; see toggleTeam). */
+export async function getTeam(): Promise<number[]> {
+  const raw = (await cookies()).get("team")?.value ?? "";
+  const caught = await getCaught();
+  return raw
+    .split(".")
+    .map(Number)
+    .filter((n) => caught.includes(n))
+    .slice(0, 5);
+}
+
+const CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv";
+const MONTH = { next: { revalidate: 60 * 60 * 24 * 30 } };
+
+/** Rows of a PokeAPI data file as arrays of numbers, header skipped. */
+async function csvRows(file: string): Promise<number[][]> {
+  const text = await (await fetch(`${CSV}/${file}.csv`, MONTH)).text();
+  return text
+    .trim()
+    .split("\n")
+    .slice(1)
+    .map((line) => line.split(",").map(Number));
+}
+
+/**
+ * Types, base stats and the type chart for dex 1–649, built from three small
+ * PokeAPI data files and cached for a month. Returns null if they can't be reached.
+ */
+export async function getBattleData(): Promise<BattleData | null> {
+  try {
+    const [stats, types, efficacy] = await Promise.all([
+      csvRows("pokemon_stats"),
+      csvRows("pokemon_types"),
+      csvRows("type_efficacy"),
+    ]);
+    const species: Species[] = Array.from({ length: MAX_DEX }, () => ({ t: [], s: [] }));
+    for (const [id, stat, value] of stats) if (id <= MAX_DEX) species[id - 1].s[stat - 1] = value;
+    for (const [id, type, slot] of types) if (id <= MAX_DEX) species[id - 1].t[slot - 1] = type;
+    const chart: number[][] = Array.from({ length: 19 }, () => Array(19).fill(1));
+    for (const [attack, defend, factor] of efficacy) if (attack <= 18 && defend <= 18) chart[attack][defend] = factor / 100;
+    if (species.some((s) => s.s.length !== 6 || s.t.length === 0)) return null;
+    return { species, chart };
+  } catch {
+    return null;
   }
 }

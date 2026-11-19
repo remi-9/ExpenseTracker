@@ -164,6 +164,38 @@ const SOUNDS = {
     tone({ f: 2093, at: 0.55, len: 0.4, vol: 0.025 });
   },
   shiny: () => run([2093, 2637, 3136, 4186], 0.06, { vol: 0.012 }),
+  // ---- Battles ----
+  /** A move connects. */
+  strike: () => {
+    noise({ len: 0.1, vol: 0.05 });
+    tone({ f: 260, to: 90, len: 0.14, vol: 0.04 });
+  },
+  super: () => {
+    noise({ len: 0.16, vol: 0.07 });
+    tone({ f: 520, to: 110, len: 0.22, vol: 0.05 });
+    tone({ f: 1568, at: 0.05, len: 0.12, vol: 0.02 });
+  },
+  weak: () => tone({ f: 180, to: 140, len: 0.12, vol: 0.03, type: "triangle" }),
+  miss: () => noise({ len: 0.12, vol: 0.012, bright: true }),
+  crit: () => run([1568, 2093], 0.05, { vol: 0.025 }),
+  faint: () => tone({ f: 660, to: 70, len: 0.7, vol: 0.04 }),
+  sendOut: () => {
+    noise({ len: 0.05, vol: 0.03, bright: true });
+    tone({ f: 500, to: 1000, at: 0.03, len: 0.15, vol: 0.025, type: "triangle" });
+  },
+  /** A gym leader steps forward. */
+  boss: () => {
+    run([110, 104, 110, 104], 0.16, { vol: 0.05, type: "sawtooth" });
+    run([440, 415, 440, 523], 0.16, { vol: 0.025 }, 0.02);
+  },
+  victory: () => {
+    run([523, 659, 784, 1047, 784, 1047], 0.1, { vol: 0.035 });
+    tone({ f: 1319, at: 0.62, len: 0.6, vol: 0.035 });
+    tone({ f: 1047, at: 0.62, len: 0.6, vol: 0.02, type: "triangle" });
+  },
+  defeat: () => run([392, 370, 349, 330, 294, 262], 0.16, { vol: 0.03, type: "triangle" }),
+  /** Choosing an upgrade. */
+  boon: () => run([784, 1047, 1319, 1568, 2093], 0.06, { vol: 0.025, type: "triangle" }),
 } as const;
 
 export type SfxName = keyof typeof SOUNDS;
@@ -180,79 +212,120 @@ export function cry(dex: number) {
 }
 
 // ---- Background music -----------------------------------------------------------
-// An original sixteen-bar chiptune loop written for this app: lead, bass, a soft
-// arpeggio and light drums. Numbers are MIDI notes (60 = middle C); 0 is a rest.
-// Eight eighth-notes per bar. Edit the lists to change the tune.
+// Two original chiptune loops written for this app: a relaxed one for the menus
+// and a quicker minor-key one for battles. Each has a lead, bass, a soft arpeggio
+// and light drums. Numbers are MIDI notes (60 = middle C); 0 is a rest.
+// Eight eighth-notes per bar. Edit the lists to change a tune.
 
-const LEAD = [
-  // A section
-  [76, 0, 79, 0, 84, 0, 79, 76],
-  [81, 0, 76, 0, 72, 0, 76, 0],
-  [77, 0, 81, 0, 84, 0, 81, 77],
-  [74, 0, 79, 0, 83, 0, 79, 0],
-  [76, 79, 84, 0, 88, 0, 84, 79],
-  [83, 0, 79, 0, 76, 0, 79, 83],
-  [81, 0, 77, 81, 83, 0, 79, 74],
-  [72, 0, 76, 79, 84, 0, 0, 0],
-  // B section
-  [81, 0, 84, 0, 89, 0, 84, 81],
-  [83, 0, 86, 0, 91, 0, 86, 83],
-  [79, 0, 83, 0, 88, 0, 83, 79],
-  [81, 0, 84, 0, 88, 0, 84, 0],
-  [77, 81, 84, 0, 89, 0, 84, 81],
-  [79, 83, 86, 0, 91, 0, 86, 83],
-  [84, 0, 79, 0, 76, 0, 79, 84],
-  [72, 0, 76, 79, 84, 0, 0, 0],
-];
-/** Chord root for each half bar. Roots 40 and 45 (E, A) are minor chords. */
-const BASS = [
-  [48, 48], [45, 45], [41, 41], [43, 43], [48, 48], [40, 40], [41, 43], [48, 48],
-  [41, 41], [43, 43], [40, 40], [45, 45], [41, 41], [43, 43], [48, 48], [48, 43],
-];
-const STEP = 0.25; // seconds per eighth-note
-const BAR = STEP * 8;
+type Song = {
+  /** Seconds per eighth-note. */
+  step: number;
+  lead: number[][];
+  /** Chord root for each half bar. */
+  bass: number[][];
+  /** Roots whose chords are minor. */
+  minor: number[];
+};
+
+const SONGS: Record<"town" | "battle", Song> = {
+  town: {
+    step: 0.25,
+    minor: [40, 45],
+    lead: [
+      [76, 0, 79, 0, 84, 0, 79, 76],
+      [81, 0, 76, 0, 72, 0, 76, 0],
+      [77, 0, 81, 0, 84, 0, 81, 77],
+      [74, 0, 79, 0, 83, 0, 79, 0],
+      [76, 79, 84, 0, 88, 0, 84, 79],
+      [83, 0, 79, 0, 76, 0, 79, 83],
+      [81, 0, 77, 81, 83, 0, 79, 74],
+      [72, 0, 76, 79, 84, 0, 0, 0],
+      [81, 0, 84, 0, 89, 0, 84, 81],
+      [83, 0, 86, 0, 91, 0, 86, 83],
+      [79, 0, 83, 0, 88, 0, 83, 79],
+      [81, 0, 84, 0, 88, 0, 84, 0],
+      [77, 81, 84, 0, 89, 0, 84, 81],
+      [79, 83, 86, 0, 91, 0, 86, 83],
+      [84, 0, 79, 0, 76, 0, 79, 84],
+      [72, 0, 76, 79, 84, 0, 0, 0],
+    ],
+    bass: [
+      [48, 48], [45, 45], [41, 41], [43, 43], [48, 48], [40, 40], [41, 43], [48, 48],
+      [41, 41], [43, 43], [40, 40], [45, 45], [41, 41], [43, 43], [48, 48], [48, 43],
+    ],
+  },
+  battle: {
+    step: 0.15,
+    minor: [45, 40, 38],
+    lead: [
+      [69, 72, 76, 72, 81, 76, 72, 76],
+      [69, 72, 77, 72, 81, 77, 72, 77],
+      [71, 74, 79, 74, 83, 79, 74, 79],
+      [71, 76, 79, 76, 83, 79, 76, 71],
+      [81, 0, 81, 79, 76, 0, 72, 76],
+      [77, 0, 77, 76, 72, 0, 69, 72],
+      [74, 77, 81, 77, 86, 81, 77, 74],
+      [76, 80, 83, 80, 88, 83, 80, 76],
+    ],
+    bass: [[45, 45], [41, 41], [43, 43], [40, 40], [45, 45], [41, 41], [38, 38], [40, 40]],
+  },
+};
+
 const hz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
 
+let theme: keyof typeof SONGS = "town";
 let musicTimer: ReturnType<typeof setInterval> | undefined;
 
-function queueBar(bar: number, at: number) {
-  LEAD[bar].forEach((n, i) => n && tone({ f: hz(n), at: at + i * STEP, len: STEP * 1.6, vol: 0.012 }));
-  BASS[bar].forEach((root, half) => {
-    const t = at + half * 4 * STEP;
-    tone({ f: hz(root), at: t, len: STEP * 1.8, vol: 0.035, type: "triangle" });
-    tone({ f: hz(root + 7), at: t + 2 * STEP, len: STEP * 1.2, vol: 0.025, type: "triangle" });
-    // Arpeggio: the chord's three notes in sixteenths, an octave up.
-    const third = root === 40 || root === 45 ? 3 : 4;
-    [0, third, 7, 12, 7, third, 0, third].forEach((step, i) =>
-      tone({ f: hz(root + 24 + step), at: t + (i * STEP) / 2, len: STEP / 2, vol: 0.004, type: "triangle" }),
+function queueBar(song: Song, bar: number, at: number) {
+  const { step } = song;
+  song.lead[bar].forEach((n, i) => n && tone({ f: hz(n), at: at + i * step, len: step * 1.6, vol: 0.012 }));
+  song.bass[bar].forEach((root, half) => {
+    const t = at + half * 4 * step;
+    tone({ f: hz(root), at: t, len: step * 1.8, vol: 0.035, type: "triangle" });
+    tone({ f: hz(root + 7), at: t + 2 * step, len: step * 1.2, vol: 0.025, type: "triangle" });
+    // Arpeggio: the chord's three notes in sixteenths, two octaves up.
+    const third = song.minor.includes(root) ? 3 : 4;
+    [0, third, 7, 12, 7, third, 0, third].forEach((offset, i) =>
+      tone({ f: hz(root + 24 + offset), at: t + (i * step) / 2, len: step / 2, vol: 0.004, type: "triangle" }),
     );
     // Drums: kick on the beat, snare on the back beat, hats in between.
     tone({ f: 130, to: 50, at: t, len: 0.1, vol: 0.03, type: "sine" });
-    noise({ at: t + 2 * STEP, len: 0.07, vol: 0.008 });
-    [1, 3].forEach((i) => noise({ at: t + i * STEP, len: 0.025, vol: 0.004, bright: true }));
+    noise({ at: t + 2 * step, len: 0.07, vol: 0.008 });
+    [1, 3].forEach((i) => noise({ at: t + i * step, len: 0.025, vol: 0.004, bright: true }));
   });
 }
 
 export function startMusic() {
   if (musicTimer) return;
   const a = audio();
+  const song = SONGS[theme];
   let bar = 0;
   let barStart = a.currentTime + 0.1;
   // Queue each bar a little before it is due.
   const queue = () => {
-    while (barStart < a.currentTime + 1) {
-      queueBar(bar, barStart - a.currentTime);
-      bar = (bar + 1) % LEAD.length;
-      barStart += BAR;
+    while (barStart < a.currentTime + 0.6) {
+      queueBar(song, bar, barStart - a.currentTime);
+      bar = (bar + 1) % song.lead.length;
+      barStart += song.step * 8;
     }
   };
   queue();
-  musicTimer = setInterval(queue, 250);
+  musicTimer = setInterval(queue, 200);
 }
 
 export function stopMusic() {
   clearInterval(musicTimer);
   musicTimer = undefined;
+}
+
+/** Switch between the menu tune and the battle tune. Takes effect at once if music is playing. */
+export function setMusicTheme(next: keyof typeof SONGS) {
+  if (next === theme) return;
+  theme = next;
+  if (musicTimer) {
+    stopMusic();
+    startMusic();
+  }
 }
 
 /** Browsers keep audio suspended until the first click; call this from a click handler. */

@@ -5,7 +5,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
 import { today } from "./format";
-import { getCaught, getMonthTotals } from "./data";
+import { getCaught, getMonthTotals, getTeam } from "./data";
 import { DEFAULT_ICON, MAX_DEX, PARTNERS, PRESETS, TRAINERS } from "./partners";
 import type { Kind } from "./types";
 import { createClient } from "./supabase/server";
@@ -135,6 +135,18 @@ export async function choosePartner(form: FormData) {
     (await cookies()).set("partner", id, { maxAge: YEAR, sameSite: "lax" });
   }
   redirect("/");
+}
+
+/** Add a caught Pokémon to the team, or take it off. The team holds five besides your partner. */
+export async function toggleTeam(form: FormData) {
+  const dex = Number(text(form, "dex"));
+  const team = await getTeam();
+  const next = team.includes(dex) ? team.filter((d) => d !== dex) : [...team, dex];
+  if (next.length > 5) fail("/dex", "Your team is full. Take someone off first.");
+  if ((await getCaught()).includes(dex)) {
+    (await cookies()).set("team", next.join("."), { maxAge: YEAR, sameSite: "lax" });
+  }
+  redirect("/dex");
 }
 
 export async function chooseTrainer(form: FormData) {

@@ -17,13 +17,14 @@ export function PartnerSprite({
   name,
   mood = "happy",
   shiny = false,
-  height = 112,
+  card = false,
 }: {
   dex: number;
   name: string;
   mood?: Mood;
   shiny?: boolean;
-  height?: number;
+  /** Smaller scale, for the trainer card. */
+  card?: boolean;
 }) {
   const [pets, setPets] = useState(0);
   return (
@@ -40,7 +41,7 @@ export function PartnerSprite({
     >
       {/* Re-keyed on every pet so the jump animation restarts. */}
       <span key={pets} className={`block ${pets ? "pet-jump" : ""}`}>
-        <img src={sprite.pokemon(dex, shiny)} alt="" style={{ height }} className={`pixel mood-${mood}`} />
+        <img src={sprite.pokemon(dex, shiny)} alt="" className={`pixel ${card ? "sprite-card" : "sprite"} mood-${mood}`} />
       </span>
       {pets > 0 && (
         <span key={`heart-${pets}`} className="emote" aria-hidden>

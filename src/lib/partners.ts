@@ -8,6 +8,9 @@ export const sprite = {
   /** Animated front sprite (Black/White style). Covers dex numbers 1–649. */
   pokemon: (dex: number, shiny = false) =>
     `${RAW}/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${shiny ? "shiny/" : ""}${dex}.gif`,
+  /** The same sprite seen from behind, for your side of a battle. */
+  back: (dex: number) =>
+    `${RAW}/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/back/${dex}.gif`,
   /** Small static sprite, for pickers. */
   still: (dex: number) => `${RAW}/sprites/master/sprites/pokemon/${dex}.png`,
   /** Kanto gym badges, 1–8. */

@@ -12,6 +12,7 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/log", label: "Log", icon: "log" },
   { href: "/stats", label: "Stats", icon: "stats" },
   { href: "/quests", label: "Quests", icon: "quests" },
+  { href: "/battle", label: "Battle", icon: "battle" },
   { href: "/dex", label: "Dex", icon: "dex" },
   { href: "/setup", label: "Setup", icon: "setup" },
 ];
@@ -21,7 +22,7 @@ export function Tabs() {
   const pathname = usePathname();
   return (
     <nav aria-label="Main" className="tabs fixed inset-x-0 bottom-0 z-10 sm:static">
-      <ul className="box m-0! grid grid-cols-6 p-0! sm:m-1!">
+      <ul className="box m-0! grid grid-cols-7 p-0! sm:m-1!">
         {TABS.map((tab) => (
           <li key={tab.href}>
             <Link

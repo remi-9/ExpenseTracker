@@ -97,13 +97,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       <MonthPicker month={month} path="/" />
 
       <section className="box p-0!" aria-label="Wallet status">
-        <Scene paused={mood === "fainted"}>
-          <img src={sprite.trainer(trainerId)} alt="" className={`pixel trainer ${mood === "fainted" ? "" : "running"}`} />
-          <div className={`runner ${mood === "fainted" ? "" : "running"}`}>
+        <Scene>
+          <img src={sprite.trainer(trainerId)} alt="" className="pixel sprite scene-trainer" />
+          <div className="scene-partner">
             <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} />
           </div>
           <WildPokemon balls={Math.max(0, player.entries - caught.length)} caught={caught} names={names} />
-          <div className="box absolute top-2 right-2 z-2 flex w-[min(58%,17rem)] flex-col gap-1 p-2!">
+          <div className="hpbox hpbox-me z-2">
             <div className="flex items-baseline justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
               <span>
                 {partner.name}
