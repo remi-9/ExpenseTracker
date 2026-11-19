@@ -31,7 +31,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
         <p className="text-center text-muted">Demo mode: sample data, nothing is saved.</p>
       )}
 
-      <main className="flex flex-col gap-4">{children}</main>
+      <main>{children}</main>
     </div>
   );
 }

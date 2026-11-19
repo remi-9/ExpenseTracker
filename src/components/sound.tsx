@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { blip, chime, isSoundOn, resumeAudio, setSoundOn, startMusic, stopMusic, subscribeSound } from "@/lib/sfx";
+import {
+  blip,
+  entrySound,
+  isSoundOn,
+  levelUpSound,
+  resumeAudio,
+  setSoundOn,
+  startMusic,
+  stopMusic,
+  subscribeSound,
+} from "@/lib/sfx";
 
 // Optional: your own track replaces the built-in loop. Set at build time by next.config.ts
 // when public/audio/pokemon-center.mp3 exists.
@@ -45,8 +55,11 @@ export function SoundToggle() {
   );
 }
 
-/** Plays the "saved" chime once when it appears on the page. */
-export function SavedChime() {
-  useEffect(() => chime(), []);
+/** Plays the sound for a just-logged entry once, when the result appears. */
+export function ResultSound({ kind, levelUp }: { kind: "expense" | "income" | "saving"; levelUp: boolean }) {
+  useEffect(() => {
+    entrySound(kind);
+    if (levelUp) levelUpSound();
+  }, [kind, levelUp]);
   return null;
 }

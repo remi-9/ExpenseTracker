@@ -6,7 +6,7 @@ create table public.categories (
   user_id        uuid not null default auth.uid() references auth.users on delete cascade,
   name           text not null,
   kind           text not null check (kind in ('income', 'expense', 'saving')),
-  icon           text not null default '❓',
+  icon           text not null default 'poke-ball', -- PokeAPI item sprite name, or an emoji
   is_fixed       boolean not null default false,   -- recurring monthly bill (Internet, Electricity…)
   monthly_target numeric(12, 2),                    -- saving: goal · expense: budget cap · income: unused
   sort_order     int not null default 0,

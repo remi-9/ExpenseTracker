@@ -21,14 +21,14 @@ const cat = (
 });
 
 export const demoCategories: Category[] = [
-  cat("salary", "Salary", "income", "💼"),
-  cat("side", "Side gig", "income", "🎮"),
-  cat("save", "Save", "saving", "🐷", { monthly_target: 8000 }),
-  cat("rent", "Rent", "expense", "🏠", { is_fixed: true }),
-  cat("internet", "Internet", "expense", "📡", { is_fixed: true }),
-  cat("power", "Electricity", "expense", "⚡", { is_fixed: true }),
-  cat("food", "Food", "expense", "🍜"),
-  cat("shopping", "Shopping", "expense", "🛒"),
+  cat("salary", "Salary", "income", "nugget"),
+  cat("side", "Side gig", "income", "stardust"),
+  cat("save", "Save", "saving", "amulet-coin", { monthly_target: 8000 }),
+  cat("rent", "Rent", "expense", "secret-key", { is_fixed: true }),
+  cat("internet", "Internet", "expense", "pal-pad", { is_fixed: true }),
+  cat("power", "Electricity", "expense", "thunder-stone", { is_fixed: true }),
+  cat("food", "Food", "expense", "oran-berry"),
+  cat("shopping", "Shopping", "expense", "poke-ball"),
 ];
 
 // [category, amount, day of month, note]

@@ -1,7 +1,10 @@
-import { Dialog, Panel } from "@/components/ui";
+/* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
+import { SubmitButton } from "@/components/submit";
+import { CategoryIcon, Dialog, Panel } from "@/components/ui";
 import { addCategory, setCategoryArchived } from "@/lib/actions";
 import { getCategories } from "@/lib/data";
 import { money } from "@/lib/format";
+import { ITEM_ICONS, sprite } from "@/lib/partners";
 import type { Kind } from "@/lib/types";
 
 const GROUPS: [Kind, string][] = [
@@ -36,20 +39,31 @@ export default async function CategoriesPage({
               <option value="saving">Savings</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1">
-            Icon (any emoji)
-            <input name="icon" maxLength={4} placeholder="🛒" className="field" />
-          </label>
-          <label className="flex flex-col gap-1">
+          <label className="flex flex-col gap-1 sm:col-span-2">
             Monthly target (optional)
-            <input name="monthly_target" type="number" min="0" step="0.01" placeholder="Goal or budget" className="field" />
+            <input name="monthly_target" type="number" min="0" step="0.01" placeholder="Savings goal or spending budget" className="field" />
           </label>
+          <fieldset className="sm:col-span-2">
+            <legend className="mb-1">Icon</legend>
+            <div className="flex flex-wrap">
+              {ITEM_ICONS.map((item) => (
+                <label key={item} className="chip p-1!" title={item.replaceAll("-", " ")}>
+                  <input type="radio" name="icon" value={item} aria-label={item.replaceAll("-", " ")} />
+                  <img src={sprite.item(item)} alt="" width={30} height={30} className="pixel" loading="lazy" />
+                </label>
+              ))}
+            </div>
+            <label className="mt-2 flex items-center gap-2">
+              or an emoji
+              <input name="emoji" maxLength={4} className="field w-20!" />
+            </label>
+          </fieldset>
           <label className="flex items-center gap-2 sm:col-span-2">
             <input name="is_fixed" type="checkbox" className="size-5 accent-(--red)" />
             Fixed monthly bill
           </label>
           <div className="sm:col-span-2">
-            <button className="btn btn-primary">Add category</button>
+            <SubmitButton pending="Adding…">Add category</SubmitButton>
           </div>
         </form>
       </Panel>
@@ -68,7 +82,8 @@ export default async function CategoriesPage({
                     className={`flex items-center justify-between gap-3 py-1 ${c.archived_at ? "text-muted" : ""}`}
                   >
                     <span>
-                      {c.icon} {c.name}
+                      <CategoryIcon icon={c.icon} />
+                      {c.name}
                       {c.is_fixed && <span className="text-muted"> · fixed bill</span>}
                       {c.monthly_target != null && (
                         <span className="text-muted">

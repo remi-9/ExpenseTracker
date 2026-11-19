@@ -114,6 +114,10 @@ body {
     4px 0 0 0 var(--ink),
     inset 4px 4px 0 0 color-mix(in srgb, var(--ink) 18%, transparent);
 }
+.btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
 .btn-primary {
   background: var(--red);
   color: #fff;
@@ -159,8 +163,11 @@ body {
 }
 @keyframes fill {
   from {
-    width: 0;
+    width: calc(var(--from, 0) * 1%);
   }
+}
+.bar.slow > span {
+  animation: fill 1.4s steps(20, end) 0.9s both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -168,8 +175,20 @@ body {
   .chart-cols > span,
   .mood-worried,
   .layer,
-  .runner.running > * {
+  .runner.running > *,
+  .page-enter,
+  .sparkle,
+  [class*="fx-"],
+  .evolve-old,
+  .float-num {
     animation: none;
+  }
+  .evolve-old {
+    display: none;
+  }
+  .evolve-new {
+    animation: none;
+    opacity: 1;
   }
   .env {
     animation: none;
@@ -392,4 +411,207 @@ code {
   margin-right: 6px;
   background: var(--tone);
   border: 2px solid var(--ink);
+}
+
+/* ---- Movement between pages ------------------------------------------------ */
+.page-enter {
+  animation: page-enter 0.24s steps(4, end) both;
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.blink {
+  animation: blink 0.8s steps(2, start) infinite;
+}
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* ---- Dialog box (components/typewriter.tsx) ---------------------------------- */
+/* The invisible full text and the typed text share one grid cell. */
+.dialog {
+  display: grid;
+  text-align: left;
+  white-space: pre-line;
+  cursor: pointer;
+}
+.dialog > * {
+  grid-area: 1 / 1;
+}
+
+/* ---- Item-sprite icons --------------------------------------------------------- */
+.icon {
+  display: inline-block;
+  vertical-align: -0.35em;
+  margin-right: 0.15em;
+}
+
+/* ---- Partner interactions ------------------------------------------------------ */
+.pet-jump {
+  animation: pet-jump 0.4s steps(4, end);
+}
+@keyframes pet-jump {
+  50% {
+    transform: translateY(-14px);
+  }
+}
+.emote {
+  position: absolute;
+  top: -0.5rem;
+  left: 50%;
+  translate: -50% 0;
+  color: var(--red);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-shadow: 2px 2px 0 var(--panel);
+  animation: emote 0.9s steps(6, end) forwards;
+  pointer-events: none;
+}
+@keyframes emote {
+  from {
+    opacity: 1;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+/* A four-point pixel star that twinkles on shiny partners. */
+.sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #fff;
+  box-shadow:
+    0 -4px #fff6a8,
+    0 4px #fff6a8,
+    -4px 0 #fff6a8,
+    4px 0 #fff6a8;
+  animation: blink 1.4s steps(2, start) infinite;
+  pointer-events: none;
+}
+
+/* The same star, inline next to text. */
+.star {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin: 0 10px;
+  vertical-align: middle;
+  background: var(--gold);
+  box-shadow:
+    0 -4px var(--gold),
+    0 4px var(--gold),
+    -4px 0 var(--gold),
+    4px 0 var(--gold);
+}
+
+/* ---- Entry result (components/battle.tsx) --------------------------------------- */
+.fx-expense {
+  animation: fx-hit 0.7s steps(7, end) 0.2s;
+}
+@keyframes fx-hit {
+  15%,
+  45%,
+  75% {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  30%,
+  60%,
+  90% {
+    opacity: 1;
+    transform: translateX(6px);
+  }
+}
+.fx-income {
+  animation: fx-heal 0.9s steps(6, end) 0.2s;
+}
+@keyframes fx-heal {
+  50% {
+    transform: translateY(-10px);
+    filter: brightness(1.5) drop-shadow(0 0 0 var(--green));
+  }
+}
+.fx-saving {
+  animation: fx-store 0.9s steps(6, end) 0.2s;
+}
+@keyframes fx-store {
+  50% {
+    transform: scale(0.8);
+    filter: brightness(1.6) sepia(1) saturate(3);
+  }
+}
+.float-num {
+  position: absolute;
+  top: -0.25rem;
+  left: 50%;
+  translate: -50% 0;
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  white-space: nowrap;
+  text-shadow: 2px 2px 0 var(--panel);
+  animation: float-up 1.2s steps(8, end) 0.3s both;
+}
+@keyframes float-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  25% {
+    opacity: 1;
+  }
+}
+/* Evolution: the old form flickers to a silhouette, then the new form appears. */
+:root {
+  --silhouette: brightness(0);
+}
+.dark {
+  --silhouette: brightness(0) invert(1);
+}
+.evolve-old {
+  animation: evolve-out 2.6s steps(1, end) 1s both;
+}
+@keyframes evolve-out {
+  0%,
+  20%,
+  40%,
+  60%,
+  80% {
+    filter: none;
+    opacity: 1;
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    filter: var(--silhouette);
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.evolve-new {
+  animation: evolve-in 0.6s steps(3, end) 3.6s both;
+}
+@keyframes evolve-in {
+  from {
+    opacity: 0;
+    filter: var(--silhouette);
+  }
+}
+
+/* ---- Trainer card ------------------------------------------------------------------ */
+.trainer-card {
+  background:
+    linear-gradient(var(--ink), var(--ink)) 0 2.6rem / 100% 4px no-repeat,
+    color-mix(in srgb, var(--blue) 16%, var(--panel));
 }

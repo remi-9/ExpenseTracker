@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
@@ -24,13 +24,25 @@ export function Tabs() {
         {TABS.map((tab) => (
           <li key={tab.href}>
             <Link href={tab.href} className="tab" aria-current={pathname === tab.href ? "page" : undefined}>
-              <Icon name={tab.icon} />
-              {tab.label}
+              <TabFace icon={tab.icon} label={tab.label} />
             </Link>
           </li>
         ))}
       </ul>
     </nav>
+  );
+}
+
+/** Icon and label; the icon blinks while the tab's page is still loading. */
+function TabFace({ icon, label }: { icon: IconName; label: string }) {
+  const { pending } = useLinkStatus();
+  return (
+    <>
+      <span className={pending ? "blink" : ""}>
+        <Icon name={icon} />
+      </span>
+      {label}
+    </>
   );
 }
 

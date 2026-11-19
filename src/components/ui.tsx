@@ -1,7 +1,9 @@
+/* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
 // Small pixel-styled pieces shared by every page.
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { monthLabel, shiftMonth } from "@/lib/format";
+import { sprite } from "@/lib/partners";
 
 export function Panel({
   title,
@@ -32,17 +34,33 @@ type Tone = "green" | "gold" | "red" | "blue";
 /** Tone for a health-style bar: green when healthy, gold when low, red when critical. */
 export const hpTone = (ratio: number): Tone => (ratio > 0.5 ? "green" : ratio > 0.2 ? "gold" : "red");
 
-export function Bar({ ratio, tone = "green", label }: { ratio: number; tone?: Tone; label: string }) {
-  const fill = Math.round(Math.max(0, Math.min(1, ratio)) * 100);
+const percent = (ratio: number) => Math.round(Math.max(0, Math.min(1, ratio || 0)) * 100);
+
+/** A pixel meter. It fills from `from` (default empty) to `ratio` when it appears. */
+export function Bar({
+  ratio,
+  from = 0,
+  tone = "green",
+  slow,
+  label,
+}: {
+  ratio: number;
+  from?: number;
+  tone?: Tone;
+  /** Start late and move slowly, for the HP change after an entry. */
+  slow?: boolean;
+  label: string;
+}) {
+  const fill = percent(ratio);
   return (
     <div
-      className="bar"
+      className={`bar ${slow ? "slow" : ""}`}
       role="meter"
       aria-label={label}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={fill}
-      style={{ "--fill": fill, "--tone": `var(--${tone})` } as CSSProperties}
+      style={{ "--fill": fill, "--from": percent(from), "--tone": `var(--${tone})` } as CSSProperties}
     >
       <span />
     </div>
@@ -65,7 +83,13 @@ export function MonthPicker({ month, path }: { month: string; path: string }) {
   );
 }
 
-/** A dialog box, used for narration and for error messages. */
+/** A category's icon: a PokeAPI item sprite when it is an item name, otherwise the emoji as typed. */
+export function CategoryIcon({ icon, size = 30 }: { icon: string; size?: number }) {
+  if (!/^[a-z0-9-]+$/.test(icon)) return <span aria-hidden>{icon} </span>;
+  return <img src={sprite.item(icon)} alt="" width={size} height={size} className="pixel icon" />;
+}
+
+/** A plain dialog box, used for error messages. Narration uses <Typewriter />. */
 export function Dialog({ children, tone }: { children: ReactNode; tone?: "error" }) {
   return (
     <p className={`box text-xl ${tone === "error" ? "text-red" : ""}`} role={tone === "error" ? "alert" : undefined}>

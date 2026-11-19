@@ -16,7 +16,8 @@ bun dev
 ```
 
 Open http://localhost:3000. With no Supabase keys the app starts in **demo
-mode**: sample data, nothing saved. That is the quickest way to look around.
+mode**: sample data, nothing saved. Logging an entry still plays its result as a
+preview, so it is the quickest way to look around.
 
 ## Connect Supabase
 
@@ -51,23 +52,27 @@ src/
     config.ts                app name, currency, time zone, demo-mode switch
     data.ts                  every read from Supabase
     actions.ts               every write to Supabase (server actions)
-    game.ts                  all game rules: summary, XP, levels, badges
-    partners.ts              partner lines, evolution levels, PokeAPI sprite URLs
+    game.ts                  all game rules: summary, XP, levels, quests, badges
+    partners.ts              partner lines, evolution levels, item icons, PokeAPI sprite URLs
     sfx.ts                   synthesized sound effects and cries
     demo.ts                  sample data for demo mode
     format.ts                money and month helpers
   components/
-    ui.tsx                   Panel, Bar, MonthPicker, Dialog
+    ui.tsx                   Panel, Bar, MonthPicker, CategoryIcon, Dialog
+    typewriter.tsx           dialog box that types its lines out
+    battle.tsx               the result shown after logging an entry
+    submit.tsx               submit button with a saving state
     sprite.tsx               tab icons drawn as character grids
     partner.tsx              partner Pokémon sprite and the starter picker
     scene.tsx                Home scene: six environments that scroll past
-    sound.tsx                sound toggle, menu ticks, music, saved chime
+    sound.tsx                sound toggle, menu ticks, music, entry sounds
     nav.tsx                  tab bar and theme toggle
   app/
-    (game)/page.tsx          Home: partner scene, wallet HP, next quest, latest entries
+    (game)/template.tsx      short entrance animation on every tab change
+    (game)/page.tsx          Home: partner scene, wallet HP, narration, latest entries
     (game)/log/              add and browse entries
     (game)/stats/            six-month chart and where the month went
-    (game)/quests/           level, quests and badges
+    (game)/quests/           trainer card, quests, badges, partner picker
     (game)/categories/       add and archive categories
     login/ · auth/callback/  magic-link login
     globals.css              theme tokens and the pixel building blocks
@@ -80,7 +85,7 @@ There is no client-side state library and no API layer.
 
 | Table | What it holds |
 | --- | --- |
-| `categories` | name, `kind` (`income` / `expense` / `saving`), icon, `is_fixed`, optional `monthly_target` |
+| `categories` | name, `kind` (`income` / `expense` / `saving`), `icon` (a PokeAPI item name or an emoji), `is_fixed`, optional `monthly_target` |
 | `transactions` | category, positive `amount`, `occurred_on`, note |
 | `month_totals` (view) | total and entry count per month per category |
 
@@ -103,11 +108,14 @@ All of it is computed from `month_totals` in [`src/lib/game.ts`](src/lib/game.ts
 Nothing game-related is stored, so you can change the rules at any time and
 your level simply recalculates.
 
-- **Partner:** pick a starter on first visit (change it on the Quests tab). It shivers when wallet HP is low, faints when the month is overspent, and evolves at levels 5 and 10. The choice is a cookie, not a database row.
+- **Partner:** pick one of twelve starters on first visit (change it on the Quests tab). It shivers when wallet HP is low, faints when the month is overspent, and evolves at levels 5 and 10. Click it to pet it. The choice is a cookie, not a database row.
+- **Logging is a battle:** after you save an entry the Log tab plays the result. Spending hits your partner's HP ("super effective" at 10% of the month's income or more, "not very effective" at 1% or less), income heals it, and savings go to the PC. Enough XP levels it up or evolves it on the spot. The result is worked out from the entry and the month's totals (`components/battle.tsx`).
+- **Shiny month:** log income and complete every quest in a month, and your partner is shiny for that month.
 - **Wallet HP:** share of the month's income still unspent. Green above 50%, gold above 20%, red below.
 - **XP:** 10 per entry logged, plus 1 per ₱100 saved. Levels need 100, 300, 600, 1000… XP.
 - **Quests:** any saving category with a target ("set aside ₱10,000") or expense category with a target ("keep Food under ₱6,000").
 - **Badges:** the eight Kanto gym badges, listed in `game.ts`; each is a name plus an `earned()` function.
+- **Trainer card:** rank, money, savings, entries and badges, at the top of the Quests tab.
 
 ## Pokémon resources
 
@@ -117,10 +125,10 @@ from the PokeAPI project's public GitHub repos; the URL builders are in
 
 | What | Source | Used for |
 | --- | --- | --- |
-| Animated sprites | [PokeAPI/sprites](https://github.com/PokeAPI/sprites) `pokemon/versions/generation-v/black-white/animated/{dex}.gif` | partner on Home and Quests |
+| Animated sprites | [PokeAPI/sprites](https://github.com/PokeAPI/sprites) `pokemon/versions/generation-v/black-white/animated/{dex}.gif` (and `animated/shiny/`) | partner on Home, Log and Quests |
 | Static sprites | same repo, `pokemon/{dex}.png` | starter picker |
 | Gym badges | same repo, `badges/{1-8}.png` | badge tiles |
-| Item icons | same repo, `items/{name}.png` | Poké Ball in the header |
+| Item icons | same repo, `items/{name}.png` | category icons, Poké Ball in the header |
 | Cries | [PokeAPI/cries](https://github.com/PokeAPI/cries) `cries/pokemon/latest/{dex}.ogg` | click your partner |
 | Data API | [pokeapi.co](https://pokeapi.co/docs/v2) (free, no key) | not called yet; use it for names, types or evolution chains |
 
@@ -146,6 +154,7 @@ Sound is off until you press **♪** in the header, and stays quiet by design.
 | To add… | Do this |
 | --- | --- |
 | A category | Categories page. No code. |
+| An icon choice | Add an item name to `ITEM_ICONS` in `partners.ts`. |
 | A quest | Give a category a monthly target. No code. |
 | A badge | Add an entry to `BADGES` in `game.ts`. |
 | A tab | Add a folder under `app/(game)/`, a line to `TABS` in `nav.tsx` and an icon grid in `sprite.tsx`. |

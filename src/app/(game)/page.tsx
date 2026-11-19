@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { PartnerPicker, PartnerSprite, type Mood } from "@/components/partner";
 import { Scene } from "@/components/scene";
-import { Bar, Dialog, hpTone, MonthPicker, Panel } from "@/components/ui";
+import { Typewriter } from "@/components/typewriter";
+import { Bar, CategoryIcon, hpTone, MonthPicker, Panel } from "@/components/ui";
 import { getCategories, getMonthTotals, getPartnerId, getTransactions } from "@/lib/data";
 import { dayLabel, money, monthLabel, parseMonth } from "@/lib/format";
-import { getPlayer, summarizeMonth, walletHp, type MonthSummary } from "@/lib/game";
+import { getPlayer, getQuests, isShiny, summarizeMonth, walletHp, type MonthSummary } from "@/lib/game";
 import { partnerAt } from "@/lib/partners";
 
 function moodFor(s: MonthSummary): Mood {
@@ -33,28 +34,43 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
 
   const summary = summarizeMonth(totals, month);
   const player = getPlayer(totals);
-  const hp = walletHp(summary);
   const partner = partnerAt(partnerId, player.level);
-  const mood = moodFor(summary);
 
   if (!partner) {
     return (
       <>
-        <Dialog>Welcome, trainer! Choose the partner who will guard your wallet.</Dialog>
+        <Typewriter
+          lines={[
+            "Welcome to the world of budgeting, trainer!",
+            "Every peso you log makes your partner stronger. Choose who will guard your wallet.",
+          ]}
+        />
         <Panel title="Choose your partner">
           <PartnerPicker />
-          <p className="mt-2 text-muted">It evolves as you level up. You can switch later on the Quests tab.</p>
+          <p className="mt-2 text-muted">It evolves at Lv 5 and Lv 10. You can switch later on the Quests tab.</p>
         </Panel>
       </>
     );
   }
 
-  // The first quest that still needs work this month, as a nudge.
-  const monthRows = totals.filter((t) => t.month === `${month}-01`);
-  const nextQuest = categories
-    .filter((c) => c.kind === "saving" && c.monthly_target != null && !c.archived_at)
-    .map((c) => ({ c, done: monthRows.find((t) => t.category_id === c.id)?.total ?? 0 }))
-    .find((q) => q.done < q.c.monthly_target!);
+  const hp = walletHp(summary);
+  const mood = moodFor(summary);
+  const quests = getQuests(categories, totals, month);
+  const shiny = isShiny(quests, summary);
+  const nextQuest = quests.find((q) => q.saving && !q.complete);
+
+  // The category that has taken the most this month.
+  const topHit = totals
+    .filter((t) => t.month === `${month}-01` && t.kind === "expense")
+    .sort((a, b) => b.total - a.total)[0];
+  const topName = categories.find((c) => c.id === topHit?.category_id)?.name;
+
+  const lines = [narrate(summary, month, partner.name)];
+  if (topHit && topName) lines.push(`Its toughest opponent so far is ${topName}, at ${money(topHit.total)}.`);
+  if (shiny) lines.push(`Every quest is complete, so ${partner.name} is shining this month!`);
+  else if (nextQuest) {
+    lines.push(`Set aside ${money(nextQuest.target - nextQuest.done)} more in ${nextQuest.category.name} to finish a quest.`);
+  }
 
   return (
     <>
@@ -63,11 +79,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
       <section className="box p-0!" aria-label="Wallet status">
         <Scene paused={mood === "fainted"}>
           <div className={`runner ${mood === "fainted" ? "" : "running"}`}>
-            <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} />
+            <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} />
           </div>
           <div className="box absolute top-2 right-2 z-1 flex w-[min(60%,17rem)] flex-col gap-1 p-2!">
             <div className="flex items-baseline justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
-              <span>{partner.name}</span>
+              <span>
+                {partner.name}
+                {shiny && <span className="star" title="Shiny" />}
+              </span>
               <span>Lv {player.level}</span>
             </div>
             <div className="grid grid-cols-[1.75rem_1fr] items-center gap-x-1">
@@ -88,7 +107,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         </div>
       </section>
 
-      <Dialog>{narrate(summary, month, partner.name)}</Dialog>
+      <Typewriter lines={lines} />
 
       <div className="grid grid-cols-2">
         <Link href="/log" className="btn btn-primary py-3!">
@@ -113,27 +132,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         ))}
       </dl>
 
-      {nextQuest && (
-        <Panel
-          title="Next quest"
-          aside={
-            <Link href={`/quests?m=${month}`} className="text-blue underline">
-              All quests
-            </Link>
-          }
-        >
-          <div className="flex justify-between gap-3">
-            <span>
-              {nextQuest.c.icon} Set aside {money(nextQuest.c.monthly_target!)} in {nextQuest.c.name}
-            </span>
-            <span className="text-muted">
-              {money(nextQuest.done)} / {money(nextQuest.c.monthly_target!)}
-            </span>
-          </div>
-          <Bar ratio={nextQuest.done / nextQuest.c.monthly_target!} tone="gold" label={`${nextQuest.c.name} progress`} />
-        </Panel>
-      )}
-
       <Panel
         title="Latest entries"
         aside={
@@ -149,7 +147,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
             {transactions.slice(0, 5).map((t) => (
               <li key={t.id} className="flex justify-between gap-3">
                 <span className="truncate">
-                  {t.category.icon} {t.note ?? t.category.name}
+                  <CategoryIcon icon={t.category.icon} />
+                  {t.note ?? t.category.name}
                   <span className="text-muted"> · {dayLabel(t.occurred_on)}</span>
                 </span>
                 <span className={t.category.kind === "income" ? "text-green" : ""}>

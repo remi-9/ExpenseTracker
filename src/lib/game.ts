@@ -1,6 +1,6 @@
 // All game rules live here as pure functions over the month_totals rows.
 // Nothing about the game is stored in the database, so rules can change freely.
-import type { Category, MonthTotal } from "./types";
+import type { Category, Kind, MonthTotal } from "./types";
 
 export type MonthSummary = {
   income: number;
@@ -53,7 +53,10 @@ export function getPlayer(totals: MonthTotal[]): Player {
     entries += t.entries;
     if (t.kind === "saving") saved += t.total;
   }
-  const xp = entries * XP_PER_ENTRY + Math.floor(saved / PESOS_PER_SAVING_XP);
+  return playerAt(entries * XP_PER_ENTRY + Math.floor(saved / PESOS_PER_SAVING_XP), entries, saved);
+}
+
+function playerAt(xp: number, entries: number, saved: number): Player {
   let level = 1;
   while (xp >= xpForLevel(level + 1)) level++;
   return {
@@ -66,6 +69,44 @@ export function getPlayer(totals: MonthTotal[]): Player {
     saved,
   };
 }
+
+/** XP one entry is worth. */
+export const xpFor = (kind: Kind, amount: number) =>
+  XP_PER_ENTRY + (kind === "saving" ? Math.floor(amount / PESOS_PER_SAVING_XP) : 0);
+
+/** The same player with XP added (or removed, to see where they stood before an entry). */
+export const withXp = (p: Player, delta: number) => playerAt(Math.max(0, p.xp + delta), p.entries, p.saved);
+
+/** A month summary with one entry added (negative amount removes it). */
+export function withEntry(s: MonthSummary, kind: Kind, amount: number): MonthSummary {
+  const next = { ...s, [kind]: s[kind] + amount };
+  next.remaining = next.income - next.expense - next.saving;
+  if (kind === "income") next.balance += amount;
+  if (kind === "expense") next.balance -= amount;
+  return next;
+}
+
+// ---- Quests ------------------------------------------------------------------
+// Any category with a monthly target is a quest: a savings goal to reach,
+// or a spending budget to stay under.
+
+export type Quest = { category: Category; done: number; target: number; saving: boolean; complete: boolean };
+
+export function getQuests(categories: Category[], totals: MonthTotal[], month: string): Quest[] {
+  const rows = totals.filter((t) => t.month === `${month}-01`);
+  return categories
+    .filter((c) => c.monthly_target != null && c.kind !== "income" && !c.archived_at)
+    .map((category) => {
+      const done = rows.find((t) => t.category_id === category.id)?.total ?? 0;
+      const target = category.monthly_target!;
+      const saving = category.kind === "saving";
+      return { category, done, target, saving, complete: saving ? done >= target : done <= target };
+    });
+}
+
+/** The partner turns shiny for a month once income is logged and every quest is complete. */
+export const isShiny = (quests: Quest[], s: MonthSummary) =>
+  s.income > 0 && quests.length > 0 && quests.every((q) => q.complete);
 
 // ---- Badges ----------------------------------------------------------------
 // Add a badge by adding an entry here. `earned` gets everything it might need.

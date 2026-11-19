@@ -5,7 +5,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
 import { today } from "./format";
-import { PARTNERS } from "./partners";
+import { DEFAULT_ICON, PARTNERS } from "./partners";
+import type { Kind } from "./types";
 import { createClient } from "./supabase/server";
 
 const fail = (path: string, message: string): never =>
@@ -19,23 +20,34 @@ async function db(path: string) {
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
 
 export async function addTransaction(form: FormData) {
-  const supabase = await db("/log");
   const amount = Number(text(form, "amount"));
   const occurred_on = text(form, "occurred_on") || today();
   const category_id = text(form, "category_id");
   if (!category_id) fail("/log", "Pick a category.");
   if (!(amount > 0)) fail("/log", "Enter an amount above zero.");
 
-  const { error } = await supabase.from("transactions").insert({
-    category_id,
-    amount,
-    occurred_on,
-    note: text(form, "note") || null,
-  });
-  if (error) fail("/log", error.message);
+  // Demo mode skips the insert; the Log page then plays the result as a preview.
+  if (isSupabaseConfigured) {
+    const supabase = await createClient();
+    const { error } = await supabase.from("transactions").insert({
+      category_id,
+      amount,
+      occurred_on,
+      note: text(form, "note") || null,
+    });
+    if (error) fail("/log", error.message);
+    revalidatePath("/", "layout");
+  }
 
-  revalidatePath("/", "layout");
-  redirect(`/log?m=${occurred_on.slice(0, 7)}&kind=${text(form, "kind")}&saved=1`);
+  // The Log page turns these into the battle-style result (see components/battle.tsx).
+  const result = new URLSearchParams({
+    m: occurred_on.slice(0, 7),
+    kind: text(form, "kind"),
+    saved: String(amount),
+    cat: category_id,
+    t: String(Date.now()),
+  });
+  redirect(`/log?${result}`);
 }
 
 export async function deleteTransaction(form: FormData) {
@@ -53,10 +65,11 @@ export async function addCategory(form: FormData) {
   const target = text(form, "monthly_target");
   if (!name) fail("/categories", "Give the category a name.");
 
+  const kind = text(form, "kind") as Kind;
   const { error } = await supabase.from("categories").insert({
     name,
-    kind: text(form, "kind"),
-    icon: text(form, "icon") || "❓",
+    kind,
+    icon: text(form, "emoji") || text(form, "icon") || DEFAULT_ICON[kind],
     is_fixed: form.get("is_fixed") === "on",
     monthly_target: target ? Number(target) : null,
   });

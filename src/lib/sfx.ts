@@ -46,10 +46,18 @@ export function blip() {
   if (isSoundOn()) note(1320, 0, 0.05, 0.02);
 }
 
-/** Rising four-note chime, for a saved entry. */
-export function chime() {
+/** What an entry sounds like: a thud for spending, a rising sparkle for income, a ding for savings. */
+export function entrySound(kind: "expense" | "income" | "saving") {
   if (!isSoundOn()) return;
-  [659, 784, 988, 1319].forEach((f, i) => note(f, i * 0.09, 0.16));
+  if (kind === "expense") [196, 147].forEach((f, i) => note(f, 0.2 + i * 0.09, 0.14, 0.05));
+  if (kind === "income") [523, 659, 784, 1047].forEach((f, i) => note(f, 0.2 + i * 0.08, 0.16, 0.035, "triangle"));
+  if (kind === "saving") [988, 1319].forEach((f, i) => note(f, 0.2 + i * 0.12, 0.25));
+}
+
+/** Short fanfare for a new level. `at` delays it so it follows the entry sound. */
+export function levelUpSound(at = 1.2) {
+  if (!isSoundOn()) return;
+  [523, 523, 523, 659, 784, 1047].forEach((f, i) => note(f, at + i * 0.1, i === 5 ? 0.5 : 0.09, 0.035));
 }
 
 export function cry(dex: number) {

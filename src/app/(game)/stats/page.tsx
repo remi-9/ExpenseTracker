@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Bar, MonthPicker, Panel } from "@/components/ui";
+import { Bar, CategoryIcon, MonthPicker, Panel } from "@/components/ui";
 import { getCategories, getMonthTotals } from "@/lib/data";
 import { money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
 import { summarizeMonth } from "@/lib/game";
@@ -108,7 +108,8 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                 <li key={t.category_id}>
                   <div className="flex justify-between gap-3">
                     <span>
-                      {c?.icon} {c?.name}
+                      {c && <CategoryIcon icon={c.icon} />}
+                      {c?.name}
                     </span>
                     <span>
                       {money(t.total)}

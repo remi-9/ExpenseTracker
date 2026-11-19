@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { SavedChime } from "@/components/sound";
-import { Dialog, MonthPicker, Panel } from "@/components/ui";
+import { BattleResult } from "@/components/battle";
+import { SubmitButton } from "@/components/submit";
+import { CategoryIcon, Dialog, MonthPicker, Panel } from "@/components/ui";
 import { addTransaction, deleteTransaction } from "@/lib/actions";
-import { getCategories, getTransactions } from "@/lib/data";
+import { isSupabaseConfigured } from "@/lib/config";
+import { getCategories, getMonthTotals, getPartnerId, getTransactions } from "@/lib/data";
 import { dayLabel, money, parseMonth, today } from "@/lib/format";
 import type { Kind } from "@/lib/types";
 
@@ -16,22 +18,37 @@ const KINDS: { kind: Kind; label: string }[] = [
 export default async function LogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string; kind?: string; error?: string; saved?: string }>;
+  searchParams: Promise<{ m?: string; kind?: string; error?: string; saved?: string; cat?: string; t?: string }>;
 }) {
   const params = await searchParams;
   const month = parseMonth(params.m);
   const kind = KINDS.find((k) => k.kind === params.kind)?.kind ?? "expense";
-  const [categories, transactions] = await Promise.all([getCategories(), getTransactions(month)]);
+  const [categories, transactions, totals, partnerId] = await Promise.all([
+    getCategories(),
+    getTransactions(month),
+    getMonthTotals(),
+    getPartnerId(),
+  ]);
   const choices = categories.filter((c) => c.kind === kind && !c.archived_at);
+
+  // Set by addTransaction after a save: play the result of that entry.
+  const savedAmount = Number(params.saved);
+  const savedCategory = categories.find((c) => c.id === params.cat);
 
   return (
     <>
       {params.error && <Dialog tone="error">{params.error}</Dialog>}
-      {params.saved && (
-        <>
-          <SavedChime />
-          <Dialog>Saved! Your partner gained 10 XP.</Dialog>
-        </>
+      {savedAmount > 0 && savedCategory && (
+        <BattleResult
+          key={params.t}
+          kind={savedCategory.kind}
+          amount={savedAmount}
+          categoryName={savedCategory.name}
+          month={month}
+          totals={totals}
+          partnerId={partnerId}
+          demo={!isSupabaseConfigured}
+        />
       )}
 
       <Panel title="Log an entry">
@@ -72,7 +89,6 @@ export default async function LogPage({
                   step="0.01"
                   inputMode="decimal"
                   required
-                  autoFocus
                   placeholder="0"
                   className="field text-2xl"
                 />
@@ -80,12 +96,13 @@ export default async function LogPage({
             </label>
 
             <fieldset>
-              <legend className="mb-1">On what?</legend>
+              <legend className="mb-1">{kind === "income" ? "From what?" : kind === "saving" ? "Into what?" : "On what?"}</legend>
               <div className="flex flex-wrap">
                 {choices.map((c, i) => (
                   <label key={c.id} className="chip">
                     <input type="radio" name="category_id" value={c.id} defaultChecked={i === 0} required />
-                    {c.icon} {c.name}
+                    <CategoryIcon icon={c.icon} />
+                    {c.name}
                   </label>
                 ))}
               </div>
@@ -102,7 +119,7 @@ export default async function LogPage({
               </label>
             </div>
 
-            <button className="btn btn-primary py-3!">Save entry (+10 XP)</button>
+            <SubmitButton className="btn btn-primary py-3!">Save entry (+10 XP)</SubmitButton>
           </form>
         )}
       </Panel>
@@ -120,7 +137,8 @@ export default async function LogPage({
                 className="flex items-center justify-between gap-3 border-b-4 border-dotted border-track py-1 last:border-0"
               >
                 <span className="min-w-0 truncate">
-                  <span className="text-muted">{dayLabel(t.occurred_on)}</span> {t.category.icon} {t.category.name}
+                  <span className="text-muted">{dayLabel(t.occurred_on)}</span> <CategoryIcon icon={t.category.icon} />
+                  {t.category.name}
                   {t.note && <span className="text-muted"> · {t.note}</span>}
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
@@ -131,9 +149,9 @@ export default async function LogPage({
                   <form action={deleteTransaction}>
                     <input type="hidden" name="id" value={t.id} />
                     <input type="hidden" name="m" value={month} />
-                    <button className="px-2 text-red" aria-label={`Delete ${t.note ?? t.category.name}`}>
-                      ✕
-                    </button>
+                    <SubmitButton className="px-2 text-red" pending="…">
+                      <span aria-label={`Delete ${t.note ?? t.category.name}`}>✕</span>
+                    </SubmitButton>
                   </form>
                 </span>
               </li>
