@@ -29,7 +29,7 @@ export function MoveForm({
       <input type="hidden" name="a" value={view} />
       <label>
         How much?
-        <input name="amount" inputMode="decimal" autoComplete="off" required autoFocus placeholder="₱" className="field" />
+        <input name="amount" inputMode="decimal" autoComplete="off" required autoFocus data-autofocus placeholder="₱" className="field" />
       </label>
       <fieldset>
         <legend>From</legend>

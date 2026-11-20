@@ -10,13 +10,16 @@ import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 export type PopupSize = "small" | "medium" | "large";
 
 /**
- * Open a dialog. Focus goes to the field marked autoFocus if there is one, and
- * otherwise to the window itself, so no button is ringed before you have touched a key.
+ * Open a dialog. Focus goes to the field marked data-autofocus (or autofocus) if there
+ * is one, and otherwise to the window itself, so no button is ringed before you have
+ * touched a key. React writes the autofocus attribute only into the server's HTML, not
+ * into a form it rebuilds after a save, so the pop-up forms carry data-autofocus too.
  */
 function open(dialog: HTMLDialogElement | null) {
   if (!dialog || dialog.open) return;
   dialog.showModal();
-  if (!dialog.querySelector("[autofocus]")) dialog.focus();
+  const field = dialog.querySelector<HTMLElement>("[data-autofocus], [autofocus]");
+  (field ?? dialog).focus();
 }
 
 type WindowProps = {
@@ -46,7 +49,8 @@ function PopupWindow({
       className="popup"
       tabIndex={-1}
       data-size={size}
-      onClose={onClose}
+      // React passes a close up from a pop-up opened inside this one (a category picker): only this one's own counts.
+      onClose={(event) => event.target === event.currentTarget && onClose?.()}
       // A click on the dimmed page lands on the dialog itself, not on anything inside it.
       onClick={(event) => event.target === event.currentTarget && event.currentTarget.close()}
       onSubmit={closeOnSubmit ? (event) => event.currentTarget.close() : undefined}

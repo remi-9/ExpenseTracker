@@ -350,7 +350,7 @@ function QuickLog({
       <input type="hidden" name="kind" value={quick.kind} />
       <label>
         How much?
-        <input name="amount" inputMode="decimal" autoComplete="off" required autoFocus placeholder="₱" className="field" />
+        <input name="amount" inputMode="decimal" autoComplete="off" required autoFocus data-autofocus placeholder="₱" className="field" />
       </label>
       <fieldset>
         <legend>{quick.ask}</legend>
