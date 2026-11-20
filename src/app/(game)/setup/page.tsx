@@ -7,8 +7,8 @@ import { Icon } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, Panel } from "@/components/ui";
 import { ImportForm } from "@/components/import-form";
-import { addCategory, addPreset, setCategoryArchived, setOption } from "@/lib/actions";
-import { getCategories, getCaught, getOptions, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
+import { addCategory, addPreset, setCategoryArchived, setOption, setPassword } from "@/lib/actions";
+import { getCategories, getCaught, getOptions, getPartnerId, getPokemonNames, getTrainerId, getUserEmail } from "@/lib/data";
 import { money } from "@/lib/format";
 import type { CSSProperties } from "react";
 import { PATTERNS, TONE_COLORS, TONES, type Tone } from "@/lib/backdrop";
@@ -46,7 +46,7 @@ const detail = (c: Category) =>
 export default async function SetupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; s?: string; pocket?: string; c?: string; new?: string }>;
+  searchParams: Promise<{ error?: string; done?: string; s?: string; pocket?: string; c?: string; new?: string }>;
 }) {
   const params = await searchParams;
   const screen: Screen = SCREENS.find(([id]) => id === params.s)?.[0] ?? "bag";
@@ -59,6 +59,8 @@ export default async function SetupPage({
           <Dialog tone="error">{params.error}</Dialog>
         </>
       )}
+
+      {params.done === "password" && <Dialog>Password saved. Use it the next time you sign in.</Dialog>}
 
       <nav className="window menu submenu" aria-label="Setup" data-menu>
         {SCREENS.map(([id, label]) => (
@@ -262,7 +264,7 @@ function Data() {
 
 /** The Options screen: one setting per line, choices to the right, the current one marked. */
 async function Options() {
-  const options = await getOptions();
+  const [options, email] = await Promise.all([getOptions(), getUserEmail()]);
   // Each row is a small form: pressing a choice posts that one setting.
   const rows: { label: string; name: keyof typeof options; choices: readonly string[] }[] = [
     { label: "Text speed", name: "speed", choices: SPEEDS },
@@ -271,55 +273,73 @@ async function Options() {
     { label: "Pattern", name: "pattern", choices: PATTERNS },
   ];
   return (
-    <section className="window options" aria-label="Options">
-      {rows.map(({ label, name, choices }) => (
-        <form key={name} action={setOption} className="option" data-menu>
-          <span className="option-label">{label}</span>
+    <>
+      <section className="window options" aria-label="Options">
+        {rows.map(({ label, name, choices }) => (
+          <form key={name} action={setOption} className="option" data-menu>
+            <span className="option-label">{label}</span>
+            <div className="option-choices">
+              {choices.map((choice) => (
+                <button
+                  key={choice}
+                  name={name}
+                  value={choice}
+                  className="menu-item"
+                  aria-pressed={options[name] === choice}
+                  aria-label={choice}
+                  title={choice}
+                  data-sfx="chip"
+                >
+                  {name === "tone" ? (
+                    <span
+                      className="swatch"
+                      style={
+                        {
+                          "--day": TONE_COLORS[choice as Tone].day,
+                          "--night": TONE_COLORS[choice as Tone].night,
+                        } as CSSProperties
+                      }
+                    />
+                  ) : (
+                    choice
+                  )}
+                </button>
+              ))}
+            </div>
+          </form>
+        ))}
+        <div className="option">
+          <span className="option-label">Sound</span>
           <div className="option-choices">
-            {choices.map((choice) => (
-              <button
-                key={choice}
-                name={name}
-                value={choice}
-                className="menu-item"
-                aria-pressed={options[name] === choice}
-                aria-label={choice}
-                title={choice}
-                data-sfx="chip"
-              >
-                {name === "tone" ? (
-                  <span
-                    className="swatch"
-                    style={
-                      {
-                        "--day": TONE_COLORS[choice as Tone].day,
-                        "--night": TONE_COLORS[choice as Tone].night,
-                      } as CSSProperties
-                    }
-                  />
-                ) : (
-                  choice
-                )}
-              </button>
-            ))}
+            <SoundSwitch />
           </div>
-        </form>
-      ))}
-      <div className="option">
-        <span className="option-label">Sound</span>
-        <div className="option-choices">
-          <SoundSwitch />
         </div>
-      </div>
-      <div className="option">
-        <span className="option-label">Screen</span>
-        <div className="option-choices">
-          <ThemeToggle />
+        <div className="option">
+          <span className="option-label">Screen</span>
+          <div className="option-choices">
+            <ThemeToggle />
+          </div>
         </div>
-      </div>
-      <p className="mt-2 text-muted">
-        Frame recolours every window. Backdrop and pattern are chosen separately.
-      </p>
-    </section>
+        <p className="mt-2 text-muted">
+          Frame recolours every window. Backdrop and pattern are chosen separately.
+        </p>
+      </section>
+      {email && (
+        <Panel title="Password">
+          <form action={setPassword} className="flex flex-wrap items-end gap-x-2 gap-y-3">
+            {/* Not shown: it tells a password manager which login the password belongs to. */}
+            <input type="email" name="email" autoComplete="username" value={email} readOnly hidden />
+            <label className="flex min-w-0 flex-1 basis-52 flex-col gap-1">
+              New password
+              <input name="password" type="password" required minLength={8} autoComplete="new-password" className="field" />
+            </label>
+            <SubmitButton pending="Saving…" sfx="confirm">
+              Save password
+            </SubmitButton>
+          </form>
+          <p className="mt-3 text-muted">Sign in with it from then on. A login link still works.</p>
+        </Panel>
+      )}
+    </>
   );
 }

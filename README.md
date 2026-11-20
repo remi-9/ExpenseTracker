@@ -5,7 +5,7 @@ A personal expense tracker that plays like a handheld RPG. It replaces the
 HP bar, logging entries earns XP, savings goals are quests, your accounts are
 your party, and your budget decides what you take into a roguelike expedition.
 
-- **Stack:** Next.js 16 (App Router), TypeScript, Tailwind 4, Supabase (Postgres and magic-link login), Vercel
+- **Stack:** Next.js 16 (App Router), TypeScript, Tailwind 4, Supabase (Postgres, password or magic-link login), Vercel
 - **Single user.** Row-level security means only your login can read or write your rows.
 - **Pixel theme** with day and night modes. It follows your system; the sun or moon button in the header switches it.
 
@@ -64,7 +64,8 @@ bun dev
 
 1. Put the API URL and publishable key that `supabase start` prints into `.env.local`.
 2. Sign in at `localhost:3000/login`. The login email is not sent anywhere: open it in
-   the local inbox at `http://127.0.0.1:54324`, in the same browser.
+   the local inbox at `http://127.0.0.1:54324`, in the same browser. Then set a password
+   on Options, and sign in with that from then on.
 3. Load `supabase/seed.sql`, or your own `supabase/seed.local.sql`, with
    `docker exec -i supabase_db_ExpenseTracker psql -U postgres < supabase/seed.sql`.
 
@@ -141,7 +142,7 @@ src/
     (game)/dex/              party screen and PC boxes
     (game)/setup/            Bag (categories), Trainer, Partner, Options, Data (import and export)
     export/                  every entry as a CSV file
-    login/, auth/callback/   magic-link login
+    login/, auth/callback/   password or magic-link login
     globals.css              theme tokens and the pixel building blocks
 ```
 

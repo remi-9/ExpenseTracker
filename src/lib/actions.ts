@@ -578,11 +578,29 @@ export async function importStatement(_: StatementResult | null, form: FormData)
   };
 }
 
-export async function signIn(form: FormData) {
-  const supabase = await db("/login");
+/** The email typed on the login form, if it is one that may sign in here. */
+function allowedEmail(form: FormData): string {
   const email = text(form, "email").toLowerCase();
   const allowed = process.env.ALLOWED_EMAIL?.trim().toLowerCase();
   if (allowed && email !== allowed) fail("/login", "That email can't sign in here.");
+  return email;
+}
+
+/** Sign in with the password set on the Options screen. */
+export async function signInWithPassword(form: FormData) {
+  const supabase = await db("/login");
+  const email = allowedEmail(form);
+  const password = String(form.get("password") ?? "");
+  if (!password) fail("/login", "Type your password, or ask for a login link.");
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) fail("/login", "That email and password don't match. A login link still works.");
+  redirect("/");
+}
+
+/** Email a one-time login link: the way in before a password is set, or if it is forgotten. */
+export async function signIn(form: FormData) {
+  const supabase = await db("/login");
+  const email = allowedEmail(form);
 
   const origin = (await headers()).get("origin") ?? "";
   const { error } = await supabase.auth.signInWithOtp({
@@ -591,6 +609,20 @@ export async function signIn(form: FormData) {
   });
   if (error) fail("/login", error.message);
   redirect("/login?sent=1");
+}
+
+/** How short a password may be. */
+const PASSWORD_LENGTH = 8;
+
+/** Set or change the password of whoever is signed in. */
+export async function setPassword(form: FormData) {
+  const back = "/setup?s=options";
+  const supabase = await db(back);
+  const password = String(form.get("password") ?? "");
+  if (password.length < PASSWORD_LENGTH) fail(back, `Use at least ${PASSWORD_LENGTH} characters.`);
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) fail(back, error.message);
+  redirect(`${back}&done=password`);
 }
 
 export async function signOut() {

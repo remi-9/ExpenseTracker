@@ -284,6 +284,13 @@ async function loadPlayer(): Promise<{ partner: string | null; trainer: string |
   return check(await supabase.from("players").select("partner, trainer, team").maybeSingle()) as Awaited<ReturnType<typeof loadPlayer>>;
 }
 
+/** The email of whoever is signed in. Null in demo mode. */
+async function loadUserEmail(): Promise<string | null> {
+  if (!isSupabaseConfigured) return null;
+  const supabase = await createClient();
+  return (await supabase.auth.getUser()).data.user?.email ?? null;
+}
+
 /** Which partner the player picked (see choosePartner). This browser's cookie is the fallback. */
 async function loadPartnerId(): Promise<string | undefined> {
   return (await getPlayerRow())?.partner ?? (await cookies()).get("partner")?.value;
@@ -447,6 +454,7 @@ async function loadOptions(): Promise<{ frame: string; speed: Speed; scene: Scen
 // (the layout's start menu and the page often want the same data).
 export const getDemoEdits = cache(loadDemoEdits);
 const getPlayerRow = cache(loadPlayer);
+export const getUserEmail = cache(loadUserEmail);
 export const getCategories = cache(loadCategories);
 export const getMonthTotals = cache(loadMonthTotals);
 export const getTransactions = cache(loadTransactions);
