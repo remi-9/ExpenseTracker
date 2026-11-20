@@ -98,6 +98,11 @@ const SOUNDS = {
   select: () => tone({ f: 1320, len: 0.05, vol: 0.02 }),
   /** The warning chirp when HP is in the red. */
   lowHp: () => run([988, 784], 0.11, { vol: 0.022 }),
+  /** A battle is about to start: the alarm that goes with the screen flashing. */
+  encounter: () => {
+    run([330, 494, 330, 494, 330, 494, 659, 988], 0.055, { vol: 0.03 });
+    noise({ at: 0.46, len: 0.3, vol: 0.018 });
+  },
   /** Final action of a form. */
   confirm: () => run([880, 1320], 0.06, { vol: 0.025 }),
   tab: () => run([660, 990], 0.045, { vol: 0.02, type: "triangle" }),

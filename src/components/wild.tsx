@@ -2,9 +2,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MAX_DEX, sprite } from "@/lib/partners";
 import { play } from "@/lib/sfx";
+import { BattleWipe } from "./battle-wipe";
 
 const FIRST_AFTER_MS = 2500;
 const GAP_MS = [4000, 9000]; // quiet time between visitors
@@ -18,6 +20,9 @@ type Visitor = { dex: number; key: number };
  */
 export function WildPokemon({ balls, caught, names }: { balls: number; caught: number[]; names: string[] }) {
   const [visitor, setVisitor] = useState<Visitor | null>(null);
+  /** The battle being walked into: the screen closes here and opens again on the battle page. */
+  const [entering, setEntering] = useState<string | null>(null);
+  const router = useRouter();
   const nameOf = (dex: number) => names[dex - 1] ?? `No. ${dex}`;
 
   // Spawn loop: wait, show one, wait again.
@@ -46,7 +51,14 @@ export function WildPokemon({ balls, caught, names }: { balls: number; caught: n
           key={visitor.key}
           href={`/battle?wild=${visitor.dex}`}
           className="wild"
-          data-sfx="confirm"
+          data-sfx="none"
+          onClick={(event) => {
+            // Leave new-tab clicks alone; otherwise wipe first, then go.
+            if (event.metaKey || event.ctrlKey || event.shiftKey || entering) return;
+            event.preventDefault();
+            play("encounter");
+            setEntering(`/battle?wild=${visitor.dex}`);
+          }}
           aria-label={`A wild ${nameOf(visitor.dex)} appeared. Battle it.`}
         >
           <span className="wild-alert" aria-hidden>
@@ -61,6 +73,7 @@ export function WildPokemon({ balls, caught, names }: { balls: number; caught: n
           </span>
         </Link>
       )}
+      {entering && <BattleWipe style="blinds" stayCovered onCovered={() => router.push(entering)} />}
     </>
   );
 }

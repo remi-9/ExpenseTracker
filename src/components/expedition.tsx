@@ -51,6 +51,7 @@ import {
   type ShopItem,
 } from "@/lib/run";
 import { play, setMusicTheme } from "@/lib/sfx";
+import { BattleWipe, wipeFor, type WipeStyle } from "./battle-wipe";
 import { Fight } from "./fight";
 import { PartyScreen, Type } from "./party";
 
@@ -89,17 +90,7 @@ const useStored = <T,>(key: string): T | null => {
   }, [raw]);
 };
 
-export function Expedition({
-  data,
-  names,
-  setup,
-  supplies,
-  balls,
-  wild,
-  saved,
-  history,
-  remote,
-}: {
+type Props = {
   data: BattleData;
   names: string[];
   /** What your budget gives a new run. Perks from past runs are added here. */
@@ -114,6 +105,37 @@ export function Expedition({
   history: RunSummary[];
   /** Supabase is connected, so runs are saved there. */
   remote: boolean;
+};
+
+/**
+ * The expedition, with the wipe that leads into each battle laid over it. The wipe
+ * lives out here so that it stays on screen while the route map gives way to the fight.
+ */
+export function Expedition(props: Props) {
+  // A battle met on Home starts with the page, so its wipe only has to open.
+  const [wipe, setWipe] = useState<{ style: WipeStyle; begin?: () => void } | null>(props.wild ? { style: "blinds" } : null);
+  return (
+    <>
+      <Screens {...props} onBattle={(style, begin) => setWipe({ style, begin })} />
+      {wipe && <BattleWipe style={wipe.style} startCovered={!wipe.begin} onCovered={wipe.begin} onDone={() => setWipe(null)} />}
+    </>
+  );
+}
+
+function Screens({
+  data,
+  names,
+  setup,
+  supplies,
+  balls,
+  wild,
+  saved,
+  history,
+  remote,
+  onBattle,
+}: Props & {
+  /** Play the wipe into a battle, and call `begin` once the screen is covered. */
+  onBattle: (style: WipeStyle, begin: () => void) => void;
 }) {
   const ctx = useMemo(() => ({ data, names }), [data, names]);
   const nameOf = (dex: number) => names[dex - 1] ?? `No. ${dex}`;
@@ -189,10 +211,18 @@ export function Expedition({
     const kind = run.nodes[id].kind;
     const entered = enterNode(run, id, ctx);
     if (entered.run === run) return;
-    if (kind === "rest") play("heal");
-    setIntro(entered.frames);
-    setBattleNo((n) => n + 1);
-    commit(entered.run);
+    const begin = () => {
+      setIntro(entered.frames);
+      setBattleNo((n) => n + 1);
+      commit(entered.run);
+    };
+    if (entered.run.phase.name !== "fight") {
+      if (kind === "rest") play("heal");
+      return begin();
+    }
+    // A battle: flash, close the screen, and only then swap the map for the fight.
+    play("encounter");
+    onBattle(wipeFor(entered.run.phase.battle.kind, battleNo), begin);
   }
 
   const onTurn = (action: Action): Frame[] => {

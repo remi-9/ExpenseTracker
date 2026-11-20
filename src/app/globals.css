@@ -2248,3 +2248,167 @@ legend > .kind-cats {
     transition: none;
   }
 }
+
+/* ---- The wipe into a battle --------------------------------------------------------
+   Two flashes, then black pieces close over the screen; once the battle is in place
+   behind them they open again. Steps keep the motion chunky, like the rest. */
+@property --iris {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+}
+.wipe > span {
+  background: #05060f;
+}
+.wipe-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+}
+.wipe[data-stage="cover"] .wipe-flash {
+  animation: wipe-flash 0.46s steps(1, end);
+}
+@keyframes wipe-flash {
+  0%,
+  45% {
+    opacity: 0.92;
+  }
+  22%,
+  68%,
+  100% {
+    opacity: 0;
+  }
+}
+.wipe[data-stage="cover"] > span {
+  animation: var(--close) 0.5s steps(10, end) both;
+  animation-delay: calc(0.46s + var(--i) * var(--lag, 0ms));
+}
+.wipe[data-stage="reveal"] > span {
+  animation: var(--close) 0.42s steps(8, end) reverse both;
+  animation-delay: calc(var(--i) * var(--lag, 0ms) * 0.4);
+}
+
+/* Bars that slide in from alternate sides. */
+.wipe[data-style="blinds"],
+.wipe[data-style="shutters"],
+.wipe[data-style="tiles"] {
+  display: grid;
+}
+.wipe[data-style="blinds"] {
+  grid-template-rows: repeat(8, 1fr);
+  --close: wipe-grow-x;
+  --lag: 22ms;
+}
+.wipe[data-style="blinds"] > span:nth-child(odd) {
+  transform-origin: left;
+}
+.wipe[data-style="blinds"] > span:nth-child(even) {
+  transform-origin: right;
+}
+@keyframes wipe-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1.01);
+  }
+}
+/* Columns that drop from the top and rise from the bottom in turn. */
+.wipe[data-style="shutters"] {
+  grid-template-columns: repeat(10, 1fr);
+  --close: wipe-grow-y;
+  --lag: 26ms;
+}
+.wipe[data-style="shutters"] > span:nth-child(odd) {
+  transform-origin: top;
+}
+.wipe[data-style="shutters"] > span:nth-child(even) {
+  transform-origin: bottom;
+}
+@keyframes wipe-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1.01);
+  }
+}
+/* Squares that fill in from one corner to the other. */
+.wipe[data-style="tiles"] {
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  --close: wipe-pop;
+  --lag: 26ms;
+}
+.wipe[data-style="tiles"][data-stage] > span {
+  animation-duration: 0.24s;
+  animation-timing-function: steps(4, end);
+}
+@keyframes wipe-pop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1.04);
+  }
+}
+/* Two toothed halves that bite shut. */
+.wipe[data-style="jaws"] {
+  --close: wipe-bite;
+}
+.wipe[data-style="jaws"] > span {
+  position: absolute;
+  inset-inline: 0;
+  height: 58%;
+  animation-duration: 0.6s;
+}
+.wipe[data-style="jaws"] > span:nth-child(1) {
+  top: 0;
+  --from: -100%;
+  clip-path: polygon(0 0, 100% 0, 100% 86%, 95% 100%, 90% 86%, 85% 100%, 80% 86%, 75% 100%, 70% 86%, 65% 100%, 60% 86%, 55% 100%, 50% 86%, 45% 100%, 40% 86%, 35% 100%, 30% 86%, 25% 100%, 20% 86%, 15% 100%, 10% 86%, 5% 100%, 0 86%);
+}
+.wipe[data-style="jaws"] > span:nth-child(2) {
+  bottom: 0;
+  --from: 100%;
+  clip-path: polygon(0 100%, 100% 100%, 100% 0, 95% 14%, 90% 0, 85% 14%, 80% 0, 75% 14%, 70% 0, 65% 14%, 60% 0, 55% 14%, 50% 0, 45% 14%, 40% 0, 35% 14%, 30% 0, 25% 14%, 20% 0, 15% 14%, 10% 0, 5% 14%, 0 0);
+}
+@keyframes wipe-bite {
+  from {
+    transform: translateY(var(--from));
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+/* A circle that closes on the middle of the screen. */
+.wipe[data-style="iris"] {
+  --close: wipe-iris;
+}
+.wipe[data-style="iris"] > span {
+  position: absolute;
+  inset: 0;
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent var(--iris), #000 calc(var(--iris) + 1px));
+  mask: radial-gradient(circle at 50% 50%, transparent var(--iris), #000 calc(var(--iris) + 1px));
+  animation-duration: 0.7s;
+  animation-timing-function: steps(14, end);
+}
+@keyframes wipe-iris {
+  from {
+    --iris: 75vmax;
+  }
+  to {
+    --iris: 0px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wipe {
+    display: none;
+  }
+}
