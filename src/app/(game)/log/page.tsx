@@ -21,7 +21,7 @@ import {
   searchTransactions,
 } from "@/lib/data";
 import { dayLabel, dayLong, money, parseMonth, shiftMonth, today } from "@/lib/format";
-import { getPlayer, summarizeMonth, walletHp } from "@/lib/game";
+import { getPlayer, payMonth, summarizeMonth, walletHp } from "@/lib/game";
 import { billsFor, dueLabel, leftAfterBills, openingTotal } from "@/lib/money";
 import { partnerAt, sprite } from "@/lib/partners";
 import type { Kind, Transaction } from "@/lib/types";
@@ -95,6 +95,7 @@ export default async function LogPage({
   const tossing = transactions.find((t) => t.id === params.del);
   const savedCategory = categories.find((c) => c.id === params.cat);
   const savedAmount = Number(params.saved);
+  const savedEntry = transactions.find((t) => t.id === params.id);
 
   // Categories keep the order they have in Setup, so each stays where your hand expects it.
   // The form opens on the kind, category and account you used last.
@@ -469,6 +470,7 @@ export default async function LogPage({
           partnerId={partnerId}
           names={names}
           entryId={params.id}
+          countsFor={savedCategory.kind === "income" && savedEntry ? payMonth(savedEntry.occurred_on) : undefined}
         />
       )}
 

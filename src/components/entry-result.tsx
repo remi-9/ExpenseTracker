@@ -24,6 +24,8 @@ export function EntryResult({
   names,
   entryId,
   from,
+  view,
+  countsFor,
 }: {
   kind: Kind;
   amount: number;
@@ -39,13 +41,19 @@ export function EntryResult({
   entryId: string;
   /** "home" when the entry was logged from Home, so Undo comes back there. */
   from?: "home";
+  /** On Home, the account being looked at, so Undo comes back to it. */
+  view?: string;
+  /** Income only: the month it counts for, when that is not the month it landed in (see payMonth). */
+  countsFor?: string;
 }) {
   const current = summarizeMonth(totals, month, opening);
   const player = getPlayer(totals);
   const gain = xpFor(kind, amount);
 
   // The totals already include this entry; take it off to see where things stood before.
-  const before = withEntry(current, kind, -amount);
+  // Pay brought forward is not in this month's totals at all, so nothing here moved.
+  const early = kind === "income" && !!countsFor && countsFor !== month;
+  const before = early ? current : withEntry(current, kind, -amount);
   const after = current;
   const levelBefore = withXp(player, -gain).level;
   const levelAfter = player.level;
@@ -67,6 +75,8 @@ export function EntryResult({
         ? `${name} fainted! ${monthLabel(month)} is ${money(-after.remaining)} over its pay.`
         : `${name} has ${money(Math.max(0, after.remaining))} HP left.`,
     );
+  } else if (early) {
+    lines.push(`${money(amount)} came in. It counts as pay for ${monthLabel(countsFor)}.`);
   } else if (kind === "income") {
     lines.push(`${name} recovered ${money(amount)} HP!`);
   } else {
@@ -119,6 +129,7 @@ export function EntryResult({
           <input type="hidden" name="m" value={month} />
           <input type="hidden" name="undo" value="1" />
           {from && <input type="hidden" name="from" value={from} />}
+          {view && <input type="hidden" name="a" value={view} />}
           <SubmitButton className="btn" pending="Undoing…" sfx="delete">
             Undo
           </SubmitButton>
