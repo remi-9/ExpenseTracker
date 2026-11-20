@@ -59,6 +59,116 @@ export function accountHealth(balances: Balance[], monthEntries: Movement[]): Ac
   });
 }
 
+// ---- One account's month --------------------------------------------------------------
+
+type DatedMovement = Movement & { occurred_on: string };
+type DatedTransfer = Pick<Transfer, "from_account" | "to_account" | "amount" | "occurred_on">;
+
+export type AccountMonth = {
+  /** Spent from the account. */
+  spent: number;
+  /** Set aside from the account, whether the money stayed there or was moved on. */
+  saved: number;
+  /** Income paid into the account. */
+  cameIn: number;
+  /** Transfers, and savings moved between accounts: neither income nor spending. */
+  movedIn: number;
+  movedOut: number;
+  /** The account's spending by category, largest first. */
+  went: { category_id: string; total: number }[];
+};
+
+/**
+ * What happened in one account, from a month's entries and transfers. Pass null for
+ * every account together: then moving money between them is not a movement at all.
+ */
+export function accountMonth(
+  accountId: string | null,
+  entries: (Movement & { category_id: string })[],
+  transfers: Pick<Transfer, "from_account" | "to_account" | "amount">[],
+): AccountMonth {
+  const month: AccountMonth = { spent: 0, saved: 0, cameIn: 0, movedIn: 0, movedOut: 0, went: [] };
+  const byCategory = new Map<string, number>();
+  for (const e of entries) {
+    const { kind } = e.category;
+    if (accountId === null || e.account_id === accountId) {
+      if (kind === "income") month.cameIn += e.amount;
+      else if (kind === "saving") month.saved += e.amount;
+      else {
+        month.spent += e.amount;
+        byCategory.set(e.category_id, (byCategory.get(e.category_id) ?? 0) + e.amount);
+      }
+    }
+    if (accountId !== null && kind === "saving" && e.to_account_id) {
+      if (e.account_id === accountId) month.movedOut += e.amount;
+      if (e.to_account_id === accountId) month.movedIn += e.amount;
+    }
+  }
+  if (accountId !== null) {
+    for (const t of transfers) {
+      if (t.from_account === accountId) month.movedOut += t.amount;
+      if (t.to_account === accountId) month.movedIn += t.amount;
+    }
+  }
+  month.went = [...byCategory].map(([category_id, total]) => ({ category_id, total })).sort((a, b) => b.total - a.total);
+  return month;
+}
+
+/**
+ * Each dated change to an account's balance: money in is positive, money out negative.
+ * Pass null for every account together, where only income and spending change the total.
+ */
+export function accountDeltas(
+  accountId: string | null,
+  entries: DatedMovement[],
+  transfers: DatedTransfer[],
+): { occurred_on: string; delta: number }[] {
+  const deltas: { occurred_on: string; delta: number }[] = [];
+  const add = (occurred_on: string, delta: number) => deltas.push({ occurred_on, delta });
+  for (const e of entries) {
+    const { kind } = e.category;
+    const mine = accountId === null || e.account_id === accountId;
+    if (kind === "income" && mine) add(e.occurred_on, e.amount);
+    else if (kind === "expense" && mine) add(e.occurred_on, -e.amount);
+    else if (kind === "saving" && accountId !== null && e.to_account_id) {
+      if (e.account_id === accountId) add(e.occurred_on, -e.amount);
+      if (e.to_account_id === accountId) add(e.occurred_on, e.amount);
+    }
+  }
+  if (accountId !== null) {
+    for (const t of transfers) {
+      if (t.from_account === accountId) add(t.occurred_on, -t.amount);
+      if (t.to_account === accountId) add(t.occurred_on, t.amount);
+    }
+  }
+  return deltas;
+}
+
+/**
+ * The balance at the end of each day of `month` (YYYY-MM), up to `today`, worked back
+ * from what the account holds now. `deltas` are its changes from the first of the month onwards.
+ */
+export function dailyBalances(
+  closing: number,
+  deltas: { occurred_on: string; delta: number }[],
+  month: string,
+  today: string,
+): { opening: number; days: { date: string; balance: number }[] } {
+  const centavos = (n: number) => Math.round(n * 100);
+  const first = `${month}-01`;
+  const since = deltas.filter((d) => d.occurred_on >= first);
+  const opening = centavos(closing) - since.reduce((sum, d) => sum + centavos(d.delta), 0);
+  const days: { date: string; balance: number }[] = [];
+  let running = opening;
+  for (let day = 1; day <= daysIn(month); day++) {
+    const date = `${month}-${String(day).padStart(2, "0")}`;
+    if (date > today) break;
+    for (const d of since) if (d.occurred_on === date) running += centavos(d.delta);
+    days.push({ date, balance: running / 100 });
+  }
+  return { opening: opening / 100, days };
+}
+
 /** The total of every account's opening balance: the starting point for "Money". */
 export const openingTotal = (accounts: Account[]) => accounts.reduce((sum, a) => sum + a.opening_balance, 0);
 
@@ -92,10 +202,10 @@ export const gapCategory = (categories: Pick<Category, "id" | "name" | "kind">[]
 
 // ---- Bills -------------------------------------------------------------------------
 
-const daysIn = (month: string) => {
+function daysIn(month: string) {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
-};
+}
 
 /** The date a bill falls due in a month (YYYY-MM). Day 31 becomes the last day of a shorter month. */
 export const dueDate = (bill: Pick<Bill, "due_day">, month: string) =>

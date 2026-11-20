@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
   accountBalances,
+  accountDeltas,
   accountHealth,
+  accountMonth,
   amuletEarned,
   balanceGap,
   balanceOn,
   billsFor,
+  dailyBalances,
   dueDate,
   dueLabel,
   gapCategory,
@@ -272,5 +275,129 @@ describe("what an account held on a given day", () => {
     expect(balanceOn(account, entries, transfers, "2026-11-03")).toBe(700);
     expect(balanceOn(account, entries, transfers, "2026-11-05")).toBe(500);
     expect(balanceOn(account, entries, transfers, "2026-11-30")).toBe(5500);
+  });
+});
+
+// ---- One account's month ------------------------------------------------------------
+
+const dated = (
+  kind: Kind,
+  amount: number,
+  occurred_on: string,
+  account_id: string | null,
+  over: { to_account_id?: string | null; category_id?: string } = {},
+) => ({ amount, occurred_on, account_id, to_account_id: over.to_account_id ?? null, category_id: over.category_id ?? kind, category: { kind } });
+const moved = (from_account: string, to_account: string, amount: number, occurred_on: string) => ({ from_account, to_account, amount, occurred_on });
+
+describe("accountMonth", () => {
+  test("spent is what was spent from the account, not from the others", () => {
+    const month = accountMonth("bank", [dated("expense", 300, "2026-11-03", "bank"), dated("expense", 50, "2026-11-04", "cash")], []);
+    expect(month.spent).toBe(300);
+  });
+
+  test("saved is what was set aside from the account, wherever it went", () => {
+    const entries = [
+      dated("saving", 1000, "2026-11-05", "bank"),
+      dated("saving", 500, "2026-11-06", "bank", { to_account_id: "vault" }),
+      dated("saving", 200, "2026-11-06", "cash", { to_account_id: "bank" }),
+    ];
+    expect(accountMonth("bank", entries, []).saved).toBe(1500);
+  });
+
+  test("money in is the income paid into the account", () => {
+    const month = accountMonth("bank", [dated("income", 9000, "2026-11-10", "bank"), dated("income", 700, "2026-11-11", "cash")], []);
+    expect(month.cameIn).toBe(9000);
+  });
+
+  test("moved counts transfers, and savings sent to or from another account", () => {
+    const entries = [dated("saving", 500, "2026-11-06", "bank", { to_account_id: "vault" }), dated("saving", 200, "2026-11-06", "cash", { to_account_id: "bank" })];
+    const transfers = [moved("bank", "cash", 3000, "2026-11-02"), moved("cash", "bank", 100, "2026-11-09")];
+    const month = accountMonth("bank", entries, transfers);
+    expect(month.movedOut).toBe(3500);
+    expect(month.movedIn).toBe(300);
+  });
+
+  test("where it went lists the account's spending by category, largest first", () => {
+    const entries = [
+      dated("expense", 100, "2026-11-03", "bank", { category_id: "food" }),
+      dated("expense", 900, "2026-11-04", "bank", { category_id: "rent" }),
+      dated("expense", 150, "2026-11-08", "bank", { category_id: "food" }),
+      dated("expense", 999, "2026-11-08", "cash", { category_id: "fun" }),
+    ];
+    expect(accountMonth("bank", entries, []).went).toEqual([
+      { category_id: "rent", total: 900 },
+      { category_id: "food", total: 250 },
+    ]);
+  });
+
+  test("with no account named it covers every account, and nothing counts as moved", () => {
+    const entries = [
+      dated("expense", 300, "2026-11-03", "bank"),
+      dated("expense", 50, "2026-11-04", null),
+      dated("saving", 500, "2026-11-06", "bank", { to_account_id: "vault" }),
+      dated("income", 9000, "2026-11-10", "cash"),
+    ];
+    const month = accountMonth(null, entries, [moved("bank", "cash", 3000, "2026-11-02")]);
+    expect(month).toMatchObject({ spent: 350, saved: 500, cameIn: 9000, movedIn: 0, movedOut: 0 });
+  });
+});
+
+describe("accountDeltas", () => {
+  test("gives each movement its sign for the account: income in, spending and transfers out", () => {
+    const entries = [dated("income", 9000, "2026-11-10", "bank"), dated("expense", 300, "2026-11-03", "bank"), dated("expense", 50, "2026-11-04", "cash")];
+    const deltas = accountDeltas("bank", entries, [moved("bank", "cash", 3000, "2026-11-02")]);
+    expect(deltas).toEqual([
+      { occurred_on: "2026-11-10", delta: 9000 },
+      { occurred_on: "2026-11-03", delta: -300 },
+      { occurred_on: "2026-11-02", delta: -3000 },
+    ]);
+  });
+
+  test("a saving that stays in the account does not move its balance", () => {
+    expect(accountDeltas("bank", [dated("saving", 1000, "2026-11-05", "bank")], [])).toEqual([]);
+  });
+
+  test("for every account together, only income and spending count", () => {
+    const entries = [dated("income", 9000, "2026-11-10", "bank"), dated("expense", 50, "2026-11-04", null), dated("saving", 500, "2026-11-06", "bank", { to_account_id: "vault" })];
+    const deltas = accountDeltas(null, entries, [moved("bank", "cash", 3000, "2026-11-02")]);
+    expect(deltas).toEqual([
+      { occurred_on: "2026-11-10", delta: 9000 },
+      { occurred_on: "2026-11-04", delta: -50 },
+    ]);
+  });
+});
+
+describe("dailyBalances", () => {
+  const deltas = [
+    { occurred_on: "2026-11-02", delta: -3000 },
+    { occurred_on: "2026-11-02", delta: -200 },
+    { occurred_on: "2026-11-04", delta: 500 },
+  ];
+
+  test("works back from what the account holds now to what it held as the month began", () => {
+    expect(dailyBalances(10000, deltas, "2026-11", "2026-11-05").opening).toBe(12700);
+  });
+
+  test("gives the balance at the end of each day, up to today", () => {
+    const { days } = dailyBalances(10000, deltas, "2026-11", "2026-11-05");
+    expect(days.map((d) => d.balance)).toEqual([12700, 9500, 9500, 10000, 10000]);
+    expect(days[4].date).toBe("2026-11-05");
+  });
+
+  test("a past month runs to its last day and leaves out what came after it", () => {
+    const later = [...deltas, { occurred_on: "2026-12-03", delta: -1000 }];
+    const { opening, days } = dailyBalances(9000, later, "2026-11", "2026-12-10");
+    expect(opening).toBe(12700);
+    expect(days).toHaveLength(30);
+    expect(days[29]).toEqual({ date: "2026-11-30", balance: 10000 });
+  });
+
+  test("a month that has not begun has no days", () => {
+    expect(dailyBalances(10000, [], "2026-12", "2026-11-20").days).toEqual([]);
+  });
+
+  test("keeps centavos exact", () => {
+    const { days } = dailyBalances(0.3, [{ occurred_on: "2026-11-01", delta: 0.1 }, { occurred_on: "2026-11-01", delta: 0.2 }], "2026-11", "2026-11-01");
+    expect(days[0].balance).toBe(0.3);
   });
 });
