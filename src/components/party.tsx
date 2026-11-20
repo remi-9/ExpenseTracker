@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
 // The party screen: the lead Pokémon in a large panel on the left, the rest of
 // the team stacked on the right, each with its level and HP bar.
-import { TYPE_COLOR, TYPES, type Battler } from "@/lib/fight";
+import { ITEMS, STATUS_NAME, TYPE_COLOR, TYPES, type Battler } from "@/lib/fight";
 import { sprite } from "@/lib/partners";
 
 export function Type({ id }: { id: number }) {
@@ -27,6 +27,7 @@ export function PartyScreen({
   active,
   onPick,
   note,
+  pickFainted,
 }: {
   party: Battler[];
   /** Index of the Pokémon currently in battle, if any. */
@@ -35,6 +36,8 @@ export function PartyScreen({
   onPick?: (index: number) => void;
   /** Small label under each name, e.g. "Partner" for the lead. */
   note?: (index: number) => string | undefined;
+  /** Lets fainted Pokémon be picked too (to hold an item, say). */
+  pickFainted?: boolean;
 }) {
   return (
     <div className="party" data-menu>
@@ -57,8 +60,15 @@ export function PartyScreen({
             )}
             <span className="party-info">
               <span className="flex items-baseline justify-between gap-2">
-                <span className="truncate font-display text-[0.6rem] leading-relaxed uppercase">{p.name}</span>
-                <span className="shrink-0">Lv{p.level}</span>
+                <span className="flex min-w-0 items-center gap-1">
+                  <span className="truncate font-display text-[0.6rem] leading-relaxed uppercase">{p.name}</span>
+                  {p.item && (
+                    <img src={sprite.item(p.item)} alt={ITEMS[p.item].name} title={`${ITEMS[p.item].name}: ${ITEMS[p.item].text}`} width={20} height={20} className="pixel shrink-0" />
+                  )}
+                </span>
+                <span className="shrink-0">
+                  {p.status && <span className={`status status-${p.status}`}>{STATUS_NAME[p.status]}</span>} Lv{p.level}
+                </span>
               </span>
               <HpBar who={p} />
               <span className="flex justify-between gap-2 leading-none">
@@ -72,7 +82,7 @@ export function PartyScreen({
         );
         const className = `party-slot ${i === 0 ? "lead" : ""} ${state}`;
         return onPick ? (
-          <button key={i} className={className} data-sfx="none" disabled={p.hp <= 0 || i === active} onClick={() => onPick(i)}>
+          <button key={i} className={className} data-sfx="none" disabled={(p.hp <= 0 && !pickFainted) || i === active} onClick={() => onPick(i)}>
             {body}
           </button>
         ) : (

@@ -2,20 +2,22 @@
 import { PartnerSprite } from "@/components/partner";
 import { Chest, Shield } from "@/components/sprite";
 import { Bar, CategoryIcon, MonthPicker, Panel } from "@/components/ui";
-import { getCategories, getCaught, getMonthTotals, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
+import { getAccounts, getCategories, getCaught, getMonthTotals, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
 import { money, monthLabel, parseMonth } from "@/lib/format";
 import { BADGES, getPlayer, getQuests, isShiny, REGIONS, summarizeMonth } from "@/lib/game";
+import { openingTotal } from "@/lib/money";
 import { partnerAt, sprite, TRAINERS } from "@/lib/partners";
 
 export default async function QuestsPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
   const month = parseMonth((await searchParams).m);
-  const [categories, totals, partnerId, trainerId, names, caught] = await Promise.all([
+  const [categories, totals, partnerId, trainerId, names, caught, accounts] = await Promise.all([
     getCategories(),
     getMonthTotals(),
     getPartnerId(),
     getTrainerId(),
     getPokemonNames(),
     getCaught(),
+    getAccounts(),
   ]);
   const player = getPlayer(totals);
   const partner = partnerAt(partnerId, player.level, names);
@@ -25,8 +27,8 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
   const shiny = isShiny(quests, summarizeMonth(totals, month));
   const badges = BADGES.map((b) => ({ ...b, has: b.earned({ player, totals, categories, caught: caught.length }) }));
 
-  // Trainer card facts. "Money" is the bank balance as of the current month.
-  const balance = summarizeMonth(totals, parseMonth()).balance;
+  // Trainer card facts. "Money" is everything you hold as of the current month.
+  const balance = summarizeMonth(totals, parseMonth(), openingTotal(accounts)).balance;
   const firstMonth = totals.map((t) => t.month).sort()[0];
   const facts: [string, string][] = [
     ["Name", trainer.name],

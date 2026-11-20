@@ -1,12 +1,22 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
 import Link from "next/link";
+import { AccountParty } from "@/components/accounts";
 import { PaySplit, StepLine } from "@/components/charts";
+import { EntryResult } from "@/components/entry-result";
+import { LowHpAlarm } from "@/components/nav";
 import { PartnerPicker, PartnerSprite, type Mood } from "@/components/partner";
 import { Scene } from "@/components/scene";
+import { PlayOnMount } from "@/components/sound";
+import { SubmitButton } from "@/components/submit";
 import { Typewriter } from "@/components/typewriter";
-import { Bar, EntryList, hpTone, MonthPicker, Panel } from "@/components/ui";
+import { Bar, Dialog, EntryList, hpTone, MonthPicker, Panel } from "@/components/ui";
 import { WildPokemon } from "@/components/wild";
+import { addTransaction } from "@/lib/actions";
 import {
+  getAccountNet,
+  getAccounts,
+  getBillPayments,
+  getBills,
   getCategories,
   getCaught,
   getMonthTotals,
@@ -15,9 +25,13 @@ import {
   getTrainerId,
   getTransactions,
 } from "@/lib/data";
-import { money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
+import { money, monthLabel, parseMonth, shiftMonth, today } from "@/lib/format";
 import { getPlayer, getQuests, isShiny, summarizeMonth, walletHp, type MonthSummary } from "@/lib/game";
+import { accountBalances, accountHealth, billsFor, dueLabel, leftAfterBills, needsPaying, openingTotal } from "@/lib/money";
 import { partnerAt, sprite } from "@/lib/partners";
+import type { Kind } from "@/lib/types";
+
+const KIND_LABEL: Record<Kind, string> = { expense: "Spent on", income: "Earned from", saving: "Saved into" };
 
 function moodFor(s: MonthSummary): Mood {
   if (s.income === 0) return s.expense > 0 ? "worried" : "happy";
@@ -34,9 +48,23 @@ function narrate(s: MonthSummary, month: string, name: string): string {
   return `${name} is in good shape. ${money(s.remaining)} left from ${label}'s pay.`;
 }
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
-  const month = parseMonth((await searchParams).m);
-  const [categories, totals, transactions, partnerId, trainerId, caught, names] = await Promise.all([
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    m?: string;
+    /** Set by a quick log: what was saved, to play its result here. */
+    saved?: string;
+    cat?: string;
+    acct?: string;
+    id?: string;
+    t?: string;
+    error?: string;
+  }>;
+}) {
+  const params = await searchParams;
+  const month = parseMonth(params.m);
+  const [categories, totals, transactions, partnerId, trainerId, caught, names, accounts, net, bills, payments] = await Promise.all([
     getCategories(),
     getMonthTotals(),
     getTransactions(month),
@@ -44,9 +72,14 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
     getTrainerId(),
     getCaught(),
     getPokemonNames(),
+    getAccounts(),
+    getAccountNet(),
+    getBills(),
+    getBillPayments(month),
   ]);
 
-  const summary = summarizeMonth(totals, month);
+  const opening = openingTotal(accounts);
+  const summary = summarizeMonth(totals, month, opening);
   const player = getPlayer(totals);
   const partner = partnerAt(partnerId, player.level, names);
 
@@ -82,25 +115,49 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
   const lines = [narrate(summary, month, partner.name)];
   if (topHit && topName) lines.push(`Its toughest opponent so far is ${topName}, at ${money(topHit.total)}.`);
   if (shiny) lines.push(`Every quest is complete, so ${partner.name} is shining this month!`);
-  // What comes round every month and has not been logged yet.
-  const waiting = categories.filter(
-    (c) => c.is_fixed && !c.archived_at && !totals.some((t) => t.month === `${month}-01` && t.category_id === c.id),
-  );
-  if (waiting.length > 0) {
-    const first = waiting.slice(0, 3).map((c) => c.name).join(", ");
-    lines.push(`Still to log this month: ${first}${waiting.length > 3 ? ` and ${waiting.length - 3} more` : ""}.`);
+  // Bills that are overdue or due within a week come first; otherwise the next savings quest.
+  const statuses = billsFor(month, bills, payments, today());
+  const pressing = needsPaying(statuses);
+  if (pressing.length > 0) {
+    const first = pressing.slice(0, 3).map((s) => `${s.bill.name} (${dueLabel(s, today()).toLowerCase()})`).join(", ");
+    lines.push(`Bills to pay: ${first}${pressing.length > 3 ? ` and ${pressing.length - 3} more` : ""}.`);
   } else if (nextQuest) {
     lines.push(`Set aside ${money(nextQuest.target - nextQuest.done)} more in ${nextQuest.category.name} to finish a quest.`);
   }
+  const kindOf = new Map(categories.map((c) => [c.id, c.kind]));
+  const afterBills = leftAfterBills(summary.remaining, statuses, kindOf);
+  if (afterBills !== summary.remaining) {
+    lines.push(
+      afterBills >= 0
+        ? `Once the bills still to pay are set aside, ${money(afterBills)} is free to spend.`
+        : `The bills still to pay come to ${money(-afterBills)} more than what is left.`,
+    );
+  }
+
+  // Each account as a party member. Archived ones only show while they still hold something.
+  const party = accountHealth(accountBalances(accounts, net), transactions).filter(
+    (row) => !row.account.archived_at || row.balance !== 0,
+  );
+  const usable = accounts.filter((a) => !a.archived_at);
+  const savedCategory = categories.find((c) => c.id === params.cat);
+  const savedAmount = Number(params.saved);
 
   // Bank balance at the end of each of the last six months.
   const balances = [-5, -4, -3, -2, -1, 0].map((n) => {
     const m = shiftMonth(month, n);
-    return { label: monthLabel(m).slice(0, 3), value: summarizeMonth(totals, m).balance };
+    return { label: monthLabel(m).slice(0, 3), value: summarizeMonth(totals, m, opening).balance };
   });
 
   return (
     <>
+      {params.error && (
+        <>
+          <PlayOnMount sounds={["error"]} />
+          <Dialog tone="error">{params.error}</Dialog>
+        </>
+      )}
+      {/* The low-HP chirp, when this month's pay is nearly gone. */}
+      {summary.income > 0 && hp <= 0.2 && month === parseMonth() && <LowHpAlarm />}
       <MonthPicker month={month} path="/" />
 
       <section className="box p-0!" aria-label="Wallet status">
@@ -168,6 +225,76 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
         </nav>
       </div>
 
+      {savedAmount > 0 && savedCategory && params.id && (
+        <EntryResult
+          key={params.t}
+          kind={savedCategory.kind}
+          amount={savedAmount}
+          categoryName={savedCategory.name}
+          month={month}
+          totals={totals}
+          opening={opening}
+          partnerId={partnerId}
+          names={names}
+          entryId={params.id}
+          from="home"
+        />
+      )}
+
+      {/* One line to log something without leaving Home. Re-keyed after a save so it clears. */}
+      <Panel
+        title="Quick log"
+        aside={
+          <Link href="/log" className="underline">
+            Full form
+          </Link>
+        }
+      >
+        <form key={params.t ?? "new"} action={addTransaction} className="quick-log">
+          <input type="hidden" name="from" value="home" />
+          <input type="hidden" name="when" value="today" />
+          <input name="amount" inputMode="decimal" autoComplete="off" required placeholder="₱ amount" aria-label="Amount" className="field" />
+          <select name="category_id" required aria-label="Category" defaultValue={params.cat ?? ""} className="field">
+            {(Object.keys(KIND_LABEL) as Kind[]).map((kind) => (
+              <optgroup key={kind} label={KIND_LABEL[kind]}>
+                {categories
+                  .filter((c) => c.kind === kind && !c.archived_at)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
+          </select>
+          {usable.length > 0 && (
+            <select name="account" aria-label="Account" defaultValue={params.acct ?? usable[0].id} className="field">
+              {usable.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <SubmitButton className="btn btn-primary" sfx="none">
+            Log
+          </SubmitButton>
+        </form>
+      </Panel>
+
+      {party.length > 0 && (
+        <Panel
+          title="Accounts"
+          aside={
+            <Link href="/accounts" className="underline">
+              Manage
+            </Link>
+          }
+        >
+          <AccountParty rows={party} />
+        </Panel>
+      )}
+
       <div className="tiles">
         <Panel title={`${monthLabel(month).split(" ")[0]}'s pay`} aside={<span>{money(summary.income)}</span>}>
           {summary.income === 0 && summary.expense === 0 ? (
@@ -177,8 +304,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ m
           )}
         </Panel>
 
-        <Panel title="Bank balance" aside={<span>{money(summary.balance)}</span>}>
-          <StepLine points={balances} label="Bank balance at the end of each of the last six months" />
+        <Panel title="Money" aside={<span>{money(summary.balance)}</span>}>
+          <StepLine points={balances} label="Everything you hold at the end of each of the last six months" />
         </Panel>
       </div>
 

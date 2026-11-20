@@ -4,13 +4,16 @@ import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
+import { parseCsv, planImport } from "./csv";
 import { parseAmount, today, yesterday } from "./format";
-import { getCaught, getCategories, getDemoEdits, getMonthTotals, getTeam } from "./data";
-import { DEMO_LIMIT, type DemoEdits } from "./demo";
+import { getAccounts, getBills, getCaught, getCategories, getDemoEdits, getMonthTotals, getTeam } from "./data";
+import { DEMO_LIMIT, DEMO_TRANSFER_LIMIT, encodeEdits, type DemoEdits } from "./demo";
 import { PATTERNS, TONES } from "./backdrop";
+import { dueDate } from "./money";
 import { FRAMES, SPEEDS } from "./options";
 import { DEFAULT_ICON, MAX_DEX, PARTNERS, PRESETS, TRAINERS } from "./partners";
-import type { Kind } from "./types";
+import type { Run, RunSummary } from "./run";
+import type { AccountKind, Kind } from "./types";
 import { createClient } from "./supabase/server";
 
 const fail = (path: string, message: string): never =>
@@ -22,11 +25,23 @@ async function db(path: string) {
 }
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
+const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+const YEAR = 60 * 60 * 24 * 365;
+/** A short id for something added in demo mode. */
+const demoId = (prefix: string) => `${prefix}-${Date.now().toString(36)}`;
 
-type Entry = { category_id: string; amount: number; occurred_on: string; note: string | null };
+type Entry = {
+  category_id: string;
+  amount: number;
+  occurred_on: string;
+  note: string | null;
+  account_id: string | null;
+  to_account_id: string | null;
+  bill_id: string | null;
+};
 
 const writeDemo = async (edits: DemoEdits) =>
-  (await cookies()).set("demo", JSON.stringify(edits), { maxAge: YEAR, sameSite: "lax" });
+  (await cookies()).set("demo", encodeEdits(edits), { maxAge: YEAR, sameSite: "lax" });
 
 /** Reads the entry form. Sends the user back with a message if something is missing. */
 async function readEntry(form: FormData, back: string): Promise<Entry> {
@@ -40,14 +55,26 @@ async function readEntry(form: FormData, back: string): Promise<Entry> {
 
   const when = text(form, "when");
   const occurred_on = when === "yesterday" ? yesterday() : when === "today" ? today() : text(form, "occurred_on") || today();
-  return { category_id, amount: amount!, occurred_on, note: text(form, "note") || null };
+  if (!isDate(occurred_on)) fail(back, "That date is not one I can read.");
+  const account_id = text(form, "account") || null;
+  // Savings can be moved to another account; anything else stays with the one account.
+  const to = kind === "saving" ? text(form, "to_account") : "";
+  return {
+    category_id,
+    amount: amount!,
+    occurred_on,
+    note: text(form, "note") || null,
+    account_id,
+    to_account_id: to && to !== account_id ? to : null,
+    bill_id: text(form, "bill_id") || null,
+  };
 }
 
 /** Saves a new entry and returns its id. Demo mode keeps it in a cookie instead. */
 async function insertEntry(entry: Entry, back: string): Promise<string> {
   if (!isSupabaseConfigured) {
     const edits = await getDemoEdits();
-    const id = `mine-${Date.now()}`;
+    const id = demoId("mine");
     await writeDemo({ ...edits, added: [...edits.added, { id, ...entry }].slice(-DEMO_LIMIT) });
     return id;
   }
@@ -63,6 +90,7 @@ async function removeEntry(id: string, back: string) {
     const edits = await getDemoEdits();
     const mine = edits.added.some((e) => e.id === id);
     return writeDemo({
+      ...edits,
       added: edits.added.filter((e) => e.id !== id),
       removed: mine ? edits.removed : [...edits.removed, id],
     });
@@ -73,8 +101,11 @@ async function removeEntry(id: string, back: string) {
   revalidatePath("/", "layout");
 }
 
-/** Where to land after a save, with what the Log page needs to play the result and keep your choices. */
-async function afterSave(entry: Entry, id: string): Promise<never> {
+/**
+ * Where to land after a save, with what the page needs to play the result and keep
+ * your choices. Entries logged from Home play their result there; the rest on Log.
+ */
+async function afterSave(entry: Entry, id: string, from?: string): Promise<never> {
   const kind = (await getCategories()).find((c) => c.id === entry.category_id)?.kind ?? "expense";
   const result = new URLSearchParams({
     m: entry.occurred_on.slice(0, 7),
@@ -84,25 +115,35 @@ async function afterSave(entry: Entry, id: string): Promise<never> {
     id,
     t: String(Date.now()),
   });
-  return redirect(`/log?${result}`);
+  if (entry.account_id) result.set("acct", entry.account_id);
+  return redirect(`${from === "home" ? "/" : "/log"}?${result}`);
 }
 
 export async function addTransaction(form: FormData) {
-  const entry = await readEntry(form, "/log");
-  return afterSave(entry, await insertEntry(entry, "/log"));
+  const from = text(form, "from");
+  const back = from === "home" ? "/" : "/log";
+  const entry = await readEntry(form, back);
+  return afterSave(entry, await insertEntry(entry, back), from);
 }
 
-/** One tap from the monthly checklist: the category and amount, dated today (or in the month being viewed). */
-export async function logMonthly(form: FormData) {
+/** Pay a bill from the bills list: its category and account, the amount typed, on the date chosen. */
+export async function payBill(form: FormData) {
   const month = text(form, "m");
   const back = `/log?m=${month}`;
+  const bill = (await getBills()).find((b) => b.id === text(form, "bill_id"));
+  if (!bill) fail(back, "That bill no longer exists.");
   const amount = parseAmount(text(form, "amount"));
   if (amount === null || amount <= 0) fail(back, "Enter an amount, like 1500.");
+  const typed = text(form, "occurred_on");
   const entry: Entry = {
-    category_id: text(form, "category_id"),
+    category_id: bill!.category_id,
     amount: amount!,
-    occurred_on: today().startsWith(month) || !month ? today() : `${month}-01`,
-    note: null,
+    // Today when paying this month's bill; its due date when catching up on another month.
+    occurred_on: isDate(typed) ? typed : today().startsWith(month) || !month ? today() : dueDate(bill!, month),
+    note: bill!.name,
+    account_id: text(form, "account") || bill!.account_id,
+    to_account_id: null,
+    bill_id: bill!.id,
   };
   return afterSave(entry, await insertEntry(entry, back));
 }
@@ -121,19 +162,23 @@ export async function updateTransaction(form: FormData) {
     const edits = await getDemoEdits();
     const mine = edits.added.some((e) => e.id === id);
     await writeDemo({
-      added: [...edits.added.filter((e) => e.id !== id), { id: `mine-${Date.now()}`, ...entry }].slice(-DEMO_LIMIT),
+      ...edits,
+      added: [...edits.added.filter((e) => e.id !== id), { id: demoId("mine"), ...entry }].slice(-DEMO_LIMIT),
       removed: mine ? edits.removed : [...edits.removed, id],
     });
   }
   redirect(`/log?m=${entry.occurred_on.slice(0, 7)}&done=updated`);
 }
 
-/** Toss an entry. `undo=1` is the Undo button right after a save, which lands back on the form. */
+/** Toss an entry. `undo=1` is the Undo button right after a save, which lands back where it was logged. */
 export async function deleteTransaction(form: FormData) {
   const month = text(form, "m");
-  await removeEntry(text(form, "id"), `/log?m=${month}`);
-  redirect(`/log?m=${month}&done=${form.get("undo") ? "undone" : "tossed"}`);
+  const home = text(form, "from") === "home";
+  await removeEntry(text(form, "id"), home ? "/" : `/log?m=${month}`);
+  redirect(home ? "/" : `/log?m=${month}&done=${form.get("undo") ? "undone" : "tossed"}`);
 }
+
+// ---- Categories --------------------------------------------------------------------
 
 export async function addCategory(form: FormData) {
   const supabase = await db("/setup");
@@ -146,7 +191,6 @@ export async function addCategory(form: FormData) {
     name,
     kind,
     icon: text(form, "emoji") || text(form, "icon") || DEFAULT_ICON[kind],
-    is_fixed: form.get("is_fixed") === "on",
     monthly_target: target ? Number(target) : null,
   });
   if (error) {
@@ -167,18 +211,6 @@ export async function addPreset(form: FormData) {
   redirect("/setup");
 }
 
-/** Whether a category happens every month, which puts it on the monthly checklist. */
-export async function setCategoryMonthly(form: FormData) {
-  const supabase = await db("/setup");
-  const { error } = await supabase
-    .from("categories")
-    .update({ is_fixed: form.get("monthly") === "1" })
-    .eq("id", text(form, "id"));
-  if (error) fail("/setup", error.message);
-  revalidatePath("/", "layout");
-  redirect(`/setup?s=bag&pocket=${text(form, "pocket")}&c=${text(form, "id")}`);
-}
-
 /** Archive hides a category from forms but keeps its history. Unarchive brings it back. */
 export async function setCategoryArchived(form: FormData) {
   const supabase = await db("/setup");
@@ -189,6 +221,205 @@ export async function setCategoryArchived(form: FormData) {
   if (error) fail("/setup", error.message);
   revalidatePath("/", "layout");
   redirect("/setup");
+}
+
+// ---- Accounts and transfers ----------------------------------------------------------
+
+const ACCOUNT_KINDS: AccountKind[] = ["bank", "ewallet", "cash", "card"];
+const DEFAULT_ACCOUNT_ICON: Record<AccountKind, string> = {
+  bank: "pkmn-143",
+  ewallet: "pkmn-137",
+  cash: "pkmn-52",
+  card: "pkmn-352",
+};
+
+/** Add an account, or change one when the form carries its id. */
+export async function saveAccount(form: FormData) {
+  const supabase = await db("/accounts");
+  const id = text(form, "id");
+  const back = id ? `/accounts?a=${id}` : "/accounts?new=1";
+  const name = text(form, "name");
+  if (!name) fail(back, "Give the account a name.");
+  const kind = ACCOUNT_KINDS.find((k) => k === text(form, "kind")) ?? "bank";
+  // An opening balance can be negative: a credit card that already carries a debt.
+  const opening = Number(text(form, "opening_balance").replace(/[\s,₱]/g, "") || 0);
+  if (!Number.isFinite(opening)) fail(back, "The opening balance has to be a number.");
+
+  const row = { name, kind, icon: text(form, "icon") || DEFAULT_ACCOUNT_ICON[kind], opening_balance: opening };
+  const { error } = id
+    ? await supabase.from("accounts").update(row).eq("id", id)
+    : await supabase.from("accounts").insert(row);
+  if (error) fail(back, error.code === "23505" ? `"${name}" already exists.` : error.message);
+  revalidatePath("/", "layout");
+  redirect(id ? `/accounts?a=${id}` : "/accounts");
+}
+
+/** Archive hides an account from forms but keeps its history and balance. */
+export async function setAccountArchived(form: FormData) {
+  const supabase = await db("/accounts");
+  const { error } = await supabase
+    .from("accounts")
+    .update({ archived_at: form.get("archive") === "1" ? new Date().toISOString() : null })
+    .eq("id", text(form, "id"));
+  if (error) fail("/accounts", error.message);
+  revalidatePath("/", "layout");
+  redirect("/accounts");
+}
+
+/** Move money between two of your accounts. */
+export async function addTransfer(form: FormData) {
+  const back = "/accounts?move=1";
+  const from_account = text(form, "from_account");
+  const to_account = text(form, "to_account");
+  const amount = parseAmount(text(form, "amount"));
+  const occurred_on = text(form, "occurred_on") || today();
+  if (!from_account || !to_account) fail(back, "Pick the account to move from and the one to move to.");
+  if (from_account === to_account) fail(back, "Pick two different accounts.");
+  if (amount === null || amount <= 0) fail(back, "Enter an amount above zero.");
+  if (!isDate(occurred_on)) fail(back, "That date is not one I can read.");
+  const transfer = { from_account, to_account, amount: amount!, occurred_on, note: text(form, "note") || null };
+
+  if (!isSupabaseConfigured) {
+    const edits = await getDemoEdits();
+    await writeDemo({ ...edits, transfers: [...edits.transfers, { id: demoId("tr"), ...transfer }].slice(-DEMO_TRANSFER_LIMIT) });
+  } else {
+    const supabase = await createClient();
+    const { error } = await supabase.from("transfers").insert(transfer);
+    if (error) fail(back, error.message);
+    revalidatePath("/", "layout");
+  }
+  redirect("/accounts?done=moved");
+}
+
+export async function deleteTransfer(form: FormData) {
+  const id = text(form, "id");
+  if (!isSupabaseConfigured) {
+    const edits = await getDemoEdits();
+    await writeDemo({ ...edits, transfers: edits.transfers.filter((t) => t.id !== id) });
+  } else {
+    const supabase = await createClient();
+    const { error } = await supabase.from("transfers").delete().eq("id", id);
+    if (error) fail("/accounts", error.message);
+    revalidatePath("/", "layout");
+  }
+  redirect("/accounts?done=unmoved");
+}
+
+// ---- Bills -------------------------------------------------------------------------
+
+/** Add a bill, or change one when the form carries its id. */
+export async function saveBill(form: FormData) {
+  const supabase = await db("/bills");
+  const id = text(form, "id");
+  const back = id ? `/bills?b=${id}` : "/bills?new=1";
+  const name = text(form, "name");
+  const category_id = text(form, "category_id");
+  const typed = text(form, "amount");
+  const amount = typed ? parseAmount(typed) : null;
+  const due_day = Number(text(form, "due_day"));
+  const yearly = text(form, "cadence") === "yearly";
+  const due_month = Number(text(form, "due_month"));
+  if (!name) fail(back, "Give the bill a name.");
+  if (!category_id) fail(back, "Pick the category it is logged under.");
+  if (typed && (amount === null || amount <= 0)) fail(back, "Enter an amount above zero, or leave it empty if it varies.");
+  if (!(due_day >= 1 && due_day <= 31)) fail(back, "The due day is a day of the month, 1 to 31.");
+  if (yearly && !(due_month >= 1 && due_month <= 12)) fail(back, "Pick the month a yearly bill falls due.");
+
+  const row = {
+    name,
+    category_id,
+    account_id: text(form, "account") || null,
+    amount,
+    due_day,
+    cadence: yearly ? "yearly" : "monthly",
+    due_month: yearly ? due_month : null,
+  };
+  const { error } = id ? await supabase.from("bills").update(row).eq("id", id) : await supabase.from("bills").insert(row);
+  if (error) fail(back, error.message);
+  revalidatePath("/", "layout");
+  redirect("/bills");
+}
+
+/** Archive takes a bill off the list but keeps the entries that paid it. */
+export async function setBillArchived(form: FormData) {
+  const supabase = await db("/bills");
+  const { error } = await supabase
+    .from("bills")
+    .update({ archived_at: form.get("archive") === "1" ? new Date().toISOString() : null })
+    .eq("id", text(form, "id"));
+  if (error) fail("/bills", error.message);
+  revalidatePath("/", "layout");
+  redirect("/bills");
+}
+
+// ---- Import ------------------------------------------------------------------------
+
+export type ImportResult = {
+  /** What was found, or what went wrong. */
+  message: string;
+  ok: boolean;
+  /** Lines that were left out, each with the reason. */
+  skipped: string[];
+  /** Entries were saved, so the form can clear. */
+  imported?: boolean;
+};
+
+/**
+ * Check a CSV file, or import it when the form's `mode` is "import". Categories and
+ * accounts named in the file that do not exist yet are created along the way.
+ */
+export async function importCsv(_: ImportResult | null, form: FormData): Promise<ImportResult> {
+  const [categories, accounts] = await Promise.all([getCategories(), getAccounts()]);
+  const plan = planImport(parseCsv(text(form, "csv")), categories, accounts);
+  const skipped = plan.skipped.slice(0, 20).map((s) => `Line ${s.line}: ${s.why}.`);
+  if (plan.error) return { ok: false, message: plan.error, skipped };
+  if (plan.entries.length === 0) return { ok: false, message: "There are no entries to import in that file.", skipped };
+
+  const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const extras = [
+    plan.newCategories.length > 0 && `${count(plan.newCategories.length, "new category", "new categories")} (${plan.newCategories.map((c) => c.name).join(", ")})`,
+    plan.newAccounts.length > 0 && `${count(plan.newAccounts.length, "new account")} (${plan.newAccounts.join(", ")})`,
+    plan.skipped.length > 0 && `${count(plan.skipped.length, "line")} skipped`,
+  ].filter(Boolean);
+  const found = `${count(plan.entries.length, "entry", "entries")}${extras.length ? `, ${extras.join(", ")}` : ""}`;
+
+  if (text(form, "mode") !== "import") return { ok: true, message: `Ready to import: ${found}.`, skipped };
+  if (!isSupabaseConfigured) return { ok: false, message: "Demo mode: connect Supabase to import entries.", skipped };
+
+  const supabase = await createClient();
+  if (plan.newCategories.length > 0) {
+    const { error } = await supabase
+      .from("categories")
+      .insert(plan.newCategories.map((c) => ({ ...c, icon: DEFAULT_ICON[c.kind] })));
+    if (error) return { ok: false, message: error.message, skipped };
+  }
+  if (plan.newAccounts.length > 0) {
+    const { error } = await supabase.from("accounts").insert(plan.newAccounts.map((name) => ({ name })));
+    if (error) return { ok: false, message: error.message, skipped };
+  }
+  const [cats, accts] = await Promise.all([
+    supabase.from("categories").select("id, name"),
+    supabase.from("accounts").select("id, name"),
+  ]);
+  if (cats.error || accts.error) return { ok: false, message: (cats.error ?? accts.error)!.message, skipped };
+  const categoryId = new Map(cats.data.map((c) => [c.name as string, c.id as string]));
+  const accountId = new Map(accts.data.map((a) => [a.name as string, a.id as string]));
+
+  const rows = plan.entries.map((e) => ({
+    category_id: categoryId.get(e.category)!,
+    amount: e.amount,
+    occurred_on: e.occurred_on,
+    note: e.note,
+    account_id: e.account ? (accountId.get(e.account) ?? null) : null,
+  }));
+  for (let at = 0; at < rows.length; at += 500) {
+    const { error } = await supabase.from("transactions").insert(rows.slice(at, at + 500));
+    if (error) {
+      return { ok: false, message: `Stopped after ${at} entries: ${error.message}`, skipped };
+    }
+  }
+  revalidatePath("/", "layout");
+  return { ok: true, imported: true, message: `Imported ${found}.`, skipped };
 }
 
 export async function signIn(form: FormData) {
@@ -212,15 +443,34 @@ export async function signOut() {
   redirect("/login");
 }
 
-const YEAR = 60 * 60 * 24 * 365;
+/**
+ * Save who you are playing as. It goes to the `players` table so it follows you
+ * between devices, and to a cookie, which is all demo mode has.
+ */
+async function savePlayer(choice: { partner?: string; trainer?: string; team?: number[] }) {
+  const jar = await cookies();
+  if (choice.partner) jar.set("partner", choice.partner, { maxAge: YEAR, sameSite: "lax" });
+  if (choice.trainer) jar.set("trainer", choice.trainer, { maxAge: YEAR, sameSite: "lax" });
+  if (choice.team) jar.set("team", choice.team.join("."), { maxAge: YEAR, sameSite: "lax" });
+  if (!isSupabaseConfigured) return;
+  const supabase = await createClient();
+  // The first save carries over whatever this browser had chosen so far.
+  const row = {
+    partner: choice.partner ?? jar.get("partner")?.value ?? null,
+    trainer: choice.trainer ?? jar.get("trainer")?.value ?? null,
+    team: choice.team ?? (await getTeam()),
+    updated_at: new Date().toISOString(),
+  };
+  const { data: existing } = await supabase.from("players").select("user_id").maybeSingle();
+  if (existing) await supabase.from("players").update({ ...choice, updated_at: row.updated_at }).eq("user_id", existing.user_id);
+  else await supabase.from("players").insert(row);
+  revalidatePath("/", "layout");
+}
 
-/** Partner and trainer are cosmetic preferences, so they live in cookies, not the database. */
 export async function choosePartner(form: FormData) {
   const id = text(form, "partner");
   const caught = id.startsWith("dex:") && (await getCaught()).includes(Number(id.slice(4)));
-  if (caught || PARTNERS.some((p) => p.id === id)) {
-    (await cookies()).set("partner", id, { maxAge: YEAR, sameSite: "lax" });
-  }
+  if (caught || PARTNERS.some((p) => p.id === id)) await savePlayer({ partner: id });
   redirect("/");
 }
 
@@ -230,17 +480,13 @@ export async function toggleTeam(form: FormData) {
   const team = await getTeam();
   const next = team.includes(dex) ? team.filter((d) => d !== dex) : [...team, dex];
   if (next.length > 5) fail("/dex", "Your team is full. Take someone off first.");
-  if ((await getCaught()).includes(dex)) {
-    (await cookies()).set("team", next.join("."), { maxAge: YEAR, sameSite: "lax" });
-  }
+  if ((await getCaught()).includes(dex)) await savePlayer({ team: next });
   redirect("/dex");
 }
 
 export async function chooseTrainer(form: FormData) {
   const id = text(form, "trainer");
-  if (TRAINERS.some((t) => t.id === id)) {
-    (await cookies()).set("trainer", id, { maxAge: YEAR, sameSite: "lax" });
-  }
+  if (TRAINERS.some((t) => t.id === id)) await savePlayer({ trainer: id });
   redirect("/setup?s=trainer");
 }
 
@@ -276,4 +522,34 @@ export async function catchPokemon(dex: number): Promise<{ ok: boolean; message?
   }
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+/** Save the expedition in progress. Called after every step; demo mode saves in the browser instead. */
+export async function saveRun(run: Run): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const supabase = await createClient();
+  await supabase
+    .from("expedition_saves")
+    .upsert({ step: run.step, state: run, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+}
+
+/** Record a finished expedition and clear the save. Pass no summary to drop a run without recording it. */
+export async function endRun(summary: RunSummary | null): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("expedition_saves").delete().eq("user_id", user.id);
+  if (summary) {
+    await supabase.from("expedition_runs").insert({
+      floor: Math.max(1, Math.floor(summary.floor)),
+      wins: Math.max(0, Math.floor(summary.wins)),
+      cleared: !!summary.cleared,
+      caught: summary.caught.filter((dex) => Number.isInteger(dex) && dex >= 1 && dex <= MAX_DEX),
+      party: summary.party.slice(0, 6).map(({ dex, kos }) => ({ dex, kos })),
+    });
+    revalidatePath("/", "layout");
+  }
 }

@@ -44,9 +44,10 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
     else slices.push({ id: c.id, name: c.name, value: t.total, color: `var(--c${index + 1})`, icon: <CategoryIcon icon={c.icon} size={24} /> });
   }
   if (other > 0) slices.push({ id: "other", name: "Other", value: other, color: "var(--muted)" });
-  const fixed = spending
-    .filter((t) => categories.find((c) => c.id === t.category_id)?.is_fixed)
-    .reduce((sum, t) => sum + t.total, 0);
+  // Spending that paid a bill, against everything else.
+  const fixed = transactions
+    .filter((t) => t.bill_id && t.category.kind === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
 
   // Spending per day of the month.
   const byDay = new Map<number, number>();
@@ -153,7 +154,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
           <>
             <Waffle slices={slices} total={summary.expense} />
             <p className="mt-3 text-muted">
-              Each square is 1% of the month&apos;s spending. Fixed bills came to {money(fixed)}; everything else to{" "}
+              Each square is 1% of the month&apos;s spending. Bills came to {money(fixed)}; everything else to{" "}
               {money(summary.expense - fixed)}.
             </p>
           </>

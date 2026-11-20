@@ -1,37 +1,63 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprite */
 import Link from "next/link";
+import { Suspense } from "react";
 import { Backdrop } from "@/components/backdrop";
-import { Keys, ScreenSwitcher, StartMenu, TabBar, ThemeToggle } from "@/components/nav";
+import { Keys, LocationBanner, ScreenSwitcher, StartMenu, TabBar, ThemeToggle } from "@/components/nav";
 import { SoundToggle } from "@/components/sound";
 import { signOut } from "@/lib/actions";
 import { APP_NAME, isSupabaseConfigured } from "@/lib/config";
-import { getCategories, getCaught, getMonthTotals, getOptions, getTrainerId } from "@/lib/data";
+import {
+  getAccountNet,
+  getAccounts,
+  getCategories,
+  getCaught,
+  getMonthTotals,
+  getOptions,
+  getPartnerId,
+  getPokemonNames,
+  getTrainerId,
+  getTransactions,
+} from "@/lib/data";
 import { money, parseMonth } from "@/lib/format";
 import { BADGES, getPlayer, summarizeMonth } from "@/lib/game";
-import { sprite, TRAINERS } from "@/lib/partners";
+import { accountBalances, accountHealth, openingTotal } from "@/lib/money";
+import { partnerAt, sprite, TRAINERS } from "@/lib/partners";
 
 export default async function GameLayout({ children }: { children: React.ReactNode }) {
-  const [options, trainerId, totals, categories, caught] = await Promise.all([
+  const [options, trainerId, totals, categories, caught, accounts, net, entries, partnerId, names] = await Promise.all([
     getOptions(),
     getTrainerId(),
     getMonthTotals(),
     getCategories(),
     getCaught(),
+    getAccounts(),
+    getAccountNet(),
+    getTransactions(parseMonth()),
+    getPartnerId(),
+    getPokemonNames(),
   ]);
 
   // The little summary in the start menu, like the one a game shows when you save.
   const player = getPlayer(totals);
+  const trainer = TRAINERS.find((t) => t.id === trainerId)?.name ?? "Trainer";
   const summary: [string, string][] = [
-    ["Player", TRAINERS.find((t) => t.id === trainerId)?.name ?? "Trainer"],
+    ["Player", trainer],
     ["Badges", String(BADGES.filter((b) => b.earned({ player, totals, categories, caught: caught.length })).length)],
     ["Pokédex", String(caught.length)],
-    ["Money", money(summarizeMonth(totals, parseMonth()).balance)],
+    ["Money", money(summarizeMonth(totals, parseMonth(), openingTotal(accounts)).balance)],
   ];
+  // Accounts in use, as the party shown beside the menu.
+  const party = accountHealth(accountBalances(accounts.filter((a) => !a.archived_at), net), entries);
+  const partner = partnerAt(partnerId, player.level, names);
 
   return (
     <div className="app" data-frame={options.frame} data-speed={options.speed}>
       <Backdrop tone={options.tone} pattern={options.pattern} />
-      <Keys />
+      {/* These read the address to know which screen is showing, which needs a Suspense boundary. */}
+      <Suspense>
+        <Keys />
+        <LocationBanner trainer={trainer} />
+      </Suspense>
       <a href="#main" className="skip btn">
         Skip to content
       </a>
@@ -47,9 +73,13 @@ export default async function GameLayout({ children }: { children: React.ReactNo
               </span>
             )}
           </Link>
-          <ScreenSwitcher />
+          <Suspense>
+            <ScreenSwitcher trainer={trainer} />
+          </Suspense>
           <div className="flex flex-wrap items-center">
-            <StartMenu summary={summary} />
+            <Suspense>
+              <StartMenu summary={summary} trainer={trainer} partnerDex={partner?.dex} party={party} />
+            </Suspense>
             <SoundToggle />
             <ThemeToggle />
             {isSupabaseConfigured && (
@@ -63,7 +93,9 @@ export default async function GameLayout({ children }: { children: React.ReactNo
         <main id="main">{children}</main>
       </div>
 
-      <TabBar />
+      <Suspense>
+        <TabBar />
+      </Suspense>
     </div>
   );
 }

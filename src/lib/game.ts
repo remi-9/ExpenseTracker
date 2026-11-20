@@ -8,13 +8,17 @@ export type MonthSummary = {
   saving: number;
   /** income − expense − saving: what the spreadsheet called "Remaining from Salary". */
   remaining: number;
-  /** All income − all expenses up to and including this month. Savings stay in the bank. */
+  /**
+   * Everything you hold: opening balances + all income − all expenses up to and
+   * including this month. Savings and transfers only move money between accounts.
+   */
   balance: number;
 };
 
-export function summarizeMonth(totals: MonthTotal[], month: string): MonthSummary {
+/** `opening` is the total of your accounts' opening balances (see openingTotal in money.ts). */
+export function summarizeMonth(totals: MonthTotal[], month: string, opening = 0): MonthSummary {
   const key = `${month}-01`;
-  const s = { income: 0, expense: 0, saving: 0, remaining: 0, balance: 0 };
+  const s = { income: 0, expense: 0, saving: 0, remaining: 0, balance: opening };
   for (const t of totals) {
     if (t.month === key) s[t.kind] += t.total;
     if (t.month <= key) {

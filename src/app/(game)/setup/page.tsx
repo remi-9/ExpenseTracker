@@ -6,7 +6,8 @@ import { PlayOnMount, SoundSwitch } from "@/components/sound";
 import { Icon } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, Panel } from "@/components/ui";
-import { addCategory, addPreset, setCategoryArchived, setCategoryMonthly, setOption } from "@/lib/actions";
+import { ImportForm } from "@/components/import-form";
+import { addCategory, addPreset, setCategoryArchived, setOption } from "@/lib/actions";
 import { getCategories, getCaught, getOptions, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
 import { money } from "@/lib/format";
 import type { CSSProperties } from "react";
@@ -21,6 +22,7 @@ const SCREENS = [
   ["trainer", "Trainer"],
   ["partner", "Partner"],
   ["options", "Options"],
+  ["data", "Data"],
 ] as const;
 type Screen = (typeof SCREENS)[number][0];
 
@@ -39,9 +41,7 @@ const detail = (c: Category) =>
     ? "Archived"
     : c.monthly_target != null
       ? `${c.kind === "saving" ? "Goal" : "Budget"} ${money(c.monthly_target)}`
-      : c.is_fixed
-        ? "Monthly"
-        : "";
+      : "";
 
 export default async function SetupPage({
   searchParams,
@@ -76,6 +76,7 @@ export default async function SetupPage({
       )}
       {screen === "partner" && <Partner />}
       {screen === "options" && <Options />}
+      {screen === "data" && <Data />}
     </>
   );
 }
@@ -149,18 +150,12 @@ async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: s
             {item.name}: a {label.toLowerCase()} category
             {item.monthly_target != null &&
               ` with a ${item.kind === "saving" ? "goal" : "budget"} of ${money(item.monthly_target)} a month`}
-            .{item.is_fixed ? " It comes round every month, so it is on the monthly checklist." : ""}
-            {item.archived_at ? " It is archived, so it is hidden when you log." : ""}
+            .{item.archived_at ? " It is archived, so it is hidden when you log." : ""}
           </p>
           <div className="window menu" data-menu>
-            <form action={setCategoryMonthly}>
-              <input type="hidden" name="id" value={item.id} />
-              <input type="hidden" name="pocket" value={kind} />
-              <input type="hidden" name="monthly" value={item.is_fixed ? "0" : "1"} />
-              <SubmitButton className="menu-item" pending="…" sfx="chip">
-                {item.is_fixed ? "Not monthly" : "Make monthly"}
-              </SubmitButton>
-            </form>
+            <Link href={`/bills?new=1&cat=${item.id}`} className="menu-item" data-sfx="confirm">
+              Schedule a bill
+            </Link>
             <form action={setCategoryArchived}>
               <input type="hidden" name="id" value={item.id} />
               <input type="hidden" name="archive" value={item.archived_at ? "0" : "1"} />
@@ -231,10 +226,6 @@ async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: s
                 <input name="emoji" maxLength={4} className="field w-20!" />
               </label>
             </fieldset>
-            <label className="flex items-center gap-2 sm:col-span-2">
-              <input name="is_fixed" type="checkbox" className="size-5 accent-(--red)" />
-              Comes round every month (adds it to the monthly checklist)
-            </label>
             <div className="sm:col-span-2">
               <SubmitButton pending="Adding…" sfx="confirm">
                 Add to bag
@@ -243,6 +234,31 @@ async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: s
           </form>
         </Panel>
       )}
+    </>
+  );
+}
+
+/** Getting entries in and out as CSV files. */
+function Data() {
+  return (
+    <>
+      <Panel title="Import entries">
+        <p className="mb-3 text-muted">
+          Bring in entries from a spreadsheet saved as CSV. The first row names the columns:{" "}
+          <b>date</b>, <b>category</b> and <b>amount</b> are needed; <b>note</b>, <b>account</b> and <b>kind</b>{" "}
+          (income, expense or saving) are optional. Categories and accounts that do not exist yet are created.
+        </p>
+        <ImportForm />
+      </Panel>
+      <Panel title="Export entries">
+        <p className="mb-3 text-muted">
+          Every entry you have logged, as one CSV file with the same columns the import reads. Open it in any
+          spreadsheet, or keep it as a backup.
+        </p>
+        <a href="/export" download className="btn">
+          Download entries.csv
+        </a>
+      </Panel>
     </>
   );
 }

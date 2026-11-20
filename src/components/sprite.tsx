@@ -61,6 +61,10 @@ const ICONS = {
   battle: ["x......x", "xx....xx", ".xx..xx.", "..xxxx..", "..xxxx..", ".xx..xx.", "xx....xx", "x......x"],
   dex: ["..xxxx..", ".x....x.", "x......x", "xxx..xxx", "xxx..xxx", "xxxxxxxx", ".xxxxxx.", "..xxxx.."],
   setup: ["...xx...", ".x.xx.x.", "..xxxx..", "xxx..xxx", "xxx..xxx", "..xxxx..", ".x.xx.x.", "...xx..."],
+  wallet: ["........", ".xxxxxx.", "xxxxxxxx", "x.....xx", "x...xx.x", "x.....xx", "xxxxxxxx", "........"],
+  pc: ["xxxxxxxx", "x......x", "x.xxxx.x", "x......x", "xxxxxxxx", "...xx...", "..xxxx..", "........"],
+  map: ["xx.xx.xx", "x.x..x.x", "x.x..x.x", "x.x..x.x", "x.x..x.x", "x.x..x.x", "xx.xx.xx", "........"],
+  menu: ["........", "xxxxxxxx", "........", "xxxxxxxx", "........", "xxxxxxxx", "........", "........"],
 };
 
 export type IconName = keyof typeof ICONS;
@@ -172,5 +176,42 @@ export function Hearts({ ratio, size = 22 }: { ratio: number; size?: number }) {
         return <Sprite key={i} rows={fill === 1 ? HALF_HEART : HEART} palette={palette} size={size} />;
       })}
     </span>
+  );
+}
+
+// ---- Town map ---------------------------------------------------------------------
+// One small building, recoloured for each place, and a patch of tall grass.
+
+const BUILDING = [
+  "...rrrrrr...",
+  "..rrrrrrrr..",
+  ".rrrrrrrrrr.",
+  "rrrrrrrrrrrr",
+  ".wwwwwwwwww.",
+  ".wggwwwwggw.",
+  ".wggwddwggw.",
+  ".wwwwddwwww.",
+  ".wwwwddwwww.",
+  "kkkkkkkkkkkk",
+];
+const GRASS = [
+  "............",
+  "............",
+  "..g...g.....",
+  ".ggg.ggg..g.",
+  ".ggg.ggg.ggg",
+  "gggggggggggg",
+  "gdgggdgggdgg",
+  "gggggggggggg",
+  "gdgggggdgggg",
+  "kkkkkkkkkkkk",
+];
+
+/** A place on the town map: a building with a roof of the given colour, or tall grass when there is none. */
+export function Place({ roof, size = 60 }: { roof?: string; size?: number }) {
+  return roof ? (
+    <Sprite rows={BUILDING} palette={{ r: roof, w: "#f4ecd8", g: "#7fc4e8", d: "#6a4020", k: INK }} size={size} />
+  ) : (
+    <Sprite rows={GRASS} palette={{ g: "#3f9a4a", d: "#2a6e33", k: INK }} size={size} />
   );
 }

@@ -19,22 +19,28 @@ export function EntryResult({
   categoryName,
   month,
   totals,
+  opening = 0,
   partnerId,
   names,
   entryId,
+  from,
 }: {
   kind: Kind;
   amount: number;
   categoryName: string;
   month: string;
   totals: MonthTotal[];
+  /** The total of the accounts' opening balances, which "Money" starts from. */
+  opening?: number;
   partnerId: string | undefined;
   /** Pokémon names by dex number, for partners that were caught rather than chosen as starters. */
   names: string[];
   /** The entry just saved, so it can be undone or edited from here. */
   entryId: string;
+  /** "home" when the entry was logged from Home, so Undo comes back there. */
+  from?: "home";
 }) {
-  const current = summarizeMonth(totals, month);
+  const current = summarizeMonth(totals, month, opening);
   const player = getPlayer(totals);
   const gain = xpFor(kind, amount);
 
@@ -112,6 +118,7 @@ export function EntryResult({
           <input type="hidden" name="id" value={entryId} />
           <input type="hidden" name="m" value={month} />
           <input type="hidden" name="undo" value="1" />
+          {from && <input type="hidden" name="from" value={from} />}
           <SubmitButton className="btn" pending="Undoing…" sfx="delete">
             Undo
           </SubmitButton>

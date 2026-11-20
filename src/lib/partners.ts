@@ -113,15 +113,15 @@ export const ITEM_ICONS = [
 export const DEFAULT_ICON = { income: "nugget", saving: "amulet-coin", expense: "poke-ball" } as const;
 
 /** One-tap categories offered on the Setup tab. */
-export const PRESETS: { name: string; kind: "income" | "expense" | "saving"; icon: string; is_fixed?: boolean }[] = [
+export const PRESETS: { name: string; kind: "income" | "expense" | "saving"; icon: string }[] = [
   { name: "Groceries", kind: "expense", icon: "oran-berry" },
   { name: "Dining out", kind: "expense", icon: "leftovers" },
   { name: "Coffee", kind: "expense", icon: "moomoo-milk" },
   { name: "Transport", kind: "expense", icon: "bicycle" },
-  { name: "Rent", kind: "expense", icon: "secret-key", is_fixed: true },
-  { name: "Water", kind: "expense", icon: "fresh-water", is_fixed: true },
-  { name: "Phone", kind: "expense", icon: "pal-pad", is_fixed: true },
-  { name: "Subscriptions", kind: "expense", icon: "vs-seeker", is_fixed: true },
+  { name: "Rent", kind: "expense", icon: "secret-key" },
+  { name: "Water", kind: "expense", icon: "fresh-water" },
+  { name: "Phone", kind: "expense", icon: "pal-pad" },
+  { name: "Subscriptions", kind: "expense", icon: "vs-seeker" },
   { name: "Health", kind: "expense", icon: "potion" },
   { name: "Games", kind: "expense", icon: "poke-toy" },
   { name: "Clothes", kind: "expense", icon: "fashion-case" },

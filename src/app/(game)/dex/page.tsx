@@ -4,10 +4,11 @@ import { PartyScreen, Type } from "@/components/party";
 import { PlayOnMount } from "@/components/sound";
 import { Dialog, Panel } from "@/components/ui";
 import { choosePartner, toggleTeam } from "@/lib/actions";
-import { getBattleData, getCaught, getMonthTotals, getPartnerId, getPokemonNames, getTeam } from "@/lib/data";
-import { makeBattler, teamLevel } from "@/lib/fight";
+import { getBattleData, getCaught, getMonthTotals, getPartnerId, getPokemonNames, getRunHistory, getTeam } from "@/lib/data";
+import { ABILITIES, abilityFor, makeBattler, teamLevel } from "@/lib/fight";
 import { getPlayer } from "@/lib/game";
 import { MAX_DEX, partnerAt, sprite } from "@/lib/partners";
+import { recordsOf } from "@/lib/run";
 
 const BOX_SIZE = 30; // 6 × 5, like a PC box
 
@@ -17,14 +18,16 @@ export default async function DexPage({
   searchParams: Promise<{ error?: string; box?: string; p?: string }>;
 }) {
   const params = await searchParams;
-  const [caught, totals, names, partnerId, team, data] = await Promise.all([
+  const [caught, totals, names, partnerId, team, data, history] = await Promise.all([
     getCaught(),
     getMonthTotals(),
     getPokemonNames(),
     getPartnerId(),
     getTeam(),
     getBattleData(),
+    getRunHistory(),
   ]);
+  const records = recordsOf(history);
   const player = getPlayer(totals);
   const partner = partnerAt(partnerId, player.level, names);
   const level = teamLevel(player.level);
@@ -127,10 +130,27 @@ export default async function DexPage({
                 <p className="text-muted leading-none">No. {String(picked).padStart(3, "0")}</p>
                 <h2 className="font-display text-xs leading-relaxed uppercase">{nameOf(picked)}</h2>
                 {data && (
-                  <p className="flex gap-1">
-                    {data.species[picked - 1].t.map((t) => (
-                      <Type key={t} id={t} />
-                    ))}
+                  <>
+                    <p className="flex gap-1">
+                      {data.species[picked - 1].t.map((t) => (
+                        <Type key={t} id={t} />
+                      ))}
+                    </p>
+                    <p className="leading-tight" title={ABILITIES[abilityFor(picked, data.species[picked - 1].t)].text}>
+                      {ABILITIES[abilityFor(picked, data.species[picked - 1].t)].name}
+                      {data.species[picked - 1].e && (
+                        <span className="block text-muted">
+                          Evolves into {nameOf(data.species[picked - 1].e![0])} at Lv {data.species[picked - 1].e![1]} on an
+                          expedition.
+                        </span>
+                      )}
+                    </p>
+                  </>
+                )}
+                {records.get(picked) && (
+                  <p className="leading-tight text-muted">
+                    {records.get(picked)!.runs} {records.get(picked)!.runs === 1 ? "expedition" : "expeditions"},{" "}
+                    {records.get(picked)!.kos} knockouts, best floor {records.get(picked)!.best}.
                   </p>
                 )}
                 <div className="menu mt-1" data-menu>

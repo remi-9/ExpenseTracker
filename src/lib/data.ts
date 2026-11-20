@@ -2,28 +2,25 @@
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { isSupabaseConfigured } from "./config";
-import { demoCategories, demoTotals, demoTransactions, NO_EDITS, type DemoEdits } from "./demo";
-import type { BattleData, Species } from "./fight";
+import { decodeEdits, demoAccounts, demoBills, demoCategories, demoTotals, demoTransactions, type DemoEdits } from "./demo";
+import { baseTotal, type BattleData, type Species } from "./fight";
 import { shiftMonth } from "./format";
 import { PATTERNS, TONES, type Pattern, type Tone } from "./backdrop";
 import { DEFAULT_OPTIONS, FRAMES, SPEEDS, type Speed } from "./options";
 import { DEFAULT_TRAINER, MAX_DEX, TRAINERS } from "./partners";
 import { createClient } from "./supabase/server";
-import type { Category, MonthTotal, Transaction } from "./types";
+import type { Run, RunSummary } from "./run";
+import { netByAccount, type BillPayment } from "./money";
+import type { Account, Bill, Category, MonthTotal, Transaction, Transfer } from "./types";
 
 function check<T>(result: { data: T | null; error: { message: string } | null }): T {
   if (result.error) throw new Error(result.error.message);
   return result.data as T;
 }
 
-/** Demo mode only: the entries added and removed in this browser (see demo.ts). */
+/** Demo mode only: the entries and transfers added and removed in this browser (see demo.ts). */
 async function loadDemoEdits(): Promise<DemoEdits> {
-  try {
-    const raw = (await cookies()).get("demo")?.value;
-    return raw ? { ...NO_EDITS, ...(JSON.parse(raw) as DemoEdits) } : NO_EDITS;
-  } catch {
-    return NO_EDITS;
-  }
+  return decodeEdits((await cookies()).get("demo")?.value);
 }
 
 async function loadCategories(): Promise<Category[]> {
@@ -32,7 +29,7 @@ async function loadCategories(): Promise<Category[]> {
   const rows = check(
     await supabase
       .from("categories")
-      .select("id, name, kind, icon, is_fixed, monthly_target, sort_order, archived_at")
+      .select("id, name, kind, icon, monthly_target, sort_order, archived_at")
       .order("sort_order")
       .order("name"),
   );
@@ -52,6 +49,10 @@ async function loadMonthTotals(): Promise<MonthTotal[]> {
   return rows.map((r) => ({ ...r, total: Number(r.total) })) as MonthTotal[];
 }
 
+const ENTRY_COLUMNS = "id, category_id, amount, occurred_on, note, account_id, to_account_id, bill_id, category:categories(name, kind, icon)";
+const asEntries = (rows: { amount: unknown }[]) =>
+  rows.map((r) => ({ ...r, amount: Number(r.amount) })) as unknown as Transaction[];
+
 /** Entries for one month (YYYY-MM), newest first. */
 async function loadTransactions(month: string): Promise<Transaction[]> {
   const from = `${month}-01`;
@@ -63,23 +64,162 @@ async function loadTransactions(month: string): Promise<Transaction[]> {
   const rows = check(
     await supabase
       .from("transactions")
-      .select("id, category_id, amount, occurred_on, note, category:categories(name, kind, icon)")
+      .select(ENTRY_COLUMNS)
       .gte("occurred_on", from)
       .lt("occurred_on", to)
       .order("occurred_on", { ascending: false })
       .order("created_at", { ascending: false }),
   );
-  return rows.map((r) => ({ ...r, amount: Number(r.amount) })) as unknown as Transaction[];
+  return asEntries(rows);
 }
 
-/** Which partner the player picked (a cookie; see choosePartner). */
+/** Entries from any month whose note or category name contains the text, newest first, up to a hundred. */
+async function loadSearch(query: string): Promise<Transaction[]> {
+  // Keep letters, digits and spaces: the rest has meaning in a filter expression.
+  const q = query.replace(/[^\p{L}\p{N} ]/gu, " ").trim().toLowerCase();
+  if (!q) return [];
+  const named = (await getCategories()).filter((c) => c.name.toLowerCase().includes(q)).map((c) => c.id);
+  if (!isSupabaseConfigured) {
+    return demoTransactions(await getDemoEdits())
+      .filter((t) => named.includes(t.category_id) || t.note?.toLowerCase().includes(q))
+      .slice(0, 100);
+  }
+  const supabase = await createClient();
+  const filters = [`note.ilike.%${q}%`, ...(named.length ? [`category_id.in.(${named.join(",")})`] : [])];
+  const rows = check(
+    await supabase
+      .from("transactions")
+      .select(ENTRY_COLUMNS)
+      .or(filters.join(","))
+      .order("occurred_on", { ascending: false })
+      .limit(100),
+  );
+  return asEntries(rows);
+}
+
+/** Every entry, oldest first, for the CSV export. */
+async function loadAllTransactions(): Promise<Transaction[]> {
+  if (!isSupabaseConfigured) return demoTransactions(await getDemoEdits()).reverse();
+  const supabase = await createClient();
+  const all: Transaction[] = [];
+  // Supabase returns at most a thousand rows a request, so read in pages.
+  for (let from = 0; ; from += 1000) {
+    const rows = check(
+      await supabase
+        .from("transactions")
+        .select(ENTRY_COLUMNS)
+        .order("occurred_on")
+        .order("created_at")
+        .range(from, from + 999),
+    );
+    all.push(...asEntries(rows));
+    if (rows.length < 1000) return all;
+  }
+}
+
+/**
+ * Notes used before, most recent first, each with the category it was last used with.
+ * They fill the note suggestions on the Log form, and picking one selects its category.
+ */
+async function loadNoteHints(): Promise<{ note: string; category_id: string }[]> {
+  let rows: { note: string | null; category_id: string }[];
+  if (!isSupabaseConfigured) rows = demoTransactions(await getDemoEdits());
+  else {
+    const supabase = await createClient();
+    rows = check(
+      await supabase
+        .from("transactions")
+        .select("note, category_id")
+        .not("note", "is", null)
+        .order("occurred_on", { ascending: false })
+        .limit(400),
+    );
+  }
+  const seen = new Map<string, { note: string; category_id: string }>();
+  for (const { note, category_id } of rows) {
+    if (note && !seen.has(note.toLowerCase())) seen.set(note.toLowerCase(), { note, category_id });
+  }
+  return [...seen.values()].slice(0, 80);
+}
+
+// ---- Accounts, transfers and bills -------------------------------------------------
+
+async function loadAccounts(): Promise<Account[]> {
+  if (!isSupabaseConfigured) return demoAccounts;
+  const supabase = await createClient();
+  const rows = check(
+    await supabase
+      .from("accounts")
+      .select("id, name, kind, icon, opening_balance, sort_order, archived_at")
+      .order("sort_order")
+      .order("created_at"),
+  );
+  return rows.map((r) => ({ ...r, opening_balance: Number(r.opening_balance) })) as Account[];
+}
+
+/** What each account has gained or lost since its opening balance, by account id. */
+async function loadAccountNet(): Promise<Map<string, number>> {
+  if (!isSupabaseConfigured) {
+    const edits = await getDemoEdits();
+    return netByAccount(demoTransactions(edits), edits.transfers);
+  }
+  const supabase = await createClient();
+  const rows = check(await supabase.from("account_totals").select("account_id, net"));
+  return new Map(rows.map((r) => [r.account_id as string, Number(r.net)]));
+}
+
+/** The latest transfers between accounts, newest first. */
+async function loadTransfers(): Promise<Transfer[]> {
+  if (!isSupabaseConfigured) return [...(await getDemoEdits()).transfers].reverse();
+  const supabase = await createClient();
+  const rows = check(
+    await supabase
+      .from("transfers")
+      .select("id, from_account, to_account, amount, occurred_on, note")
+      .order("occurred_on", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(20),
+  );
+  return rows.map((r) => ({ ...r, amount: Number(r.amount) })) as Transfer[];
+}
+
+async function loadBills(): Promise<Bill[]> {
+  if (!isSupabaseConfigured) return demoBills;
+  const supabase = await createClient();
+  const rows = check(
+    await supabase
+      .from("bills")
+      .select("id, name, category_id, account_id, amount, due_day, cadence, due_month, archived_at")
+      .order("due_day")
+      .order("name"),
+  );
+  return rows.map((r) => ({ ...r, amount: r.amount == null ? null : Number(r.amount) })) as Bill[];
+}
+
+/** Entries that pay a bill, for one month (YYYY-MM). */
+async function loadBillPayments(month: string): Promise<BillPayment[]> {
+  const entries = await getTransactions(month);
+  return entries.filter((t) => t.bill_id).map((t) => ({ bill_id: t.bill_id!, occurred_on: t.occurred_on, amount: t.amount }));
+}
+
+/**
+ * The partner, trainer and team chosen, from the `players` table so they follow you
+ * between devices. Null in demo mode, or before the first choice is saved there.
+ */
+async function loadPlayer(): Promise<{ partner: string | null; trainer: string | null; team: number[] } | null> {
+  if (!isSupabaseConfigured) return null;
+  const supabase = await createClient();
+  return check(await supabase.from("players").select("partner, trainer, team").maybeSingle()) as Awaited<ReturnType<typeof loadPlayer>>;
+}
+
+/** Which partner the player picked (see choosePartner). This browser's cookie is the fallback. */
 async function loadPartnerId(): Promise<string | undefined> {
-  return (await cookies()).get("partner")?.value;
+  return (await getPlayerRow())?.partner ?? (await cookies()).get("partner")?.value;
 }
 
-/** Which trainer sprite the player picked (a cookie; see chooseTrainer). */
+/** Which trainer sprite the player picked (see chooseTrainer). */
 async function loadTrainerId(): Promise<string> {
-  const id = (await cookies()).get("trainer")?.value;
+  const id = (await getPlayerRow())?.trainer ?? (await cookies()).get("trainer")?.value;
   return TRAINERS.some((t) => t.id === id) ? id! : DEFAULT_TRAINER;
 }
 
@@ -116,15 +256,12 @@ async function loadPokemonNames(): Promise<string[]> {
   }
 }
 
-/** Up to five caught Pokémon that travel with your partner (a cookie; see toggleTeam). */
+/** Up to five caught Pokémon that travel with your partner (see toggleTeam). */
 async function loadTeam(): Promise<number[]> {
+  const saved = (await getPlayerRow())?.team;
   const raw = (await cookies()).get("team")?.value ?? "";
   const caught = await getCaught();
-  return raw
-    .split(".")
-    .map(Number)
-    .filter((n) => caught.includes(n))
-    .slice(0, 5);
+  return (saved ?? raw.split(".").map(Number)).filter((n) => caught.includes(n)).slice(0, 5);
 }
 
 const CSV = "https://raw.githubusercontent.com/PokeAPI/pokeapi/master/data/v2/csv";
@@ -140,9 +277,39 @@ async function csvRows(file: string): Promise<number[][]> {
     .map((line) => line.split(",").map(Number));
 }
 
+/** Rows of a PokeAPI data file as objects keyed by column name, so a new column upstream cannot shift them. */
+async function csvTable(file: string): Promise<Record<string, number>[]> {
+  const text = await (await fetch(`${CSV}/${file}.csv`, MONTH)).text();
+  const [header, ...lines] = text.trim().split("\n");
+  const columns = header.split(",");
+  return lines.map((line) => {
+    const cells = line.split(",");
+    return Object.fromEntries(columns.map((name, i) => [name, Number(cells[i])]));
+  });
+}
+
 /**
- * Types, base stats and the type chart for dex 1–649, built from three small
- * PokeAPI data files and cached for a month. Returns null if they can't be reached.
+ * What each species evolves into and at which level. Evolutions that the games tie
+ * to a stone, a trade or friendship get a level from how strong the species is.
+ * Where a species has several evolutions, the one with the lowest dex number is used.
+ */
+async function addEvolutions(species: Species[]) {
+  const [rows, evolutions] = await Promise.all([csvTable("pokemon_species"), csvTable("pokemon_evolution")]);
+  const levelFor = new Map<number, number>();
+  for (const e of evolutions) {
+    if (e.minimum_level > 0 && !levelFor.has(e.evolved_species_id)) levelFor.set(e.evolved_species_id, e.minimum_level);
+  }
+  for (const row of rows) {
+    const from = row.evolves_from_species_id;
+    if (!(row.id >= 1 && row.id <= MAX_DEX && from >= 1 && from <= MAX_DEX) || species[from - 1].e) continue;
+    const total = baseTotal(species[from - 1]);
+    species[from - 1].e = [row.id, levelFor.get(row.id) ?? (total < 300 ? 18 : total < 420 ? 30 : 40)];
+  }
+}
+
+/**
+ * Types, base stats, evolutions and the type chart for dex 1–649, built from a few
+ * small PokeAPI data files and cached for a month. Returns null if they can't be reached.
  */
 async function loadBattleData(): Promise<BattleData | null> {
   try {
@@ -157,10 +324,35 @@ async function loadBattleData(): Promise<BattleData | null> {
     const chart: number[][] = Array.from({ length: 19 }, () => Array(19).fill(1));
     for (const [attack, defend, factor] of efficacy) if (attack <= 18 && defend <= 18) chart[attack][defend] = factor / 100;
     if (species.some((s) => s.s.length !== 6 || s.t.length === 0)) return null;
+    // Battles work without evolutions, so a failure here is not a reason to refuse them.
+    await addEvolutions(species).catch(() => {});
     return { species, chart };
   } catch {
     return null;
   }
+}
+
+/** The expedition in progress, if there is one. Demo mode keeps it in the browser instead. */
+async function loadSavedRun(): Promise<Run | null> {
+  if (!isSupabaseConfigured) return null;
+  const supabase = await createClient();
+  const row = check(await supabase.from("expedition_saves").select("state").maybeSingle()) as { state: Run } | null;
+  const run = row?.state;
+  return run?.v === 3 ? run : null;
+}
+
+/** Every finished expedition, newest first. Demo mode keeps them in the browser instead. */
+async function loadRunHistory(): Promise<RunSummary[]> {
+  if (!isSupabaseConfigured) return [];
+  const supabase = await createClient();
+  const rows = check(
+    await supabase
+      .from("expedition_runs")
+      .select("floor, wins, cleared, caught, party")
+      .order("ended_at", { ascending: false })
+      .limit(500),
+  );
+  return rows as RunSummary[];
 }
 
 /** Everything chosen on the Options screen (cookies; see setOption). */
@@ -181,9 +373,18 @@ async function loadOptions(): Promise<{ frame: string; speed: Speed; tone: Tone;
 // Each read runs at most once per request, however many components ask for it
 // (the layout's start menu and the page often want the same data).
 export const getDemoEdits = cache(loadDemoEdits);
+const getPlayerRow = cache(loadPlayer);
 export const getCategories = cache(loadCategories);
 export const getMonthTotals = cache(loadMonthTotals);
 export const getTransactions = cache(loadTransactions);
+export const searchTransactions = cache(loadSearch);
+export const getAllTransactions = cache(loadAllTransactions);
+export const getNoteHints = cache(loadNoteHints);
+export const getAccounts = cache(loadAccounts);
+export const getAccountNet = cache(loadAccountNet);
+export const getTransfers = cache(loadTransfers);
+export const getBills = cache(loadBills);
+export const getBillPayments = cache(loadBillPayments);
 export const getPartnerId = cache(loadPartnerId);
 export const getTrainerId = cache(loadTrainerId);
 export const getCaught = cache(loadCaught);
@@ -191,3 +392,5 @@ export const getPokemonNames = cache(loadPokemonNames);
 export const getTeam = cache(loadTeam);
 export const getBattleData = cache(loadBattleData);
 export const getOptions = cache(loadOptions);
+export const getSavedRun = cache(loadSavedRun);
+export const getRunHistory = cache(loadRunHistory);

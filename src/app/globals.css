@@ -1511,8 +1511,8 @@ a.pc-cell:focus-visible,
   padding: 0.2rem 0;
 }
 
-/* Log tab, wide screens: status and the monthly checklist share the left column,
-   and the checklist panel stretches to the foot of the entry form beside it. */
+/* Log tab, wide screens: status and the bills share the left column,
+   and the bills panel stretches to the foot of the entry form beside it. */
 .shop-status {
   display: flex;
   align-items: center;
@@ -1543,10 +1543,13 @@ a.pc-cell:focus-visible,
   .entry-form {
     grid-area: form;
   }
-  .shop-monthly .checklist .field {
+  .shop-monthly .bills .field {
     width: 5.25rem;
   }
-  .shop-monthly .checklist .btn {
+  .shop-monthly .bills .field[type="date"] {
+    width: auto;
+  }
+  .shop-monthly .bills .btn {
     padding-inline: 0.5rem;
   }
 }
@@ -1676,28 +1679,6 @@ a.pc-cell:focus-visible,
   display: block;
 }
 
-/* Monthly checklist: the item, then either what was logged or a one-tap form. */
-.checklist li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 3rem;
-  border-bottom: 4px dotted var(--track);
-}
-.checklist li:last-child {
-  border-bottom: 0;
-}
-.checklist form {
-  display: flex;
-  align-items: center;
-}
-.checklist .field {
-  width: 7.5rem;
-  padding: 0.2rem 0.5rem;
-  text-align: right;
-}
-
 /* Entries grouped by day; each row opens the entry for editing. */
 .day-head {
   display: flex;
@@ -1732,11 +1713,6 @@ a.pc-cell:focus-visible,
 .entry-form [role="radiogroup"] .chip {
   justify-content: center;
   padding-inline: 0.25rem;
-}
-@media (max-width: 639px) {
-  .checklist .field {
-    width: 5.5rem;
-  }
 }
 
 /* ---- Entry cards (Log tab) ------------------------------------------------------------
@@ -1809,4 +1785,386 @@ a.pc-cell:focus-visible,
 .chip-on {
   background: var(--bar);
   color: var(--bar-ink);
+}
+
+/* ---- Battle extras: status tags, stat stages, abilities and held items ---------- */
+.status {
+  padding: 0 0.25rem;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+.status-burn {
+  background: #d92426;
+}
+.status-poison {
+  background: #9141cb;
+}
+.status-paralysis {
+  background: #b58b00;
+}
+.status-sleep {
+  background: #5a6577;
+}
+.hp-traits {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-height: 1rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--muted);
+}
+.hp-traits > .ml-auto {
+  color: var(--ink);
+}
+.stages {
+  display: flex;
+  gap: 0.35rem;
+  text-transform: capitalize;
+}
+
+/* ---- Expedition map (components/expedition.tsx) ----------------------------------
+   One row per floor, the gym at the top, so the route reads upwards like a climb. */
+.route {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+.route-row {
+  display: grid;
+  grid-template-columns: 3.2rem repeat(var(--stops), minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.route-row > .route-floor {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  color: var(--muted);
+}
+.route-row.now > .route-floor {
+  color: var(--red);
+}
+.stop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  line-height: 1.5;
+  text-transform: uppercase;
+  background: var(--panel);
+  border: 4px solid var(--ink);
+}
+.stop > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.stop-text,
+.stop-then {
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.1;
+  text-transform: none;
+  color: var(--muted);
+}
+.stop-then {
+  color: var(--blue);
+}
+button.stop {
+  cursor: pointer;
+  box-shadow: 4px 4px 0 0 var(--ink);
+}
+button.stop:hover,
+button.stop:focus-visible {
+  outline: 4px solid var(--red);
+  outline-offset: 0;
+}
+/* Stops you cannot choose now: ahead of you, behind you, or off your route. */
+.stop.far {
+  border-style: dashed;
+  border-color: var(--muted);
+}
+.stop.off {
+  opacity: 0.45;
+  border-style: dashed;
+  border-color: var(--muted);
+}
+.stop.done {
+  background: color-mix(in srgb, var(--green) 25%, var(--panel));
+}
+@media (max-width: 639px) {
+  .route-row {
+    grid-template-columns: 2.2rem repeat(var(--stops), minmax(0, 1fr));
+  }
+  .stop-text {
+    display: none;
+  }
+}
+/* A reward, shop item or move with a price or tag on the right. */
+.menu-item.path > .rare {
+  color: var(--gold);
+}
+.rare-tag {
+  margin-left: auto;
+  padding: 0 0.3rem;
+  background: var(--gold);
+  color: #1c2434;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.15;
+  text-transform: none;
+}
+.perks li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  padding: 0.15rem 0;
+}
+.perks li.locked {
+  color: var(--muted);
+}
+
+/* ---- Accounts and bills ------------------------------------------------------------ */
+/* The account question on the entry form is worded per kind; only one wording shows. */
+legend > .kind-cats {
+  display: none;
+}
+.entry-form:has(input[name="kind"][value="expense"]:checked) legend > .kind-cats[data-kind="expense"],
+.entry-form:has(input[name="kind"][value="income"]:checked) legend > .kind-cats[data-kind="income"],
+.entry-form:has(input[name="kind"][value="saving"]:checked) legend > .kind-cats[data-kind="saving"] {
+  display: inline;
+}
+/* Bills, soonest first: the name and when it is due, then what was paid or a one-tap form. */
+.bills li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.1rem 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 4px dotted var(--track);
+}
+.bills li:last-child {
+  border-bottom: 0;
+}
+.bill-due {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.bills li[data-state="overdue"] .bill-due {
+  color: var(--red);
+}
+.bills li[data-state="soon"] .bill-due {
+  color: var(--gold);
+}
+.bills li[data-state="paid"] .bill-due {
+  color: var(--green);
+}
+.bills form,
+.bill-paid {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.bills .field {
+  width: 6.5rem;
+  padding: 0.2rem 0.5rem;
+  text-align: right;
+}
+.bills .field[type="date"] {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+.field.search {
+  width: 12rem;
+  padding: 0.2rem 0.5rem;
+}
+/* The account an entry belongs to, on the card's coloured strip opposite the date. */
+.card-account {
+  position: absolute;
+  top: 0;
+  right: 0.4rem;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1.1rem;
+}
+/* Home's one-line entry form: amount, category, account, button. */
+.quick-log {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+.quick-log .field {
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .quick-log {
+    grid-template-columns: 8rem minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  }
+}
+/* Accounts as a party: one slot each. */
+.account-party {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 6px;
+}
+.account-party .party-slot {
+  height: 100%;
+}
+.account-party a.party-slot:hover,
+.account-party a.party-slot:focus-visible {
+  outline: 4px solid var(--red);
+  outline-offset: 0;
+}
+.account-party.compact {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+.account-party.compact .party-slot {
+  min-height: 0;
+  padding: 0.2rem 0.4rem;
+  border-width: 3px;
+  box-shadow: none;
+}
+/* A transfer row ends with its amount and an Undo button. */
+.entries.transfers .btn {
+  padding-block: 0.1rem;
+}
+/* The month of a yearly bill only matters once "Once a year" is chosen. */
+.bill-month {
+  display: none;
+  width: auto;
+  margin: 4px;
+}
+.bill-cadence:has(input[value="yearly"]:checked) .bill-month {
+  display: block;
+}
+
+/* ---- Start menu: game names, partner cursor, account party, town map ---------------- */
+.start-pop {
+  width: min(21rem, calc(100vw - 1.5rem));
+  max-height: calc(100dvh - 2.5rem);
+  overflow-y: auto;
+}
+.start-pop .menu-item small {
+  font-size: 1rem;
+}
+.start-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.town-foot {
+  display: contents;
+}
+/* Your partner's menu icon stands in for the ▶ cursor. */
+.start-pop .has-cursor .menu-item {
+  padding-left: 2.6rem;
+}
+.start-pop .has-cursor a.menu-item::before {
+  content: "";
+  left: 0.1rem;
+  top: 50%;
+  width: 40px;
+  height: 30px;
+  margin-top: -20px;
+  background: var(--cursor) center / contain no-repeat;
+  image-rendering: pixelated;
+}
+/* The town map: the same screens as places to walk to. */
+.start-pop.wide {
+  width: min(30rem, calc(100vw - 1.5rem));
+}
+.menu.town {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.4rem, 1fr));
+  gap: 0.25rem;
+  background:
+    linear-gradient(color-mix(in srgb, var(--green) 26%, transparent), color-mix(in srgb, var(--green) 26%, transparent)),
+    var(--panel);
+}
+.town-place {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.4rem 0.2rem;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  line-height: 1.6;
+  text-align: center;
+  text-transform: uppercase;
+}
+.town-place:hover,
+.town-place:focus-visible,
+.town-place[aria-current] {
+  outline: none;
+  background: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+.town-place[aria-current] {
+  color: var(--red);
+}
+.menu.town .town-foot {
+  display: flex;
+  grid-column: 1 / -1;
+}
+.menu.town .town-foot .menu-item {
+  width: auto;
+  flex: 1;
+}
+/* The phone tab bar now holds four screens and the Menu button. */
+.tab-bar {
+  grid-template-columns: repeat(5, 1fr);
+}
+.switcher-now {
+  font-size: 0.6rem;
+}
+/* The place name that slides in when you arrive at a screen. */
+.location-banner {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 20;
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  line-height: 1.8;
+  text-transform: uppercase;
+  pointer-events: none;
+  animation: banner 2.2s steps(12, end) forwards;
+}
+@keyframes banner {
+  0% {
+    transform: translateX(-110%);
+  }
+  12%,
+  82% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-110%);
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .location-banner {
+    display: none;
+  }
 }

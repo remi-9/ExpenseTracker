@@ -96,6 +96,8 @@ const run = (notes: number[], step: number, extra: Partial<Tone> = {}, at = 0) =
 const SOUNDS = {
   /** Default button press. */
   select: () => tone({ f: 1320, len: 0.05, vol: 0.02 }),
+  /** The warning chirp when HP is in the red. */
+  lowHp: () => run([988, 784], 0.11, { vol: 0.022 }),
   /** Final action of a form. */
   confirm: () => run([880, 1320], 0.06, { vol: 0.025 }),
   tab: () => run([660, 990], 0.045, { vol: 0.02, type: "triangle" }),
