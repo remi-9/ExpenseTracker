@@ -2206,3 +2206,45 @@ legend > .kind-cats {
     grid-column: 1 / -1;
   }
 }
+
+/* ---- Folding the Home scene away ---------------------------------------------------
+   A grid row that goes from 1fr to 0fr closes smoothly whatever the height inside. */
+.fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.36s cubic-bezier(0.3, 0, 0.2, 1);
+}
+.fold > div {
+  min-height: 0;
+  overflow: hidden;
+  transition: opacity 0.3s ease;
+}
+.scene-box[data-folded] .fold-scene {
+  grid-template-rows: 0fr;
+}
+.scene-box[data-folded] .fold-scene > div {
+  opacity: 0;
+}
+.scene-box[data-folded] .place {
+  animation-play-state: paused;
+}
+/* The name and HP are in the scene on wide screens, so the strip only carries them when it is folded. */
+@media (min-width: 640px) {
+  .scene-box:not([data-folded]) .fold-status {
+    grid-template-rows: 0fr;
+  }
+  .scene-box:not([data-folded]) .fold-status > div {
+    opacity: 0;
+  }
+}
+.btn.scene-toggle {
+  margin: 0 4px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fold,
+  .fold > div {
+    transition: none;
+  }
+}

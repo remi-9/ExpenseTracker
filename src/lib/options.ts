@@ -7,8 +7,11 @@ import { DEFAULT_BACKDROP } from "./backdrop";
 export const FRAMES = ["1", "2", "3", "4", "5", "6"] as const;
 export const SPEEDS = ["slow", "mid", "fast"] as const;
 export type Speed = (typeof SPEEDS)[number];
+/** The Home scene: shown in full, or folded down to the name and the HP and XP bars. */
+export const SCENES = ["full", "compact"] as const;
+export type SceneSize = (typeof SCENES)[number];
 
-export const DEFAULT_OPTIONS = { frame: "1", speed: "mid" as Speed, ...DEFAULT_BACKDROP };
+export const DEFAULT_OPTIONS = { frame: "1", speed: "mid" as Speed, scene: "full" as SceneSize, ...DEFAULT_BACKDROP };
 
 /** Browser-only: how fast text should move. 1 is normal; smaller is faster. */
 export function textPace(): number {

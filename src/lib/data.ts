@@ -6,7 +6,7 @@ import { decodeEdits, demoAccounts, demoBills, demoCategories, demoTotals, demoT
 import { baseTotal, type BattleData, type Species } from "./fight";
 import { shiftMonth } from "./format";
 import { PATTERNS, TONES, type Pattern, type Tone } from "./backdrop";
-import { DEFAULT_OPTIONS, FRAMES, SPEEDS, type Speed } from "./options";
+import { DEFAULT_OPTIONS, FRAMES, SCENES, SPEEDS, type SceneSize, type Speed } from "./options";
 import { DEFAULT_TRAINER, MAX_DEX, TRAINERS } from "./partners";
 import { createClient } from "./supabase/server";
 import type { Run, RunSummary } from "./run";
@@ -376,7 +376,7 @@ async function loadRunHistory(): Promise<RunSummary[]> {
 }
 
 /** Everything chosen on the Options screen (cookies; see setOption). */
-async function loadOptions(): Promise<{ frame: string; speed: Speed; tone: Tone; pattern: Pattern }> {
+async function loadOptions(): Promise<{ frame: string; speed: Speed; scene: SceneSize; tone: Tone; pattern: Pattern }> {
   const jar = await cookies();
   const pick = <T extends string>(name: string, allowed: readonly T[], fallback: T): T => {
     const value = jar.get(name)?.value as T;
@@ -385,6 +385,7 @@ async function loadOptions(): Promise<{ frame: string; speed: Speed; tone: Tone;
   return {
     frame: pick("frame", FRAMES, DEFAULT_OPTIONS.frame),
     speed: pick("speed", SPEEDS, DEFAULT_OPTIONS.speed),
+    scene: pick("scene", SCENES, DEFAULT_OPTIONS.scene),
     tone: pick("tone", TONES, DEFAULT_OPTIONS.tone),
     pattern: pick("pattern", PATTERNS, DEFAULT_OPTIONS.pattern),
   };

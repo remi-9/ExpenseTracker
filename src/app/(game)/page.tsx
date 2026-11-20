@@ -6,6 +6,7 @@ import { EntryResult } from "@/components/entry-result";
 import { LowHpAlarm } from "@/components/nav";
 import { PartnerPicker, PartnerSprite, type Mood } from "@/components/partner";
 import { Scene } from "@/components/scene";
+import { SceneBox } from "@/components/scene-box";
 import { PlayOnMount } from "@/components/sound";
 import { SubmitButton } from "@/components/submit";
 import { Typewriter } from "@/components/typewriter";
@@ -20,6 +21,7 @@ import {
   getCategories,
   getCaught,
   getMonthTotals,
+  getOptions,
   getPartnerId,
   getPokemonNames,
   getTrainerId,
@@ -64,7 +66,7 @@ export default async function Home({
 }) {
   const params = await searchParams;
   const month = parseMonth(params.m);
-  const [categories, totals, transactions, partnerId, trainerId, caught, names, accounts, net, bills, payments] = await Promise.all([
+  const [categories, totals, transactions, partnerId, trainerId, caught, names, accounts, net, bills, payments, options] = await Promise.all([
     getCategories(),
     getMonthTotals(),
     getTransactions(month),
@@ -76,6 +78,7 @@ export default async function Home({
     getAccountNet(),
     getBills(),
     getBillPayments(month),
+    getOptions(),
   ]);
 
   const opening = openingTotal(accounts);
@@ -142,51 +145,60 @@ export default async function Home({
       {summary.income > 0 && hp <= 0.2 && month === parseMonth() && <LowHpAlarm />}
       <MonthPicker month={month} path="/" />
 
-      <section className="box p-0!" aria-label="Wallet status">
-        <Scene>
-          <img src={sprite.trainer(trainerId)} alt="" className="pixel sprite scene-trainer" />
-          <div className="scene-partner">
-            <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} />
-          </div>
-          <WildPokemon balls={Math.max(0, player.entries - caught.length)} caught={caught} names={names} />
-          <div className="hpbox hpbox-me scene-status">
-            <div className="flex items-baseline justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
-              <span>
+      <SceneBox
+        startFolded={options.scene === "compact"}
+        scene={
+          <Scene>
+            <img src={sprite.trainer(trainerId)} alt="" className="pixel sprite scene-trainer" />
+            <div className="scene-partner">
+              <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} />
+            </div>
+            <WildPokemon balls={Math.max(0, player.entries - caught.length)} caught={caught} names={names} />
+            <div className="hpbox hpbox-me scene-status">
+              <div className="flex items-baseline justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
+                <span>
+                  {partner.name}
+                  {shiny && <span className="star" title="Shiny" />}
+                </span>
+                <span>Lv {player.level}</span>
+              </div>
+              <div className="grid grid-cols-[1.75rem_1fr] items-center gap-x-1">
+                <span className="font-display text-[0.6rem] text-gold">HP</span>
+                <Bar ratio={hp} tone={hpTone(hp)} label="Share of this month's income left" />
+              </div>
+              <p className="text-right leading-none">
+                {money(Math.max(0, summary.remaining))} / {money(summary.income)}
+              </p>
+            </div>
+          </Scene>
+        }
+        status={
+          <div className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-x-2 gap-y-2 pb-2">
+            <p className="col-span-3 flex items-center justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
+              <span className="flex items-center gap-2">
+                <img src={sprite.icon(partner.dex)} alt="" width={40} height={30} className="pixel" />
                 {partner.name}
                 {shiny && <span className="star" title="Shiny" />}
               </span>
               <span>Lv {player.level}</span>
-            </div>
-            <div className="grid grid-cols-[1.75rem_1fr] items-center gap-x-1">
-              <span className="font-display text-[0.6rem] text-gold">HP</span>
-              <Bar ratio={hp} tone={hpTone(hp)} label="Share of this month's income left" />
-            </div>
-            <p className="text-right leading-none">
-              {money(Math.max(0, summary.remaining))} / {money(summary.income)}
             </p>
-          </div>
-        </Scene>
-        {/* On a phone the status box would cover the scene, so name and HP sit here instead. */}
-        <div className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-x-2 gap-y-1.5 p-3">
-          <p className="col-span-3 flex justify-between font-display text-[0.65rem] leading-relaxed sm:hidden">
-            <span>
-              {partner.name}
-              {shiny && <span className="star" title="Shiny" />}
-            </span>
-            <span>Lv {player.level}</span>
-          </p>
-          <span className="font-display text-[0.6rem] text-gold sm:hidden">HP</span>
-          <span className="sm:hidden">
+            <span className="font-display text-[0.6rem] text-gold">HP</span>
             <Bar ratio={hp} tone={hpTone(hp)} label="Share of this month's income left" />
-          </span>
-          <span className="text-muted sm:hidden">{money(Math.max(0, summary.remaining))}</span>
-          <span className="font-display text-[0.6rem] text-blue">XP</span>
-          <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />
-          <span className="text-muted">
-            {player.xpIntoLevel} / {player.xpForNext}
-          </span>
-        </div>
-      </section>
+            <span className="text-muted">
+              {money(Math.max(0, summary.remaining))} / {money(summary.income)}
+            </span>
+          </div>
+        }
+        xp={
+          <>
+            <span className="font-display text-[0.6rem] text-blue">XP</span>
+            <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />
+            <span className="text-muted">
+              {player.xpIntoLevel} / {player.xpForNext}
+            </span>
+          </>
+        }
+      />
 
       {/* Message on the left, commands on the right, as in a battle. */}
       <div className="battle-bottom">
