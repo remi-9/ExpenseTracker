@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element -- tiny remote pixel sprite */
 import Link from "next/link";
 import { Suspense } from "react";
 import { Backdrop } from "@/components/backdrop";
+import { Logo } from "@/components/logo";
 import { Keys, LocationBanner, ScreenSwitcher, StartMenu, TabBar, ThemeToggle } from "@/components/nav";
 import { SoundToggle } from "@/components/sound";
 import { signOut } from "@/lib/actions";
@@ -21,7 +21,7 @@ import {
 import { money, parseMonth } from "@/lib/format";
 import { BADGES, getPlayer, summarizeMonth } from "@/lib/game";
 import { accountBalances, accountHealth, openingTotal } from "@/lib/money";
-import { partnerAt, sprite, TRAINERS } from "@/lib/partners";
+import { partnerAt, TRAINERS } from "@/lib/partners";
 
 export default async function GameLayout({ children }: { children: React.ReactNode }) {
   const [options, trainerId, totals, categories, caught, accounts, net, entries, partnerId, names] = await Promise.all([
@@ -65,7 +65,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
       <div className="flex min-w-0 flex-col gap-6">
         <header className="box flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <Link href="/" className="flex items-center gap-2 font-display text-sm leading-relaxed">
-            <img src={sprite.item("poke-ball")} alt="" width={30} height={30} className="pixel" />
+            <Logo size={32} />
             {APP_NAME}
             {!isSupabaseConfigured && (
               <span className="tag" title="Sample data. What you add is kept in this browser only, until you connect Supabase.">
