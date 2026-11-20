@@ -95,7 +95,7 @@ body {
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 1.375rem;
-  line-height: 1.4;
+  line-height: 1.25;
 }
 
 /* The page backdrop (components/backdrop.tsx): a colour layer, and over it a
@@ -338,7 +338,7 @@ code {
 }
 .window {
   margin: 4px;
-  padding: 0.9rem 1.1rem;
+  padding: 0.7rem 0.9rem;
   background: var(--panel);
   border: 4px solid var(--frame);
   box-shadow:
@@ -720,6 +720,16 @@ kbd {
   min-height: 4.4rem;
   font-size: 1.35rem;
   line-height: 1.5;
+}
+/* Messages are read, so they get more room than a menu or a form does. */
+.window.battle-text,
+.window.dialog {
+  padding: 0.9rem 1.1rem;
+}
+/* So does a paragraph of explanation in a panel. */
+.box > p,
+p.text-muted {
+  line-height: 1.4;
 }
 .arena .battle-text {
   min-height: 0;
@@ -1410,6 +1420,12 @@ a.pc-cell:focus-visible,
   max-height: 22rem;
   overflow-y: auto;
 }
+/* A list of bills carries a due day beside each name, so its column is wider than the Bag's pockets. */
+@media (min-width: 640px) {
+  .bag.bag-wide {
+    grid-template-columns: 16rem minmax(0, 1fr);
+  }
+}
 /* One setting per row: its name on the left, its choices on the right. */
 .option {
   display: grid;
@@ -1493,7 +1509,7 @@ a.pc-cell:focus-visible,
   grid-template-columns: 3.6rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.5rem 0;
+  padding: 0.4rem 0;
   border-bottom: 4px dotted var(--track);
 }
 .entries li:last-child {

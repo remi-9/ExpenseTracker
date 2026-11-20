@@ -64,7 +64,7 @@ export default async function BillsPage({
           </h1>
           <span />
         </header>
-        <div className="bag p-2">
+        <div className="bag bag-wide p-2">
           <div className="window menu bag-items" data-menu>
             {live.map((b) => (
               <Link key={b.id} href={`/bills?m=${month}&b=${b.id}`} scroll={false} className="menu-item" data-sfx="chip" aria-current={b.id === picked?.id ? "true" : undefined}>
