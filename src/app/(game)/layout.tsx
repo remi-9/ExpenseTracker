@@ -4,6 +4,7 @@ import { Backdrop } from "@/components/backdrop";
 import { Logo } from "@/components/logo";
 import { Keys, LocationBanner, ScreenSwitcher, StartMenu, TabBar, ThemeToggle } from "@/components/nav";
 import { SoundToggle } from "@/components/sound";
+import { Icon } from "@/components/sprite";
 import { signOut } from "@/lib/actions";
 import { APP_NAME, isSupabaseConfigured } from "@/lib/config";
 import {
@@ -76,7 +77,12 @@ export default async function GameLayout({ children }: { children: React.ReactNo
           <Suspense>
             <ScreenSwitcher trainer={trainer} />
           </Suspense>
-          <div className="flex flex-wrap items-center">
+          {/* Home and Menu are left out on phones, where the tab bar along the bottom has both. */}
+          <div className="head-buttons flex flex-wrap items-center">
+            <Link href="/" className="btn head-home" data-sfx="tab" aria-keyshortcuts="1">
+              <Icon name="home" size={20} />
+              Home <kbd>1</kbd>
+            </Link>
             <Suspense>
               <StartMenu summary={summary} trainer={trainer} partnerDex={partner?.dex} party={party} />
             </Suspense>

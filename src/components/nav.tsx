@@ -116,7 +116,7 @@ export function StartMenu({
     <>
       <button
         type="button"
-        className="btn"
+        className="btn head-menu"
         data-sfx="page"
         aria-haspopup="menu"
         aria-expanded={open}
