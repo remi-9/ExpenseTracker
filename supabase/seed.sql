@@ -1,4 +1,4 @@
--- Starter categories, taken from the columns of the old spreadsheet.
+-- Starter categories. Rename, add or archive them in the Bag.
 -- Icons are PokeAPI item sprite names (see ITEM_ICONS in src/lib/partners.ts); an emoji also works.
 -- Run once in the Supabase SQL editor AFTER your first login (it attaches to the first user).
 
@@ -6,17 +6,14 @@ insert into public.categories (user_id, name, kind, icon, monthly_target, sort_o
 select u.id, v.name, v.kind, v.icon, v.monthly_target, v.sort_order
 from (select id from auth.users order by created_at limit 1) u
 cross join (values
-  ('Salary',  'income',  'nugget', null::numeric, 1),
-  ('Second Salary',     'income',  'big-nugget', null, 2),
-  ('Other income',        'income',  'pearl', null, 3),
-  ('Save',            'saving',  'amulet-coin', 10000, 10),
-  ('Family',           'expense', 'sweet-heart', null, 20),
-  ('Relatives',           'expense', 'heart-scale', null, 21),
-  ('Internet',        'expense', 'pal-pad', null, 22),
-  ('Electricity',     'expense', 'thunder-stone', null, 23),
-  ('Withdraw',        'expense', 'coin-case', null, 30),
-  ('Shopping',        'expense', 'poke-ball', null, 31),
-  ('Other',           'expense', 'parcel', null, 99)
+  ('Salary',       'income',  'nugget', null::numeric, 1),
+  ('Other income', 'income',  'big-nugget', null, 2),
+  ('Save',         'saving',  'amulet-coin', 10000, 10),
+  ('Family',       'expense', 'sweet-heart', null, 20),
+  ('Internet',     'expense', 'pal-pad', null, 22),
+  ('Electricity',  'expense', 'thunder-stone', null, 23),
+  ('Shopping',     'expense', 'poke-ball', null, 31),
+  ('Other',        'expense', 'parcel', null, 99)
 ) as v(name, kind, icon, monthly_target, sort_order)
 on conflict (user_id, name) do nothing;
 
