@@ -22,7 +22,7 @@ export function NoteField({
         name="note"
         list={listId}
         defaultValue={defaultValue}
-        placeholder="Optional, e.g. Custom table"
+        placeholder="Optional, e.g. Groceries"
         className="field"
         onChange={(event) => {
           const typed = event.target.value.trim().toLowerCase();

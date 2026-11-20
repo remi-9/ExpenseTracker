@@ -60,8 +60,8 @@ export function yesterday(): string {
 }
 
 /**
- * Read an amount as typed: "1,500", "₱1500.50", or a quick sum such as "5390+764"
- * or "14000-6154". Returns null if it isn't a number or a sum of numbers.
+ * Read an amount as typed: "1,500", "₱1500.50", or a quick sum such as "1200+350"
+ * or "5000-1250". Returns null if it isn't a number or a sum of numbers.
  */
 export function parseAmount(input: string): number | null {
   const text = input.replace(/[\s,₱]/g, "");

@@ -61,7 +61,7 @@ async function readEntry(form: FormData, back: string): Promise<Entry> {
   const category_id = text(form, `category_${kind}`) || text(form, "category_id");
   const amount = parseAmount(text(form, "amount"));
   if (!category_id) fail(back, "Pick a category.");
-  if (amount === null) fail(back, "Enter an amount, like 1500 or 5390+764.");
+  if (amount === null) fail(back, "Enter an amount, like 1500 or 1200+350.");
   if (amount! <= 0) fail(back, "The amount has to be above zero.");
 
   const when = text(form, "when");
