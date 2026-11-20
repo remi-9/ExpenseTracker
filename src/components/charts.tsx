@@ -98,6 +98,72 @@ export function StepLine({
   );
 }
 
+// ---- A month's balance, day by day ---------------------------------------------------
+
+/**
+ * One account's balance at the end of each day, as a stepped line. The line stops at
+ * the last day given, so a month still running leaves the rest of its width empty.
+ * The scale runs from the lowest to the highest balance of the month, not from zero.
+ */
+export function DayLine({
+  opening,
+  days,
+  span,
+  label,
+}: {
+  /** The balance as the month began. */
+  opening: number;
+  days: { date: string; balance: number }[];
+  /** How many days the month has. */
+  span: number;
+  label: string;
+}) {
+  const W = 300;
+  const H = 60;
+  const PAD = 8;
+  const values = [opening, ...days.map((d) => d.balance)];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const x = (i: number) => PAD + (i * (W - PAD * 2)) / Math.max(1, span);
+  const y = (v: number) => (max === min ? H / 2 : H - PAD - ((v - min) / (max - min)) * (H - PAD * 2));
+  // Start at the opening balance; each day runs level, then jumps to where the day ended.
+  const d = `M${x(0)},${y(opening)}` + days.map((day, i) => `V${y(day.balance)}H${x(i + 1)}`).join("");
+  const end = x(days.length);
+  const last = values[values.length - 1];
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={label} shapeRendering="crispEdges">
+      {min < 0 && max > 0 && <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="var(--track)" strokeWidth={2} />}
+      <path d={`${d}V${H}H${x(0)}Z`} fill="var(--c1)" opacity={0.18} />
+      <path d={d} fill="none" stroke="var(--c1)" strokeWidth={4} />
+      <rect x={end - 5} y={y(last) - 5} width={10} height={10} fill="var(--ink)" stroke="var(--panel)" strokeWidth={2}>
+        <title>{money(last)}</title>
+      </rect>
+    </svg>
+  );
+}
+
+// ---- Where spending went: one bar per category, longest first ------------------------
+
+export function SpendBars({ rows }: { rows: { id: string; name: string; icon?: ReactNode; total: number }[] }) {
+  const peak = Math.max(1, ...rows.map((r) => r.total));
+  return (
+    <ul className="spend-bars" aria-label="Where the spending went">
+      {rows.map((r) => (
+        <li key={r.id}>
+          <span className="truncate">
+            {r.icon}
+            {r.name}
+          </span>
+          <span className="spend-bar" aria-hidden>
+            <span style={{ width: `${(r.total / peak) * 100}%` }} />
+          </span>
+          <span>{money(r.total)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // ---- Waffle: 100 squares, each one percent of the month's spending -----------------
 
 export type Slice = { id: string; name: string; value: number; color: string; icon?: ReactNode };

@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MAX_DEX, sprite } from "@/lib/partners";
 import { play } from "@/lib/sfx";
 import { BattleWipe } from "./battle-wipe";
@@ -23,12 +23,18 @@ export function WildPokemon({ balls, caught, names }: { balls: number; caught: n
   /** The battle being walked into: the screen closes here and opens again on the battle page. */
   const [entering, setEntering] = useState<string | null>(null);
   const router = useRouter();
+  const count = useRef<HTMLSpanElement>(null);
   const nameOf = (dex: number) => names[dex - 1] ?? `No. ${dex}`;
 
   // Spawn loop: wait, show one, wait again.
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const spawn = () => {
+      // Nothing turns up, or makes a sound, while the scene is folded away.
+      if (count.current?.closest("[inert]")) {
+        timer = setTimeout(spawn, GAP_MS[0]);
+        return;
+      }
       setVisitor({ dex: 1 + Math.floor(Math.random() * MAX_DEX), key: Date.now() });
       play("appear");
       timer = setTimeout(() => {
@@ -42,7 +48,7 @@ export function WildPokemon({ balls, caught, names }: { balls: number; caught: n
 
   return (
     <>
-      <span className="ball-count" title="Poké Balls: one for every entry you log, minus Pokémon caught">
+      <span ref={count} className="ball-count" title="Poké Balls: one for every entry you log, minus Pokémon caught">
         <img src={sprite.item("poke-ball")} alt="Poké Balls" width={24} height={24} className="pixel" />×{balls}
       </span>
 

@@ -2230,13 +2230,17 @@ legend > .kind-cats {
 .scene-box[data-folded] .place {
   animation-play-state: paused;
 }
-/* The name and HP are in the scene on wide screens, so the strip only carries them when it is folded. */
+/* The compact scene takes the full one's place while that is folded away. */
+.scene-box:not([data-folded]) .fold-strip {
+  grid-template-rows: 0fr;
+}
+.scene-box:not([data-folded]) .fold-strip > div {
+  opacity: 0;
+}
+/* The name and HP are in the scene on wide screens; phones have them in a row under it. */
 @media (min-width: 640px) {
-  .scene-box:not([data-folded]) .fold-status {
-    grid-template-rows: 0fr;
-  }
-  .scene-box:not([data-folded]) .fold-status > div {
-    opacity: 0;
+  .scene-status-row {
+    display: none;
   }
 }
 .btn.scene-toggle {
@@ -2561,12 +2565,6 @@ dialog.popup::backdrop {
   padding-top: 0.9rem;
   border-top: 4px dotted var(--track);
 }
-/* Home has six commands, some of them longer words, so its command window is wider. */
-@media (min-width: 640px) {
-  .battle-bottom.home-bottom {
-    grid-template-columns: minmax(0, 1fr) 18.5rem;
-  }
-}
 @media (max-width: 480px) {
   .popup-close kbd {
     display: none;
@@ -2574,6 +2572,285 @@ dialog.popup::backdrop {
 }
 @media (prefers-reduced-motion: reduce) {
   dialog.popup[open] {
+    animation: none;
+  }
+}
+
+/* ---- Home: the account view --------------------------------------------------------
+   Tabs for each account, then what it holds, what left it this month and two graphs. */
+.glance-tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(4rem, 1fr);
+  overflow-x: auto;
+  background: var(--bar);
+  color: var(--bar-ink);
+  border-bottom: 4px solid var(--ink);
+}
+.glance-tabs a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.35rem 0.25rem 0.3rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  opacity: 0.75;
+}
+.glance-tabs a span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.glance-tabs a:hover,
+.glance-tabs a:focus-visible {
+  opacity: 1;
+}
+.glance-tabs a:focus-visible {
+  outline: 4px solid var(--blue);
+  outline-offset: -4px;
+}
+.glance-tabs a[aria-current] {
+  background: var(--panel);
+  color: var(--ink);
+  opacity: 1;
+  box-shadow: inset 0 4px 0 var(--gold);
+}
+.glance-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem 1rem;
+}
+/* A long balance pushes the two figures onto a row of their own instead of breaking in two. */
+.glance-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  white-space: nowrap;
+}
+.glance-label {
+  margin-bottom: 0.35rem;
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  line-height: 1.6;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.glance-big {
+  padding-top: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+.glance-figures {
+  display: flex;
+  gap: 1.25rem;
+}
+.glance-figures li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.glance-figures strong {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.8;
+}
+.glance-graphs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+.glance-graphs figcaption {
+  line-height: 1.25;
+}
+.spend-bars {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+}
+.spend-bars li {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr) 4.5rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+.spend-bars li > :last-child {
+  text-align: right;
+}
+.spend-bar {
+  height: 12px;
+  background: var(--track);
+}
+.spend-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--c8);
+}
+@media (max-width: 639px) {
+  .glance-body {
+    gap: 0.5rem;
+    padding: 0.7rem 0.9rem 0.8rem;
+  }
+  .glance-top {
+    column-gap: 0.5rem;
+  }
+  .glance-big {
+    font-size: 1.1rem;
+  }
+  .glance-figures {
+    flex-direction: column;
+    gap: 0;
+  }
+  .glance-figures li {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+  .spend-bars li {
+    line-height: 1.2;
+  }
+}
+@media (min-width: 640px) {
+  .glance-graphs {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+  .glance-big {
+    font-size: 1.6rem;
+  }
+  .glance-figures strong {
+    font-size: 0.85rem;
+  }
+}
+
+/* Home's commands: one row of six on a wide screen, two rows of three on a phone. */
+.menu.commands.home-commands {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.home-commands .menu-item {
+  white-space: nowrap;
+}
+@media (min-width: 640px) {
+  .menu.commands.home-commands {
+    grid-template-columns: repeat(6, auto);
+    justify-content: space-between;
+  }
+}
+
+/* The quick-log and move pop-ups: chips keep their icon beside the name, and the
+   note and date stay folded away until asked for. */
+.popup-form .chip {
+  flex-direction: row;
+}
+.popup-form legend {
+  margin-bottom: 0.15rem;
+}
+.quick-more {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* ---- Home: the compact scene -------------------------------------------------------
+   A short band of the backdrop. It stays alive but quiet: the backdrop drifts, the
+   partner keeps its own animation and hops now and then, and something peeks out of
+   the grass a few times a minute. */
+.scene.scene-strip {
+  aspect-ratio: auto;
+  height: 6.5rem;
+}
+.scene-strip .place {
+  background-position: center 78%;
+}
+/* Only the scene that is showing moves. */
+.scene-box[data-folded] .scene-strip .place {
+  animation-play-state: running;
+}
+.scene-box:not([data-folded]) .scene-strip * {
+  animation-play-state: paused;
+}
+.strip-trainer,
+.strip-partner,
+.strip-wild {
+  position: absolute;
+}
+.strip-trainer {
+  left: 0.5rem;
+  bottom: -0.4rem;
+  height: 5rem;
+  transform: scaleX(-1);
+  animation: strip-breathe 3.2s steps(2, end) infinite;
+}
+.strip-partner {
+  left: 4.6rem;
+  bottom: 0.1rem;
+  transform: scaleX(-1);
+}
+/* A happy partner hops now and then; a tired or fainted one stays put. */
+.strip-partner[data-mood="happy"] {
+  animation: strip-hop 9s steps(4, end) infinite;
+}
+.strip-partner img {
+  zoom: 1;
+  max-height: 4.2rem;
+}
+.strip-wild {
+  left: 46%;
+  bottom: 1.1rem;
+  width: 40px;
+  opacity: 0;
+  animation: strip-peek 22s steps(6, end) infinite;
+}
+.scene-strip .scene-status {
+  top: 50%;
+  bottom: auto;
+  translate: 0 -50%;
+}
+@keyframes strip-breathe {
+  50% {
+    transform: scaleX(-1) translateY(2px);
+  }
+}
+@keyframes strip-hop {
+  0%,
+  88%,
+  100% {
+    transform: scaleX(-1) translateY(0);
+  }
+  94% {
+    transform: scaleX(-1) translateY(-10px);
+  }
+}
+@keyframes strip-peek {
+  0%,
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  76%,
+  92% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  84% {
+    opacity: 1;
+    transform: translateY(0) scaleX(-1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .strip-trainer,
+  .strip-partner,
+  .strip-wild,
+  .scene-strip .place {
     animation: none;
   }
 }

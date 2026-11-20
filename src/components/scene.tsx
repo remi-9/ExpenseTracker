@@ -10,12 +10,12 @@ const PLACES = ["route", "meadow", "forest", "river", "beach", "mountain", "city
 /** Seconds each place stays on screen. */
 const SLOT = 12;
 
-export function Scene({ children }: { children: ReactNode }) {
+export function Scene({ children, strip }: { children: ReactNode; /** A short band of the backdrop, for the compact scene. */ strip?: boolean }) {
   const share = 100 / PLACES.length;
   // Each place fades in, holds for its slot, then fades out; delays stagger them.
   const keyframes = `@keyframes place-cycle{0%{opacity:0}2%{opacity:1}${share}%{opacity:1}${share + 2}%{opacity:0}100%{opacity:0}}`;
   return (
-    <div className="scene" style={{ backgroundImage: `url(${backdrop(PLACES[0])})` }}>
+    <div className={`scene ${strip ? "scene-strip" : ""}`} style={{ backgroundImage: `url(${backdrop(PLACES[0])})` }}>
       <style>{keyframes}</style>
       {PLACES.map((place, i) => (
         <div

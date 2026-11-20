@@ -54,6 +54,9 @@ type Entry = {
 const writeDemo = async (edits: DemoEdits) =>
   (await cookies()).set("demo", encodeEdits(edits), { maxAge: YEAR, sameSite: "lax" });
 
+/** Home, on the account being looked at (`a` is an account id, or "all"). */
+const homePath = (view: string) => (view ? `/?a=${encodeURIComponent(view)}` : "/");
+
 /** Reads the entry form. Sends the user back with a message if something is missing. */
 async function readEntry(form: FormData, back: string): Promise<Entry> {
   const kind = text(form, "kind");
@@ -116,7 +119,7 @@ async function removeEntry(id: string, back: string) {
  * Where to land after a save, with what the page needs to play the result and keep
  * your choices. Entries logged from Home play their result there; the rest on Log.
  */
-async function afterSave(entry: Entry, id: string, from?: string): Promise<never> {
+async function afterSave(entry: Entry, id: string, from?: string, view?: string): Promise<never> {
   const kind = (await getCategories()).find((c) => c.id === entry.category_id)?.kind ?? "expense";
   const result = new URLSearchParams({
     m: entry.occurred_on.slice(0, 7),
@@ -127,14 +130,17 @@ async function afterSave(entry: Entry, id: string, from?: string): Promise<never
     t: String(Date.now()),
   });
   if (entry.account_id) result.set("acct", entry.account_id);
+  // Home goes back to the account that was being looked at.
+  if (from === "home" && view) result.set("a", view);
   return redirect(`${from === "home" ? "/" : "/log"}?${result}`);
 }
 
 export async function addTransaction(form: FormData) {
   const from = text(form, "from");
-  const back = from === "home" ? "/" : "/log";
+  const view = text(form, "a");
+  const back = from === "home" ? homePath(view) : "/log";
   const entry = await readEntry(form, back);
-  return afterSave(entry, await insertEntry(entry, back), from);
+  return afterSave(entry, await insertEntry(entry, back), from, view);
 }
 
 /** Pay a bill from the bills list: its category and account, the amount typed, on the date chosen. */
@@ -184,9 +190,9 @@ export async function updateTransaction(form: FormData) {
 /** Toss an entry. `undo=1` is the Undo button right after a save, which lands back where it was logged. */
 export async function deleteTransaction(form: FormData) {
   const month = text(form, "m");
-  const home = text(form, "from") === "home";
-  await removeEntry(text(form, "id"), home ? "/" : `/log?m=${month}`);
-  redirect(home ? "/" : `/log?m=${month}&done=${form.get("undo") ? "undone" : "tossed"}`);
+  const home = text(form, "from") === "home" ? homePath(text(form, "a")) : null;
+  await removeEntry(text(form, "id"), home ?? `/log?m=${month}`);
+  redirect(home ?? `/log?m=${month}&done=${form.get("undo") ? "undone" : "tossed"}`);
 }
 
 // ---- Categories --------------------------------------------------------------------
@@ -277,9 +283,10 @@ export async function setAccountArchived(form: FormData) {
   redirect("/accounts");
 }
 
-/** Move money between two of your accounts. */
+/** Move money between two of your accounts. From Home (`from=home`) it lands back there. */
 export async function addTransfer(form: FormData) {
-  const back = "/accounts?move=1";
+  const home = text(form, "from") === "home" ? homePath(text(form, "a")) : null;
+  const back = home ?? "/accounts?move=1";
   const from_account = text(form, "from_account");
   const to_account = text(form, "to_account");
   const amount = parseAmount(text(form, "amount"));
@@ -299,7 +306,7 @@ export async function addTransfer(form: FormData) {
     if (error) fail(back, error.message);
     revalidatePath("/", "layout");
   }
-  redirect("/accounts?done=moved");
+  redirect(home ? `${home}${home.includes("?") ? "&" : "?"}done=moved` : "/accounts?done=moved");
 }
 
 export async function deleteTransfer(form: FormData) {

@@ -202,7 +202,8 @@ export const gapCategory = (categories: Pick<Category, "id" | "name" | "kind">[]
 
 // ---- Bills -------------------------------------------------------------------------
 
-function daysIn(month: string) {
+/** How many days a month (YYYY-MM) has. */
+export function daysIn(month: string) {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
