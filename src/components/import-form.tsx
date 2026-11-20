@@ -1,18 +1,26 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { startTransition, useActionState, useRef } from "react";
 import { importCsv } from "@/lib/actions";
 
 /**
  * Paste a CSV file or choose one, check what it would bring in, then import it.
- * Both buttons post to the same action; `mode` says which step is wanted.
+ * Both buttons post to the same action; `mode` says which step is wanted. The action
+ * is called by hand so that React does not clear the text between the two steps.
  */
 export function ImportForm() {
   const [result, action, pending] = useActionState(importCsv, null);
   const box = useRef<HTMLTextAreaElement>(null);
 
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter);
+        startTransition(() => action(data));
+      }}
+      className="flex flex-col gap-3"
+    >
       <label className="flex flex-col gap-1">
         Choose a file
         <input
