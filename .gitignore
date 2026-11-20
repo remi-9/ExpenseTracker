@@ -50,3 +50,6 @@ public/audio/*
 
 # local tool settings
 .claude/
+
+# local database backups (your own data)
+supabase/backups/
