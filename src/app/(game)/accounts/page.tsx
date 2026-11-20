@@ -153,7 +153,7 @@ export default async function AccountsPage({
       </div>
 
       {(adding || editing) && (
-        <RoutePopup title={editing ? `Edit ${editing.name}` : "New account"} closeHref={back}>
+        <RoutePopup title={editing ? `Edit ${editing.name}` : "New account"} size="large" closeHref={back}>
           {params.error && (
             <p className="mb-3 text-red" role="alert">
               {params.error}
@@ -172,7 +172,7 @@ export default async function AccountsPage({
                 name="opening_balance"
                 inputMode="decimal"
                 defaultValue={editing?.opening_balance ?? ""}
-                placeholder="What it held before your first entry"
+                placeholder="Before your first entry"
                 className="field"
               />
             </label>
@@ -209,13 +209,13 @@ export default async function AccountsPage({
                 </div>
               </details>
             </fieldset>
-            <div className="flex flex-wrap sm:col-span-2">
-              <SubmitButton pending="Saving…" sfx="confirm">
-                {editing ? "Save changes" : "Add account"}
-              </SubmitButton>
+            <div className="popup-actions sm:col-span-2">
               <Link href={picked ? `/accounts?a=${picked.account.id}` : "/accounts"} scroll={false} className="btn" data-sfx="page">
                 Cancel
               </Link>
+              <SubmitButton pending="Saving…" sfx="confirm">
+                {editing ? "Save changes" : "Add account"}
+              </SubmitButton>
             </div>
           </form>
         </RoutePopup>
@@ -264,13 +264,13 @@ export default async function AccountsPage({
             <p className="text-muted sm:col-span-2">
               Transfers are not income or spending.
             </p>
-            <div className="flex flex-wrap sm:col-span-2">
-              <SubmitButton pending="Moving…" sfx="deposit">
-                Move it
-              </SubmitButton>
+            <div className="popup-actions sm:col-span-2">
               <Link href="/accounts" scroll={false} className="btn" data-sfx="page">
                 Cancel
               </Link>
+              <SubmitButton pending="Moving…" sfx="deposit">
+                Move it
+              </SubmitButton>
             </div>
           </form>
         </RoutePopup>
@@ -303,13 +303,13 @@ export default async function AccountsPage({
               On which day?
               <input name="on" type="date" defaultValue={checkedOn} max={today()} className="field" />
             </label>
-            <div className="flex flex-wrap sm:col-span-2">
-              <button className="btn" data-sfx="confirm">
-                Compare
-              </button>
+            <div className="popup-actions sm:col-span-2">
               <Link href={`/accounts?a=${picked.account.id}`} scroll={false} className="btn" data-sfx="page">
                 Cancel
               </Link>
+              <button className="btn" data-sfx="confirm">
+                Compare
+              </button>
             </div>
           </form>
 
@@ -350,7 +350,7 @@ export default async function AccountsPage({
                   <p className="text-muted">
                     Log anything you can name first, then compare again.
                   </p>
-                  <div className="flex flex-wrap">
+                  <div className="popup-actions">
                     <SubmitButton pending="Logging…" sfx="confirm">
                       Log {money(gap.amount)}
                     </SubmitButton>

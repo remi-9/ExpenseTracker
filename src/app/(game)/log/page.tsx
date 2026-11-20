@@ -287,16 +287,14 @@ export default async function LogPage({
         </label>
 
         {editing ? (
-          <div className="flex flex-wrap items-center justify-between">
-            <Link href={`/log?m=${month}&del=${editing.id}`} className="px-2 text-red underline">
+          <div className="popup-actions">
+            <Link href={`/log?m=${month}&del=${editing.id}`} className="lead px-2 text-red underline">
               Toss this entry
             </Link>
-            <span className="flex flex-wrap">
-              <Link href={`/log?m=${month}`} className="btn" data-sfx="page">
-                Cancel
-              </Link>
-              <SubmitButton sfx="confirm">Save changes</SubmitButton>
-            </span>
+            <Link href={`/log?m=${month}`} className="btn" data-sfx="page">
+              Cancel
+            </Link>
+            <SubmitButton sfx="confirm">Save changes</SubmitButton>
           </div>
         ) : (
           <SubmitButton className="btn btn-primary py-3!" sfx="none">
@@ -315,11 +313,11 @@ export default async function LogPage({
       {params.done && DONE[params.done] && <Dialog>{DONE[params.done]}</Dialog>}
 
       {tossing && (
-        <RoutePopup title="Toss this entry?" closeHref={`/log?m=${month}`}>
-          <p className="mb-3" role="alert">
+        <RoutePopup title="Toss this entry?" size="small" closeHref={`/log?m=${month}`}>
+          <p role="alert">
             {tossing.note ?? tossing.category.name}, {money(tossing.amount)}, {dayLong(tossing.occurred_on)}.
           </p>
-          <div className="flex flex-wrap justify-end">
+          <div className="popup-actions">
             <Link href={`/log?m=${month}`} scroll={false} className="btn" data-sfx="page">
               No, keep it
             </Link>
@@ -335,7 +333,7 @@ export default async function LogPage({
       )}
 
       {editing && !tossing && (
-        <RoutePopup title="Edit entry" closeHref={`/log?m=${month}`}>
+        <RoutePopup title="Edit entry" size="large" closeHref={`/log?m=${month}`}>
           {params.error && (
             <p className="mb-3 text-red" role="alert">
               {params.error}

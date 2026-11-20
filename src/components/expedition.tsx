@@ -357,7 +357,7 @@ function Screens({
                   )}
                 </Popup>
               </span>
-              <span className="flex flex-wrap justify-end">
+              <span className="ml-auto flex flex-wrap justify-end">
                 {stored && stored.phase.name !== "over" && (
                   <button className="btn py-3!" data-sfx="confirm" onClick={resume}>
                     Continue from floor {stored.floor}

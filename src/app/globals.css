@@ -2021,20 +2021,6 @@ legend > .kind-cats {
   font-size: 1rem;
   line-height: 1.1rem;
 }
-/* Home's one-line entry form: amount, category, account, button. */
-.quick-log {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-}
-.quick-log .field {
-  min-width: 0;
-}
-@media (min-width: 640px) {
-  .quick-log {
-    grid-template-columns: 8rem minmax(0, 1.4fr) minmax(0, 1fr) auto;
-  }
-}
 /* Accounts as a party: one slot each. */
 .account-party {
   display: grid;
@@ -2430,37 +2416,160 @@ legend > .kind-cats {
 }
 
 /* ---- Pop-up windows -----------------------------------------------------------------
-   A native dialog: a panel over the dimmed page (components/popup.tsx). */
+   A native dialog holding one framed window: a title bar, a body that scrolls if it
+   has to, and a row of actions along the bottom (components/popup.tsx). */
 dialog.popup {
-  width: min(40rem, calc(100vw - 1rem));
-  max-height: calc(100dvh - 2rem);
+  width: min(34rem, calc(100vw - 1rem));
+  max-height: none;
   margin: auto;
-  padding: 8px;
+  padding: 12px;
   border: 0;
   background: transparent;
   color: var(--ink);
-  overflow: auto;
+  overflow: visible;
+}
+dialog.popup[data-size="small"] {
+  width: min(24rem, calc(100vw - 1rem));
+}
+dialog.popup[data-size="large"] {
+  width: min(42rem, calc(100vw - 1rem));
 }
 dialog.popup[open] {
   animation: step-in 0.18s steps(3, end);
 }
+dialog.popup:focus {
+  outline: none;
+}
 dialog.popup::backdrop {
-  background: rgb(12 16 32 / 0.6);
+  background: rgb(12 16 32 / 0.62);
 }
-.btn.popup-close {
+.popup-window {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 3rem);
   margin: 0;
-  padding: 0.1rem 0.55rem;
-  font-size: 0.5rem;
+  padding: 0;
+  overflow: hidden;
 }
-/* Charts side by side on a page are stacked in a pop-up. */
-.popup .tiles {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.5rem;
+.popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.9rem;
+  background: var(--bar);
+  color: var(--bar-ink);
+}
+.popup-head h2 {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  line-height: 1.7;
+}
+.popup-head h2::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--gold);
+  box-shadow: 12px 0 var(--red);
+  margin-inline-end: calc(0.6rem + 12px);
+}
+.popup-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  line-height: 1.6;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.popup-close:hover,
+.popup-close:focus-visible {
+  color: var(--gold);
+}
+.popup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 0;
+  padding: 1rem;
+  overflow-y: auto;
+}
+.popup-body p {
+  line-height: 1.4;
+}
+/* The body's own windows and panels sit flush: the pop-up is already a frame. */
+.popup-body .window,
+.popup-body .box {
+  margin: 0;
+}
+.popup-foot,
+.popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+.popup-foot {
+  padding: 0.45rem 0.6rem;
+  border-top: 4px solid var(--frame);
+  background: color-mix(in srgb, var(--bar) 35%, var(--panel));
+}
+/* The last row of a form in a pop-up: its buttons, set off from the fields. */
+.popup-actions {
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 4px dotted var(--track);
+}
+/* Something that is not the way forward, such as "Toss this entry", keeps to the left. */
+.popup-actions > .lead {
+  margin-right: auto;
+}
+.popup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.popup-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.popup-section h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  line-height: 1.8;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.popup-section h3 span {
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  line-height: 1;
+  text-transform: none;
+  color: var(--ink);
+}
+.popup-section + .popup-section {
+  padding-top: 0.9rem;
+  border-top: 4px dotted var(--track);
 }
 /* Home has six commands, some of them longer words, so its command window is wider. */
 @media (min-width: 640px) {
   .battle-bottom.home-bottom {
     grid-template-columns: minmax(0, 1fr) 18.5rem;
+  }
+}
+@media (max-width: 480px) {
+  .popup-close kbd {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
