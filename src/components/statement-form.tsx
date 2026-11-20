@@ -124,7 +124,7 @@ export function StatementForm({
             onChange={(event) => setPassword(event.target.value)}
             className="field"
           />
-          <span className="text-muted">It is used here in your browser to open the file. It is not saved or sent.</span>
+          <span className="text-muted">Used in your browser only. Not saved or sent.</span>
         </label>
       )}
       {pdf ? (

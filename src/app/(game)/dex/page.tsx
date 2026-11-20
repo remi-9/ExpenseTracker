@@ -96,8 +96,7 @@ export default async function DexPage({
 
         {sorted.length === 0 ? (
           <p className="p-4 text-muted">
-            The PC is empty. Wild Pokémon turn up on Home and on expeditions in the Battle tab: wear one down, then
-            throw a Poké Ball.
+            The PC is empty. Weaken a wild Pokémon, then throw a Poké Ball.
           </p>
         ) : (
           <div className="pc">

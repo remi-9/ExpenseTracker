@@ -27,7 +27,7 @@ import {
 } from "@/lib/data";
 import { money, monthLabel, parseMonth, shiftMonth, today } from "@/lib/format";
 import { getPlayer, getQuests, isShiny, summarizeMonth, walletHp, type MonthSummary } from "@/lib/game";
-import { accountBalances, accountHealth, billsFor, dueLabel, leftAfterBills, needsPaying, openingTotal } from "@/lib/money";
+import { accountBalances, accountHealth, billsFor, needsPaying, openingTotal } from "@/lib/money";
 import { partnerAt, sprite } from "@/lib/partners";
 import type { Kind } from "@/lib/types";
 
@@ -41,11 +41,11 @@ function moodFor(s: MonthSummary): Mood {
 
 function narrate(s: MonthSummary, month: string, name: string): string {
   const label = monthLabel(month);
-  if (s.income === 0 && s.expense === 0) return `Nothing logged for ${label} yet. Log your pay to start the month.`;
-  if (s.income === 0) return `${money(s.expense)} spent in ${label}, but no income logged yet.`;
-  if (s.remaining < 0) return `${name} fainted! You're ${money(-s.remaining)} over what you earned in ${label}.`;
-  if (walletHp(s) <= 0.2) return `${name} is getting tired. ${money(s.remaining)} has to last the rest of ${label}.`;
-  return `${name} is in good shape. ${money(s.remaining)} left from ${label}'s pay.`;
+  if (s.income === 0 && s.expense === 0) return `Nothing logged for ${label} yet.`;
+  if (s.income === 0) return `${money(s.expense)} spent, no pay logged yet.`;
+  if (s.remaining < 0) return `${name} fainted! ${money(-s.remaining)} over this month's pay.`;
+  if (walletHp(s) <= 0.2) return `${name} is tired. ${money(s.remaining)} left.`;
+  return `${name} is in good shape. ${money(s.remaining)} left.`;
 }
 
 export default async function Home({
@@ -89,12 +89,12 @@ export default async function Home({
         <Typewriter
           lines={[
             "Welcome to the world of budgeting, trainer!",
-            "Every peso you log makes your partner stronger. Choose who will guard your wallet.",
+            "Choose who will guard your wallet.",
           ]}
         />
         <Panel title="Choose your partner">
           <PartnerPicker />
-          <p className="mt-2 text-muted">It evolves at Lv 5 and Lv 10. You can switch later on the Setup tab.</p>
+          <p className="mt-2 text-muted">You can switch later in Setup.</p>
         </Panel>
       </>
     );
@@ -106,33 +106,15 @@ export default async function Home({
   const shiny = isShiny(quests, summary);
   const nextQuest = quests.find((q) => q.saving && !q.complete);
 
-  // The category that has taken the most this month.
-  const topHit = totals
-    .filter((t) => t.month === `${month}-01` && t.kind === "expense")
-    .sort((a, b) => b.total - a.total)[0];
-  const topName = categories.find((c) => c.id === topHit?.category_id)?.name;
-
+  // One line on the month, and at most one more: bills that need paying, else the next quest.
   const lines = [narrate(summary, month, partner.name)];
-  if (topHit && topName) lines.push(`Its toughest opponent so far is ${topName}, at ${money(topHit.total)}.`);
-  if (shiny) lines.push(`Every quest is complete, so ${partner.name} is shining this month!`);
-  // Bills that are overdue or due within a week come first; otherwise the next savings quest.
   const statuses = billsFor(month, bills, payments, today());
   const pressing = needsPaying(statuses);
   if (pressing.length > 0) {
-    const first = pressing.slice(0, 3).map((s) => `${s.bill.name} (${dueLabel(s, today()).toLowerCase()})`).join(", ");
-    lines.push(`Bills to pay: ${first}${pressing.length > 3 ? ` and ${pressing.length - 3} more` : ""}.`);
-  } else if (nextQuest) {
-    lines.push(`Set aside ${money(nextQuest.target - nextQuest.done)} more in ${nextQuest.category.name} to finish a quest.`);
-  }
-  const kindOf = new Map(categories.map((c) => [c.id, c.kind]));
-  const afterBills = leftAfterBills(summary.remaining, statuses, kindOf);
-  if (afterBills !== summary.remaining) {
-    lines.push(
-      afterBills >= 0
-        ? `Once the bills still to pay are set aside, ${money(afterBills)} is free to spend.`
-        : `The bills still to pay come to ${money(-afterBills)} more than what is left.`,
-    );
-  }
+    const first = pressing.slice(0, 2).map((s) => s.bill.name).join(", ");
+    lines.push(`Bills due: ${first}${pressing.length > 2 ? ` and ${pressing.length - 2} more` : ""}.`);
+  } else if (shiny) lines.push(`Every quest is done. ${partner.name} is shining!`);
+  else if (nextQuest) lines.push(`${money(nextQuest.target - nextQuest.done)} more in ${nextQuest.category.name} finishes a quest.`);
 
   // Each account as a party member. Archived ones only show while they still hold something.
   const party = accountHealth(accountBalances(accounts, net), transactions).filter(
@@ -318,7 +300,7 @@ export default async function Home({
         }
       >
         {transactions.length === 0 ? (
-          <p className="text-muted">Nothing logged this month. Each entry earns 10 XP and a Poké Ball.</p>
+          <p className="text-muted">Nothing logged this month.</p>
         ) : (
           <EntryList entries={transactions.slice(0, 5)} />
         )}

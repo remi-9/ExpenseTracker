@@ -96,15 +96,11 @@ export default async function AccountsPage({
       <Panel title="Pokémon" aside={<span>{money(total)} in all</span>}>
         {active.length === 0 ? (
           <p className="text-muted">
-            No accounts yet. Add your bank account, e-wallet or cash, each guarded by a Pokémon of your choice.
+            No accounts yet. Add your bank, e-wallet or cash.
           </p>
         ) : (
           <AccountParty rows={active} current={picked?.account.id} />
         )}
-        <p className="mt-2 text-muted">
-          Each account is a party member. Its HP is what is left of what it held before this month&apos;s spending came
-          out of it.
-        </p>
       </Panel>
 
       <div className="battle-bottom">
@@ -112,9 +108,8 @@ export default async function AccountsPage({
           {picked ? (
             <>
               <CategoryIcon icon={picked.account.icon} />
-              {picked.account.name} ({ACCOUNT_KIND_LABEL[picked.account.kind].toLowerCase()}) holds {money(picked.balance)}. It
-              opened with {money(picked.account.opening_balance)}, and {money(picked.spent)} has been spent from it this
-              month.{picked.account.archived_at ? " It is archived, so it is hidden when you log." : ""}
+              {picked.account.name} holds {money(picked.balance)}. {money(picked.spent)} spent this month.
+              {picked.account.archived_at ? " Archived." : ""}
             </>
           ) : (
             "Add an account to start tracking where your money sits."
@@ -256,7 +251,7 @@ export default async function AccountsPage({
               <input name="note" placeholder="Optional, e.g. Cash for the week" className="field" />
             </label>
             <p className="text-muted sm:col-span-2">
-              A transfer is neither income nor spending: your wallet HP and XP stay as they are.
+              Transfers are not income or spending.
             </p>
             <div className="flex flex-wrap sm:col-span-2">
               <SubmitButton pending="Moving…" sfx="deposit">
@@ -318,9 +313,7 @@ export default async function AccountsPage({
                   {money(gap.amount)} {gap.state === "short" ? "less" : "more"}
                 </b>{" "}
                 than they say.{" "}
-                {gap.state === "short"
-                  ? "That is money spent, or moved out, that was never logged."
-                  : "That is money that came in and was never logged."}
+
               </p>
               {gapChoices.length === 0 ? (
                 <p className="text-red">
@@ -339,7 +332,7 @@ export default async function AccountsPage({
                     </select>
                   </label>
                   <p className="text-muted">
-                    If part of it was a transfer or something you can name, log that first and compare again.
+                    Log anything you can name first, then compare again.
                   </p>
                   <div className="flex flex-wrap">
                     <SubmitButton pending="Logging…" sfx="confirm">
@@ -356,10 +349,7 @@ export default async function AccountsPage({
       {importing && (
         <Panel title={`Import a statement into ${picked.account.name}`}>
           <p className="mb-3 text-muted">
-            Download the statement or transaction history from your bank or wallet, as a PDF or a CSV file, and choose it
-            here. It is read on this device. Lines you have already
-            logged are found and skipped. For each new line, say what it was spent on or which account the money moved to;
-            lines you leave alone are not saved and show up again next time.
+            Choose the PDF or CSV from your bank or wallet. Lines already logged are skipped.
           </p>
           <StatementForm
             account={{ id: picked.account.id, name: picked.account.name }}
@@ -375,7 +365,7 @@ export default async function AccountsPage({
       <Panel title="Latest transfers">
         {transfers.length === 0 ? (
           <p className="text-muted">
-            Nothing moved yet. Use Move money for cash withdrawals, e-wallet top-ups and paying off a card.
+            Nothing moved yet.
           </p>
         ) : (
           <ul className="entries transfers">

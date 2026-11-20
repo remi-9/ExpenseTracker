@@ -80,37 +80,37 @@ export default async function BattlePage({ searchParams }: { searchParams: Promi
   const supplies = [
     {
       icon: "rare-candy",
-      text: `Your team battles at Lv ${level}: five levels for each trainer level (you are Lv ${player.level}).`,
+      text: `Team level ${level}: five for each trainer level.`,
     },
     {
       icon: "potion",
-      text: `You start with ${potions} ${potions === 1 ? "Potion" : "Potions"}: one, plus one per quest complete this month (${questsDone})${healthy ? ", plus one for keeping wallet HP above half" : ""}.`,
+      text: `${potions} ${potions === 1 ? "Potion" : "Potions"}: one, plus one per finished quest${healthy ? " and one for healthy wallet HP" : ""}.`,
     },
     {
       icon: "oran-berry",
       text: tired
-        ? "This month is overspent, so your team starts tired, at 70% HP."
-        : "Your team starts at full HP. An overspent month would start it at 70%.",
+        ? "Overspent this month: your team starts at 70% HP."
+        : "Your team starts at full HP.",
     },
     {
       icon: items[0] ?? "sitrus-berry",
       text:
         items.length > 0
-          ? `Your ${badges} badges send ${items.length === 1 ? "a held item" : `${items.length} held items`} along: ${items.map((id) => ITEMS[id].name).join(", ")}. Every four badges adds one.`
-          : `Every four badges sends a held item along. You have ${badges}.`,
+          ? `Held items from your badges: ${items.map((id) => ITEMS[id].name).join(", ")}.`
+          : `Every four badges adds a held item. You have ${badges}.`,
     },
     {
       icon: "amulet-coin",
       text: amulet
-        ? "Your bills are paid on time, so you carry an Amulet Coin: half again as many coins from every win."
-        : "Pay this month's bills on time, with nothing overdue, to carry an Amulet Coin: half again as many coins from every win.",
+        ? "Bills paid on time: Amulet Coin, half again as many coins."
+        : "Pay bills on time to carry an Amulet Coin.",
     },
     {
       icon: "master-ball",
       text:
         finalType && topName
-          ? `${topName} is this month's biggest spending category, so the champion on floor ${FINAL_FLOOR} leads a ${TYPES[finalType]} team.`
-          : `The champion on floor ${FINAL_FLOOR} takes after your biggest spending category. Nothing is spent yet this month.`,
+          ? `Champion on floor ${FINAL_FLOOR}: ${TYPES[finalType]} team, from your spending on ${topName}.`
+          : `The champion on floor ${FINAL_FLOOR} takes after your biggest spending category.`,
     },
   ];
 

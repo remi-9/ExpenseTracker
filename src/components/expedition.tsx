@@ -285,8 +285,7 @@ export function Expedition({
               ))}
             </ul>
             <p className="text-muted">
-              Each area is five floors with a gym battle at the end. You can see the whole route before you choose a
-              path. Wild Pokémon you catch join the run, so a small team should head for tall grass first.
+              Five floors an area, a gym battle at the end. Pokémon you catch join the run.
             </p>
             <div className="flex flex-wrap justify-end">
               {stored && stored.phase.name !== "over" && (

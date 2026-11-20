@@ -92,7 +92,7 @@ export default async function BillsPage({
                   {picked.archived_at ? " It is archived, so it no longer comes due." : ""}
                 </>
               ) : (
-                "Someone's PC? No, Bill's. Store everything that comes round on a schedule here: rent, subscriptions, savings, even your pay. Each one turns up on the Log screen when it is due, ready to log in one tap."
+                "Rent, subscriptions, savings, your pay: anything on a schedule. Each shows on Log when due."
               )}
             </p>
             {picked && (
@@ -228,8 +228,8 @@ export default async function BillsPage({
         )}
         <p className="mt-3 text-muted">
           {amulet
-            ? "Every bill paid so far this month was on time and nothing is overdue, so your next expedition starts with an Amulet Coin: half again as many coins from every win."
-            : "Pay this month's bills on time, with nothing overdue, and your next expedition starts with an Amulet Coin."}
+            ? "Bills paid on time: your next expedition starts with an Amulet Coin."
+            : "Pay this month's bills on time for an Amulet Coin on your next expedition."}
         </p>
       </Panel>
 

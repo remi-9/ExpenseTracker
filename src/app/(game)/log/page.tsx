@@ -224,7 +224,7 @@ export default async function LogPage({
               />
             </span>
             <small id="amount-hint" className="text-muted">
-              Sums work too, like 5390+764.
+              Sums work too, like 1200+350.
             </small>
           </label>
 

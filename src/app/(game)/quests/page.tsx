@@ -83,7 +83,7 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
       <Panel title="Quests this month" aside={shiny ? <span><span className="star" />Shiny month</span> : undefined}>
         {quests.length === 0 ? (
           <p className="text-muted">
-            No quests yet. Give a category a monthly target on the Setup tab and it shows up here.
+            No quests yet. Give a category a monthly target in Setup.
           </p>
         ) : (
           <>
@@ -107,7 +107,7 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
               ))}
             </ul>
             {!shiny && (
-              <p className="mt-3 text-muted">Complete every quest in a month and your partner turns shiny for it.</p>
+              <p className="mt-3 text-muted">Finish every quest and your partner turns shiny.</p>
             )}
           </>
         )}
