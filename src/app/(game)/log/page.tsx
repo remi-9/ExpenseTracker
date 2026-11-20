@@ -7,6 +7,7 @@ import { RoutePopup } from "@/components/popup";
 import { PlayOnMount } from "@/components/sound";
 import { Hearts } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
+import { TossedList, TossedNotice } from "@/components/tossed";
 import { CategoryIcon, Dialog, EntryAmount, EntryWhat, MonthPicker, Panel } from "@/components/ui";
 import { addTransaction, deleteTransaction, payBill, updateTransaction } from "@/lib/actions";
 import {
@@ -19,6 +20,7 @@ import {
   getPartnerId,
   getPokemonNames,
   getRecentCategories,
+  getTossed,
   getTransactions,
   searchTransactions,
 } from "@/lib/data";
@@ -46,8 +48,7 @@ const FILTERS: { kind?: Kind; label: string }[] = [
 
 const DONE: Record<string, string> = {
   updated: "Entry updated.",
-  undone: "Undone. That entry is gone.",
-  tossed: "Entry tossed.",
+  restored: "Restored.",
 };
 
 export default async function LogPage({
@@ -71,12 +72,16 @@ export default async function LogPage({
     show?: string;
     p?: string;
     q?: string;
+    /** After a toss: the id, so the message can offer Restore. */
+    r?: string;
+    /** Show what was tossed lately. */
+    tossed?: string;
   }>;
 }) {
   const params = await searchParams;
   const month = parseMonth(params.m);
   const query = (params.q ?? "").trim();
-  const [categories, transactions, totals, partnerId, names, accounts, bills, payments, lastPayments, hints, found, recent] =
+  const [categories, transactions, totals, partnerId, names, accounts, bills, payments, lastPayments, hints, found, recent, tossed] =
     await Promise.all([
       getCategories(),
       getTransactions(month),
@@ -90,6 +95,7 @@ export default async function LogPage({
       getNoteHints(),
       query ? searchTransactions(query) : Promise.resolve([]),
       getRecentCategories(),
+      getTossed(),
     ]);
   const summary = summarizeMonth(totals, month, openingTotal(accounts));
   const partner = partnerAt(partnerId, getPlayer(totals).level, names);
@@ -308,6 +314,14 @@ export default async function LogPage({
       {/* An error from the edit form shows inside its pop-up. */}
       {params.error && !editing && <Dialog tone="error">{params.error}</Dialog>}
       {params.done && DONE[params.done] && <Dialog>{DONE[params.done]}</Dialog>}
+      {params.done === "tossed" && params.r && <TossedNotice message="Entry tossed." id={params.r} back={`/log?m=${month}`} month={month} />}
+
+      {params.tossed && (
+        <RoutePopup title="Tossed lately" closeHref={`/log?m=${month}`}>
+          <p className="mb-2 text-muted">Kept for 30 days. They count in no total until restored.</p>
+          <TossedList rows={tossed} categories={categories} accounts={accounts} back={`/log?m=${month}&tossed=1`} />
+        </RoutePopup>
+      )}
 
       {tossing && (
         <RoutePopup title="Toss this entry?" size="small" closeHref={`/log?m=${month}`}>
@@ -497,6 +511,11 @@ export default async function LogPage({
               </Link>
             ))}
           </nav>
+          {tossed.length > 0 && (
+            <Link href={`/log?m=${month}&tossed=1`} scroll={false} className="chip" data-sfx="page">
+              Tossed ({tossed.length})
+            </Link>
+          )}
           {/* Searches every month, by note or category name. */}
           <form action="/log" className="flex items-center" role="search">
             <input type="hidden" name="m" value={month} />

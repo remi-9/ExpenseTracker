@@ -6,6 +6,7 @@ import { PlayOnMount } from "@/components/sound";
 import { StatementForm } from "@/components/statement-form";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, Panel } from "@/components/ui";
+import { TossedNotice } from "@/components/tossed";
 import { addTransfer, deleteTransfer, logBalanceGap, saveAccount, setAccountArchived } from "@/lib/actions";
 import { isSupabaseConfigured } from "@/lib/config";
 import {
@@ -27,7 +28,7 @@ import type { AccountKind } from "@/lib/types";
 const GUARDIANS = Array.from({ length: 151 }, (_, i) => i + 1);
 const DONE: Record<string, string> = {
   moved: "Money moved.",
-  unmoved: "That transfer was undone.",
+  restored: "Restored.",
   matches: "It matches what you have logged. Nothing to add.",
   checked: "The difference is logged. The account now matches.",
 };
@@ -51,6 +52,8 @@ export default async function AccountsPage({
     import?: string;
     error?: string;
     done?: string;
+    /** After undoing a transfer: its id, so the message can offer Restore. */
+    r?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -93,6 +96,7 @@ export default async function AccountsPage({
       {/* A form in a pop-up shows its own error; anything else shows it here. */}
       {params.error && !inPopup && <Dialog tone="error">{params.error}</Dialog>}
       {params.done && DONE[params.done] && <Dialog>{DONE[params.done]}</Dialog>}
+      {params.done === "unmoved" && params.r && <TossedNotice message="Transfer undone." id={params.r} back="/accounts" />}
 
       <Panel title="Pokémon" aside={<span>{money(total)} in all</span>}>
         {active.length === 0 ? (

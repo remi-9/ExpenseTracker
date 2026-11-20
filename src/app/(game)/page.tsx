@@ -12,6 +12,7 @@ import { Scene } from "@/components/scene";
 import { SceneBox } from "@/components/scene-box";
 import { PlayOnMount } from "@/components/sound";
 import { SubmitButton } from "@/components/submit";
+import { TossedNotice } from "@/components/tossed";
 import { Typewriter } from "@/components/typewriter";
 import { Bar, Dialog, EntryList, hpTone, MonthPicker, Panel } from "@/components/ui";
 import { WildPokemon } from "@/components/wild";
@@ -45,7 +46,7 @@ const QUICK: { kind: Kind; label: string; title: string; account: string }[] = [
   { kind: "expense", label: "Spent", title: "Spent", account: "From" },
   { kind: "income", label: "Earned", title: "Earned", account: "Into" },
 ];
-const DONE: Record<string, string> = { moved: "Money moved." };
+const DONE: Record<string, string> = { moved: "Money moved.", restored: "Restored." };
 function moodFor(s: MonthSummary): Mood {
   if (s.income === 0) return s.expense > 0 ? "worried" : "happy";
   if (s.remaining <= 0) return "fainted";
@@ -76,6 +77,8 @@ export default async function Home({
     id?: string;
     t?: string;
     error?: string;
+    /** After Undo: the id of the entry tossed, so the message can offer Restore. */
+    r?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -196,6 +199,9 @@ export default async function Home({
       {/* The low-HP chirp, when this month's pay is nearly gone. */}
       {summary.income > 0 && hp <= 0.2 && month === parseMonth() && <LowHpAlarm />}
       {params.done && DONE[params.done] && <Dialog>{DONE[params.done]}</Dialog>}
+      {params.done === "tossed" && params.r && (
+        <TossedNotice message="Entry tossed." id={params.r} back={view === "all" || !params.a ? "/" : `/?a=${encodeURIComponent(params.a)}`} month={month} />
+      )}
       <MonthPicker month={month} path="/" />
 
       {savedAmount > 0 && savedCategory && params.id && (

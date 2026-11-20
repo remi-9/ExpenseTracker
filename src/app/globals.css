@@ -2945,3 +2945,29 @@ dialog.popup::backdrop {
   background: var(--bar);
   color: var(--bar-ink);
 }
+
+/* ---- Tossed lately (components/tossed.tsx) ------------------------------------------
+   One row per tossed entry or transfer: what, amount and date, then Restore. */
+.tossed-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 4px dotted var(--track);
+}
+.tossed-list li:last-child {
+  border-bottom: 0;
+}
+.tossed-what {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .tossed-list li {
+    grid-template-columns: minmax(0, 1fr) auto 5.5rem auto;
+  }
+}

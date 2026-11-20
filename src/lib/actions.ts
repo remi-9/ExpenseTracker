@@ -17,12 +17,13 @@ import {
   getMonthTotals,
   getTeam,
 } from "./data";
-import { DEMO_LIMIT, DEMO_TRANSFER_LIMIT, encodeEdits, type DemoEdits } from "./demo";
+import { DEMO_LIMIT, DEMO_TRANSFER_LIMIT, demoTransactions, encodeEdits, type DemoEdits } from "./demo";
 import { PATTERNS, TONES } from "./backdrop";
 import { balanceGap, balanceOn, dueDate } from "./money";
 import { FRAMES, SPEEDS } from "./options";
 import { DEFAULT_ICON, MAX_DEX, PARTNERS, PRESETS, TRAINERS } from "./partners";
 import type { Run, RunSummary } from "./run";
+import { entryRow, restoreInDemo, tossInDemo, type Tossed } from "./tossed";
 import { decide, planStatement, readPdfStatement, readStatement, type PdfRow, type PlannedLine } from "./statement";
 import type { AccountKind, Kind } from "./types";
 import { createClient } from "./supabase/server";
@@ -99,21 +100,34 @@ async function insertEntry(entry: Entry, back: string): Promise<string> {
   return data!.id as string;
 }
 
-async function removeEntry(id: string, back: string) {
+/**
+ * Toss an entry or a transfer: it leaves every total and is kept for 30 days among
+ * the tossed, where it can be restored (see tossed.ts and 0004_tossed.sql).
+ */
+async function toss(kind: Tossed["kind"], id: string, back: string) {
   if (!isSupabaseConfigured) {
     const edits = await getDemoEdits();
-    const mine = edits.added.some((e) => e.id === id);
-    return writeDemo({
-      ...edits,
-      added: edits.added.filter((e) => e.id !== id),
-      removed: mine ? edits.removed : [...edits.removed, id],
-    });
+    const tossed_at = new Date().toISOString();
+    let item: Tossed | undefined;
+    if (kind === "entry") {
+      const found = demoTransactions(edits).find((t) => t.id === id);
+      if (found) item = { id, kind, row: entryRow(found), tossed_at };
+    } else {
+      const row = edits.transfers.find((t) => t.id === id);
+      if (row) item = { id, kind, row, tossed_at };
+    }
+    if (!item) fail(back, "That is already gone.");
+    return writeDemo(tossInDemo(edits, item!));
   }
   const supabase = await createClient();
-  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  const { error } = await supabase.rpc("toss", { what: kind, target: id });
   if (error) fail(back, error.message);
   revalidatePath("/", "layout");
 }
+
+/** Add a parameter to a path that may already have some. */
+const withParams = (path: string, params: Record<string, string>) =>
+  `${path}${path.includes("?") ? "&" : "?"}${new URLSearchParams(params)}`;
 
 /**
  * Where to land after a save, with what the page needs to play the result and keep
@@ -187,12 +201,37 @@ export async function updateTransaction(form: FormData) {
   redirect(`/log?m=${entry.occurred_on.slice(0, 7)}&done=updated`);
 }
 
-/** Toss an entry. `undo=1` is the Undo button right after a save, which lands back where it was logged. */
+/**
+ * Toss an entry: Undo right after a save (which lands back where it was logged), or
+ * Toss on Log. The page then says so, with Restore (`r` is the entry's id).
+ */
 export async function deleteTransaction(form: FormData) {
   const month = text(form, "m");
-  const home = text(form, "from") === "home" ? homePath(text(form, "a")) : null;
-  await removeEntry(text(form, "id"), home ?? `/log?m=${month}`);
-  redirect(home ?? `/log?m=${month}&done=${form.get("undo") ? "undone" : "tossed"}`);
+  const id = text(form, "id");
+  const back = text(form, "from") === "home" ? homePath(text(form, "a")) : `/log?m=${month}`;
+  await toss("entry", id, back);
+  redirect(withParams(back, { done: "tossed", r: id }));
+}
+
+/**
+ * Put a tossed entry or transfer back. `back` is the page it was restored from,
+ * which then says so.
+ */
+export async function restoreTossed(form: FormData) {
+  const id = text(form, "id");
+  const back = text(form, "back") || "/log";
+  if (!isSupabaseConfigured) {
+    const edits = await getDemoEdits();
+    if (!edits.tossed.some((t) => t.id === id)) fail(back, "That is no longer kept.");
+    await writeDemo(restoreInDemo(edits, id));
+  } else {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("restore_tossed", { target: id });
+    // 23503: the account, category or bill it pointed to has been deleted since.
+    if (error) fail(back, error.code === "23503" ? "It can't go back: something it belonged to has been deleted." : error.message);
+    revalidatePath("/", "layout");
+  }
+  redirect(withParams(back, { done: "restored" }));
 }
 
 // ---- Categories --------------------------------------------------------------------
@@ -309,18 +348,11 @@ export async function addTransfer(form: FormData) {
   redirect(home ? `${home}${home.includes("?") ? "&" : "?"}done=moved` : "/accounts?done=moved");
 }
 
+/** Undo a transfer: it is tossed, and Accounts says so, with Restore. */
 export async function deleteTransfer(form: FormData) {
   const id = text(form, "id");
-  if (!isSupabaseConfigured) {
-    const edits = await getDemoEdits();
-    await writeDemo({ ...edits, transfers: edits.transfers.filter((t) => t.id !== id) });
-  } else {
-    const supabase = await createClient();
-    const { error } = await supabase.from("transfers").delete().eq("id", id);
-    if (error) fail("/accounts", error.message);
-    revalidatePath("/", "layout");
-  }
-  redirect("/accounts?done=unmoved");
+  await toss("transfer", id, "/accounts");
+  redirect(withParams("/accounts", { done: "unmoved", r: id }));
 }
 
 /**

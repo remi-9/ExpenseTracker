@@ -1,5 +1,6 @@
 // Made-up data shown when Supabase isn't connected yet, so the UI can be explored first.
 import { shiftMonth, today } from "./format";
+import type { Tossed } from "./tossed";
 import type { Account, Bill, Category, MonthTotal, Transaction, Transfer } from "./types";
 
 const cat = (
@@ -92,60 +93,79 @@ const monthPlan: [string, number, number, string | null, string, string?][] = [
 /** Left unpaid in the current month, so the bills list has something due. */
 const UNPAID_NOW = ["b-power", "b-subs"];
 
-type DemoEntry = Omit<Transaction, "category">;
+export type DemoEntry = Omit<Transaction, "category">;
 
 /**
  * What you have changed in demo mode, kept in a cookie so the app can be tried
- * for real before Supabase is connected: entries and transfers added, and ids of entries removed.
+ * for real before Supabase is connected: entries and transfers added, ids of entries
+ * removed, and what was tossed lately, so it can be restored (see tossed.ts).
  */
 export type DemoEdits = {
   added: DemoEntry[];
   removed: string[];
   transfers: Transfer[];
+  tossed: Tossed[];
 };
-export const NO_EDITS: DemoEdits = { added: [], removed: [], transfers: [] };
+export const NO_EDITS: DemoEdits = { added: [], removed: [], transfers: [], tossed: [] };
 /** A cookie holds about 4 KB, so the demo keeps the most recent entries and transfers only. */
 export const DEMO_LIMIT = 40;
 export const DEMO_TRANSFER_LIMIT = 6;
 
 // The cookie is written as compact text rather than JSON, which triples in size once
 // a cookie's quotes and braces are URL-encoded. Fields are joined with "~", rows with
-// "!" and the three lists with "*": none of those is touched by URL encoding.
+// "!" and the lists with "*": none of those is touched by URL encoding. A tossed row
+// is its kind ("e" or "t"), the time it was tossed, then the row's own fields.
 const esc = (text: string | null) => (text ?? "").replace(/[%~!*]/g, (c) => `%${c.charCodeAt(0).toString(16)}`);
 const unesc = (text: string) => text.replace(/%([0-9a-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 
+const entryFields = (e: DemoEntry) =>
+  [e.id, e.category_id, e.amount, e.occurred_on, e.account_id ?? "", e.to_account_id ?? "", e.bill_id ?? "", esc(e.note)];
+const transferFields = (t: Transfer) => [t.id, t.from_account, t.to_account, t.amount, t.occurred_on, esc(t.note)];
+const readEntry = ([id, category_id, amount, occurred_on, account_id, to_account_id, bill_id, note]: string[]): DemoEntry => ({
+  id,
+  category_id,
+  amount: Number(amount),
+  occurred_on,
+  note: note ? unesc(note) : null,
+  account_id: account_id || null,
+  to_account_id: to_account_id || null,
+  bill_id: bill_id || null,
+});
+const readTransfer = ([id, from_account, to_account, amount, occurred_on, note]: string[]): Transfer => ({
+  id,
+  from_account,
+  to_account,
+  amount: Number(amount),
+  occurred_on,
+  note: note ? unesc(note) : null,
+});
+
 export function encodeEdits(edits: DemoEdits): string {
-  const added = edits.added.map((e) =>
-    [e.id, e.category_id, e.amount, e.occurred_on, e.account_id ?? "", e.to_account_id ?? "", e.bill_id ?? "", esc(e.note)].join("~"),
+  const added = edits.added.map((e) => entryFields(e).join("~"));
+  const transfers = edits.transfers.map((t) => transferFields(t).join("~"));
+  const tossed = edits.tossed.map((t) =>
+    [t.kind === "entry" ? "e" : "t", t.tossed_at, ...(t.kind === "entry" ? entryFields(t.row) : transferFields(t.row))].join("~"),
   );
-  const transfers = edits.transfers.map((t) => [t.id, t.from_account, t.to_account, t.amount, t.occurred_on, esc(t.note)].join("~"));
-  return ["v2", added.join("!"), edits.removed.join("!"), transfers.join("!")].join("*");
+  return ["v3", added.join("!"), edits.removed.join("!"), transfers.join("!"), tossed.join("!")].join("*");
 }
 
 export function decodeEdits(raw: string | undefined): DemoEdits {
-  const [version, added = "", removed = "", transfers = ""] = (raw ?? "").split("*");
-  if (version !== "v2") return NO_EDITS;
+  const [version, added = "", removed = "", transfers = "", tossed = ""] = (raw ?? "").split("*");
+  // v2 is the same without the tossed rows.
+  if (version !== "v2" && version !== "v3") return NO_EDITS;
   const rows = (text: string) => (text ? text.split("!").map((row) => row.split("~")) : []);
   return {
-    added: rows(added).map(([id, category_id, amount, occurred_on, account_id, to_account_id, bill_id, note]) => ({
-      id,
-      category_id,
-      amount: Number(amount),
-      occurred_on,
-      note: note ? unesc(note) : null,
-      account_id: account_id || null,
-      to_account_id: to_account_id || null,
-      bill_id: bill_id || null,
-    })),
+    added: rows(added).map(readEntry),
     removed: removed ? removed.split("!") : [],
-    transfers: rows(transfers).map(([id, from_account, to_account, amount, occurred_on, note]) => ({
-      id,
-      from_account,
-      to_account,
-      amount: Number(amount),
-      occurred_on,
-      note: note ? unesc(note) : null,
-    })),
+    transfers: rows(transfers).map(readTransfer),
+    tossed: rows(tossed).map(([kind, tossed_at, ...fields]): Tossed => {
+      if (kind === "e") {
+        const row = readEntry(fields);
+        return { id: row.id, kind: "entry", row, tossed_at };
+      }
+      const row = readTransfer(fields);
+      return { id: row.id, kind: "transfer", row, tossed_at };
+    }),
   };
 }
 

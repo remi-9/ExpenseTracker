@@ -8,6 +8,7 @@ const edits: DemoEdits = {
   ],
   removed: ["2026-11-3", "2026-10-7"],
   transfers: [{ id: "tr-abe", from_account: "bank", to_account: "cash", amount: 2000, occurred_on: "2026-11-05", note: null }],
+  tossed: [],
 };
 
 describe("the demo cookie", () => {

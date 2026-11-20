@@ -12,6 +12,7 @@ import { createClient } from "./supabase/server";
 import type { Run, RunSummary } from "./run";
 import { withLatePay } from "./game";
 import { netByAccount, type BillPayment } from "./money";
+import { keptTossed, KEEP_DAYS, type Tossed } from "./tossed";
 import type { Account, Bill, Category, MonthTotal, Transaction, Transfer } from "./types";
 
 function check<T>(result: { data: T | null; error: { message: string } | null }): T {
@@ -193,6 +194,18 @@ async function loadRecentCategories(): Promise<string[]> {
     ids = rows.map((r) => r.category_id as string);
   }
   return [...new Set(ids)];
+}
+
+/** Entries and transfers tossed in the last 30 days, newest toss first (see tossed.ts). */
+async function loadTossed(): Promise<Tossed[]> {
+  if (!isSupabaseConfigured) return keptTossed((await getDemoEdits()).tossed, new Date());
+  const supabase = await createClient();
+  const since = new Date(Date.now() - KEEP_DAYS * 86_400_000).toISOString();
+  const rows = check(
+    await supabase.from("tossed").select("id, kind, row, tossed_at").gte("tossed_at", since).order("tossed_at", { ascending: false }).limit(200),
+  ) as { id: string; kind: Tossed["kind"]; row: Record<string, unknown>; tossed_at: string }[];
+  // The row is kept as it was in its table; amounts come back as numbers or strings.
+  return rows.map((t) => ({ ...t, row: { ...t.row, amount: Number(t.row.amount) } }) as Tossed);
 }
 
 // ---- Accounts, transfers and bills -------------------------------------------------
@@ -479,6 +492,7 @@ export const searchTransactions = cache(loadSearch);
 export const getAllTransactions = cache(loadAllTransactions);
 export const getNoteHints = cache(loadNoteHints);
 export const getRecentCategories = cache(loadRecentCategories);
+export const getTossed = cache(loadTossed);
 export const getAccounts = cache(loadAccounts);
 export const getAccountNet = cache(loadAccountNet);
 export const getTransfers = cache(loadTransfers);
