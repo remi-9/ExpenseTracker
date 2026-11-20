@@ -286,7 +286,11 @@ export function Keys() {
 
       const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
       const menu = focused?.closest("[data-menu]");
-      if (step && menu) {
+      // A text field keeps its arrow keys (cursor, suggestions), and a pop-up opened
+      // from a menu is not part of that menu.
+      const typing = focused?.matches("textarea, select, input:not([type=radio], [type=checkbox], [type=button], [type=submit])");
+      const dialog = focused?.closest("dialog");
+      if (step && menu && !typing && (!dialog || dialog.contains(menu))) {
         // A pop-up kept inside a menu is not one of the menu's choices.
         const choices = [...menu.querySelectorAll<HTMLElement>("a, button:not(:disabled), input:not([type=hidden])")].filter(
           (choice) => (choice.closest("dialog") ?? null) === (focused!.closest("dialog") ?? null),
