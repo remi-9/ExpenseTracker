@@ -2168,3 +2168,40 @@ legend > .kind-cats {
     display: none;
   }
 }
+
+/* ---- Statement import: one line of the statement per row, with what it is --------- */
+.statement {
+  max-height: 28rem;
+  overflow-y: auto;
+}
+.statement li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto minmax(9rem, 13rem);
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 4px dotted var(--track);
+}
+.statement li:last-child {
+  border-bottom: 0;
+}
+.statement li[data-logged] > span {
+  opacity: 0.55;
+}
+.statement .amount {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.statement select {
+  min-width: 0;
+  padding-block: 0.15rem;
+}
+@media (max-width: 640px) {
+  .statement li {
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  }
+  .statement select {
+    grid-column: 1 / -1;
+  }
+}

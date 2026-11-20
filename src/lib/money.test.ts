@@ -3,9 +3,12 @@ import {
   accountBalances,
   accountHealth,
   amuletEarned,
+  balanceGap,
+  balanceOn,
   billsFor,
   dueDate,
   dueLabel,
+  gapCategory,
   leftAfterBills,
   netByAccount,
 } from "./money";
@@ -223,5 +226,51 @@ describe("an account's HP", () => {
     );
     expect(full.ratio).toBe(1);
     expect(empty.ratio).toBe(0);
+  });
+});
+
+describe("checking an account against its real balance", () => {
+  test("matches when the two agree to the centavo", () => {
+    expect(balanceGap(1500.1, 1500.1)).toEqual({ state: "match" });
+    expect(balanceGap(0.1 + 0.2, 0.3)).toEqual({ state: "match" });
+  });
+
+  test("is short when the account holds less than the entries say", () => {
+    expect(balanceGap(5000, 4250.5)).toEqual({ state: "short", amount: 749.5 });
+  });
+
+  test("is over when the account holds more than the entries say", () => {
+    expect(balanceGap(5000, 5020)).toEqual({ state: "over", amount: 20 });
+  });
+
+  const categories = [
+    { id: "food", name: "Food", kind: "expense" as const },
+    { id: "other", name: "Other", kind: "expense" as const },
+    { id: "pay", name: "Salary", kind: "income" as const },
+  ];
+
+  test("offers a catch-all category for the difference when there is one", () => {
+    expect(gapCategory(categories, "expense")).toBe("other");
+  });
+
+  test("falls back to the first category of the kind", () => {
+    expect(gapCategory(categories, "income")).toBe("pay");
+    expect(gapCategory(categories, "saving")).toBeUndefined();
+  });
+});
+
+describe("what an account held on a given day", () => {
+  const account = { id: "bank", opening_balance: 1000 };
+  const entries = [
+    { amount: 300, occurred_on: "2026-11-03", account_id: "bank", to_account_id: null, category: { kind: "expense" as const } },
+    { amount: 5000, occurred_on: "2026-11-10", account_id: "bank", to_account_id: null, category: { kind: "income" as const } },
+  ];
+  const transfers = [{ from_account: "bank", to_account: "cash", amount: 200, occurred_on: "2026-11-05" }];
+
+  test("counts entries and transfers up to and including that day", () => {
+    expect(balanceOn(account, entries, transfers, "2026-11-02")).toBe(1000);
+    expect(balanceOn(account, entries, transfers, "2026-11-03")).toBe(700);
+    expect(balanceOn(account, entries, transfers, "2026-11-05")).toBe(500);
+    expect(balanceOn(account, entries, transfers, "2026-11-30")).toBe(5500);
   });
 });

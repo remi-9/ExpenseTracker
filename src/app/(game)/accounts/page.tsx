@@ -2,24 +2,55 @@
 import Link from "next/link";
 import { ACCOUNT_KIND_LABEL, AccountParty } from "@/components/accounts";
 import { PlayOnMount } from "@/components/sound";
+import { StatementForm } from "@/components/statement-form";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, Panel } from "@/components/ui";
-import { addTransfer, deleteTransfer, saveAccount, setAccountArchived } from "@/lib/actions";
+import { addTransfer, deleteTransfer, logBalanceGap, saveAccount, setAccountArchived } from "@/lib/actions";
 import { isSupabaseConfigured } from "@/lib/config";
-import { getAccountNet, getAccounts, getPokemonNames, getTransactions, getTransfers } from "@/lib/data";
-import { dayLabel, money, parseMonth, today } from "@/lib/format";
-import { accountBalances, accountHealth } from "@/lib/money";
+import {
+  getAccountNet,
+  getAccounts,
+  getAllTransactions,
+  getAllTransfers,
+  getCategories,
+  getPokemonNames,
+  getTransactions,
+  getTransfers,
+} from "@/lib/data";
+import { dayLabel, dayLong, money, parseAmount, parseMonth, today } from "@/lib/format";
+import { accountBalances, accountHealth, balanceGap, balanceOn, gapCategory } from "@/lib/money";
 import { sprite } from "@/lib/partners";
 import type { AccountKind } from "@/lib/types";
 
 // The first 151 Pokémon are offered as an account's guardian.
 const GUARDIANS = Array.from({ length: 151 }, (_, i) => i + 1);
-const DONE: Record<string, string> = { moved: "Money moved.", unmoved: "That transfer was undone." };
+const DONE: Record<string, string> = {
+  moved: "Money moved.",
+  unmoved: "That transfer was undone.",
+  matches: "It matches what you have logged. Nothing to add.",
+  checked: "The difference is logged. The account now matches.",
+};
+/** A balance as typed. A card that is owed on is below zero. */
+const readBalance = (typed: string) => {
+  const amount = parseAmount(typed.replace(/^-/, ""));
+  return amount === null ? null : typed.startsWith("-") ? -amount : amount;
+};
 
 export default async function AccountsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ a?: string; new?: string; edit?: string; move?: string; error?: string; done?: string }>;
+  searchParams: Promise<{
+    a?: string;
+    new?: string;
+    edit?: string;
+    move?: string;
+    check?: string;
+    actual?: string;
+    on?: string;
+    import?: string;
+    error?: string;
+    done?: string;
+  }>;
 }) {
   const params = await searchParams;
   const [accounts, net, transfers, names, transactions] = await Promise.all([
@@ -38,6 +69,19 @@ export default async function AccountsPage({
   const moving = !!params.move && active.length > 1;
   const nameOf = (id: string) => accounts.find((a) => a.id === id)?.name ?? "an account that is gone";
   const total = rows.reduce((sum, r) => sum + r.balance, 0);
+
+  // Checking a balance and importing a statement both look at everything logged.
+  const checking = !!params.check && !!picked;
+  const importing = !!params.import && !!picked;
+  const [categories, everyEntry, everyTransfer] =
+    checking || importing ? await Promise.all([getCategories(), getAllTransactions(), getAllTransfers()]) : [[], [], []];
+  const usable = categories.filter((c) => !c.archived_at);
+  const checkedOn = /^\d{4}-\d{2}-\d{2}$/.test(params.on ?? "") ? params.on! : today();
+  const actual = checking && params.actual ? readBalance(params.actual.trim()) : null;
+  const expected = checking ? balanceOn(picked.account, everyEntry, everyTransfer, checkedOn) : 0;
+  const gap = actual === null ? null : balanceGap(expected, actual);
+  const gapKind = gap?.state === "over" ? "income" : "expense";
+  const gapChoices = usable.filter((c) => c.kind === gapKind);
 
   return (
     <>
@@ -85,6 +129,16 @@ export default async function AccountsPage({
           {active.length > 1 && (
             <Link href={`/accounts?${picked ? `a=${picked.account.id}&` : ""}move=1`} scroll={false} className="menu-item" data-sfx="confirm">
               Move money
+            </Link>
+          )}
+          {picked && (
+            <Link href={`/accounts?a=${picked.account.id}&check=1`} scroll={false} className="menu-item" data-sfx="confirm">
+              Check balance
+            </Link>
+          )}
+          {picked && (
+            <Link href={`/accounts?a=${picked.account.id}&import=1`} scroll={false} className="menu-item" data-sfx="confirm">
+              Import statement
             </Link>
           )}
           {picked && (
@@ -213,6 +267,108 @@ export default async function AccountsPage({
               </Link>
             </div>
           </form>
+        </Panel>
+      )}
+
+      {checking && (
+        <Panel title={`Check ${picked.account.name}`}>
+          <form action="/accounts" className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="a" value={picked.account.id} />
+            <input type="hidden" name="check" value="1" />
+            <label className="flex flex-col gap-1">
+              What does it really hold?
+              <input
+                name="actual"
+                inputMode="decimal"
+                autoComplete="off"
+                required
+                autoFocus={!gap}
+                defaultValue={params.actual}
+                placeholder="The balance your bank or wallet shows"
+                className="field"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              On which day?
+              <input name="on" type="date" defaultValue={checkedOn} max={today()} className="field" />
+            </label>
+            <div className="flex flex-wrap sm:col-span-2">
+              <button className="btn" data-sfx="confirm">
+                Compare
+              </button>
+              <Link href={`/accounts?a=${picked.account.id}`} scroll={false} className="btn" data-sfx="page">
+                Cancel
+              </Link>
+            </div>
+          </form>
+
+          {gap?.state === "match" && (
+            <p className="mt-3 text-green" role="status">
+              It matches: your entries add up to {money(expected)} for {dayLong(checkedOn)}. Nothing to add.
+            </p>
+          )}
+          {gap && gap.state !== "match" && (
+            <form action={logBalanceGap} className="mt-3 flex flex-col gap-3" role="status">
+              <input type="hidden" name="account" value={picked.account.id} />
+              <input type="hidden" name="actual" value={params.actual} />
+              <input type="hidden" name="on" value={checkedOn} />
+              <p>
+                Your entries add up to {money(expected)} for {dayLong(checkedOn)}, so {picked.account.name} holds{" "}
+                <b>
+                  {money(gap.amount)} {gap.state === "short" ? "less" : "more"}
+                </b>{" "}
+                than they say.{" "}
+                {gap.state === "short"
+                  ? "That is money spent, or moved out, that was never logged."
+                  : "That is money that came in and was never logged."}
+              </p>
+              {gapChoices.length === 0 ? (
+                <p className="text-red">
+                  Add {gapKind === "expense" ? "a spending" : "an income"} category in the Bag to log the difference under.
+                </p>
+              ) : (
+                <>
+                  <label className="flex flex-col gap-1">
+                    Log the difference as {gapKind === "expense" ? "spending on" : "income from"}
+                    <select name="category_id" defaultValue={gapCategory(usable, gapKind)} className="field">
+                      {gapChoices.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="text-muted">
+                    If part of it was a transfer or something you can name, log that first and compare again.
+                  </p>
+                  <div className="flex flex-wrap">
+                    <SubmitButton pending="Logging…" sfx="confirm">
+                      Log {money(gap.amount)}
+                    </SubmitButton>
+                  </div>
+                </>
+              )}
+            </form>
+          )}
+        </Panel>
+      )}
+
+      {importing && (
+        <Panel title={`Import a statement into ${picked.account.name}`}>
+          <p className="mb-3 text-muted">
+            Download the statement or transaction history from your bank or wallet, as a PDF or a CSV file, and choose it
+            here. It is read on this device. Lines you have already
+            logged are found and skipped. For each new line, say what it was spent on or which account the money moved to;
+            lines you leave alone are not saved and show up again next time.
+          </p>
+          <StatementForm
+            account={{ id: picked.account.id, name: picked.account.name }}
+            categories={usable.map(({ id, name, kind }) => ({ id, name, kind }))}
+            others={active.filter((r) => r.account.id !== picked.account.id).map((r) => ({ id: r.account.id, name: r.account.name }))}
+          />
+          <Link href={`/accounts?a=${picked.account.id}`} scroll={false} className="btn mt-3" data-sfx="page">
+            Done
+          </Link>
         </Panel>
       )}
 

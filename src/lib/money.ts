@@ -1,7 +1,7 @@
 // Accounts and bills: pure functions over rows, like game.ts. Nothing here is stored;
 // balances and bill states are worked out from entries, transfers and bills.
 import { dayLabel, shiftMonth } from "./format";
-import type { Account, Bill, Kind, Transaction, Transfer } from "./types";
+import type { Account, Bill, Category, Kind, Transaction, Transfer } from "./types";
 
 // ---- Accounts ----------------------------------------------------------------------
 
@@ -61,6 +61,34 @@ export function accountHealth(balances: Balance[], monthEntries: Movement[]): Ac
 
 /** The total of every account's opening balance: the starting point for "Money". */
 export const openingTotal = (accounts: Account[]) => accounts.reduce((sum, a) => sum + a.opening_balance, 0);
+
+/** What an account held at the end of a day: its opening balance and everything logged up to then. */
+export function balanceOn(
+  account: Pick<Account, "id" | "opening_balance">,
+  entries: (Movement & { occurred_on: string })[],
+  transfers: Pick<Transfer, "from_account" | "to_account" | "amount" | "occurred_on">[],
+  day: string,
+): number {
+  const upTo = <T extends { occurred_on: string }>(rows: T[]) => rows.filter((r) => r.occurred_on <= day);
+  const total = account.opening_balance + (netByAccount(upTo(entries), upTo(transfers)).get(account.id) ?? 0);
+  return Math.round(total * 100) / 100;
+}
+
+/** How an account's real balance compares with what the entries add up to. */
+export type BalanceGap = { state: "match" } | { state: "short" | "over"; amount: number };
+
+/** Short: it holds less than the entries say, so something was spent and not logged. Over: the other way round. */
+export function balanceGap(expected: number, actual: number): BalanceGap {
+  const centavos = Math.round(actual * 100) - Math.round(expected * 100);
+  if (centavos === 0) return { state: "match" };
+  return { state: centavos < 0 ? "short" : "over", amount: Math.abs(centavos) / 100 };
+}
+
+/** The category a balance difference is logged under unless you pick another: a catch-all if there is one. */
+export const gapCategory = (categories: Pick<Category, "id" | "name" | "kind">[], kind: Kind): string | undefined => {
+  const fitting = categories.filter((c) => c.kind === kind);
+  return (fitting.find((c) => /not itemi[sz]ed|untracked|adjust|other|misc/i.test(c.name)) ?? fitting[0])?.id;
+};
 
 // ---- Bills -------------------------------------------------------------------------
 

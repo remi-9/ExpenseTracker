@@ -183,6 +183,25 @@ async function loadTransfers(): Promise<Transfer[]> {
   return rows.map((r) => ({ ...r, amount: Number(r.amount) })) as Transfer[];
 }
 
+/** Every transfer, oldest first: for comparing a statement with what is logged. */
+async function loadAllTransfers(): Promise<Transfer[]> {
+  if (!isSupabaseConfigured) return (await getDemoEdits()).transfers;
+  const supabase = await createClient();
+  const all: Transfer[] = [];
+  for (let from = 0; ; from += 1000) {
+    const rows = check(
+      await supabase
+        .from("transfers")
+        .select("id, from_account, to_account, amount, occurred_on, note")
+        .order("occurred_on")
+        .order("created_at")
+        .range(from, from + 999),
+    );
+    all.push(...(rows.map((r) => ({ ...r, amount: Number(r.amount) })) as Transfer[]));
+    if (rows.length < 1000) return all;
+  }
+}
+
 async function loadBills(): Promise<Bill[]> {
   if (!isSupabaseConfigured) return demoBills;
   const supabase = await createClient();
@@ -384,6 +403,7 @@ export const getNoteHints = cache(loadNoteHints);
 export const getAccounts = cache(loadAccounts);
 export const getAccountNet = cache(loadAccountNet);
 export const getTransfers = cache(loadTransfers);
+export const getAllTransfers = cache(loadAllTransfers);
 export const getBills = cache(loadBills);
 export const getBillPayments = cache(loadBillPayments);
 export const getPartnerId = cache(loadPartnerId);

@@ -6,13 +6,24 @@ import { redirect } from "next/navigation";
 import { isSupabaseConfigured } from "./config";
 import { parseCsv, planImport } from "./csv";
 import { parseAmount, today, yesterday } from "./format";
-import { getAccounts, getBills, getCaught, getCategories, getDemoEdits, getMonthTotals, getTeam } from "./data";
+import {
+  getAccounts,
+  getAllTransactions,
+  getAllTransfers,
+  getBills,
+  getCaught,
+  getCategories,
+  getDemoEdits,
+  getMonthTotals,
+  getTeam,
+} from "./data";
 import { DEMO_LIMIT, DEMO_TRANSFER_LIMIT, encodeEdits, type DemoEdits } from "./demo";
 import { PATTERNS, TONES } from "./backdrop";
-import { dueDate } from "./money";
+import { balanceGap, balanceOn, dueDate } from "./money";
 import { FRAMES, SPEEDS } from "./options";
 import { DEFAULT_ICON, MAX_DEX, PARTNERS, PRESETS, TRAINERS } from "./partners";
 import type { Run, RunSummary } from "./run";
+import { decide, planStatement, readPdfStatement, readStatement, type PdfRow, type PlannedLine } from "./statement";
 import type { AccountKind, Kind } from "./types";
 import { createClient } from "./supabase/server";
 
@@ -305,6 +316,38 @@ export async function deleteTransfer(form: FormData) {
   redirect("/accounts?done=unmoved");
 }
 
+/**
+ * Log the difference between what an account really holds and what the entries add
+ * up to, as one entry: spending when it holds less, income when it holds more.
+ */
+export async function logBalanceGap(form: FormData) {
+  const id = text(form, "account");
+  const typed = text(form, "actual");
+  const on = text(form, "on") || today();
+  const back = `/accounts?a=${id}&check=1&actual=${encodeURIComponent(typed)}&on=${on}`;
+  const actual = parseAmount(typed.replace(/^-/, ""));
+  if (actual === null || !isDate(on)) fail(`/accounts?a=${id}&check=1`, "Enter what the account holds, and a date.");
+  const [accounts, categories, entries, transfers] = await Promise.all([
+    getAccounts(),
+    getCategories(),
+    getAllTransactions(),
+    getAllTransfers(),
+  ]);
+  const account = accounts.find((a) => a.id === id);
+  if (!account) fail("/accounts", "That account is gone.");
+  const gap = balanceGap(balanceOn(account!, entries, transfers, on), typed.startsWith("-") ? -actual! : actual!);
+  if (gap.state === "match") redirect(`/accounts?a=${id}&done=matches`);
+
+  const category = categories.find((c) => c.id === text(form, "category_id"));
+  const kind = gap.state === "short" ? "expense" : "income";
+  if (category?.kind !== kind) fail(back, `Pick ${kind === "expense" ? "a spending" : "an income"} category for the difference.`);
+  await insertEntry(
+    { category_id: category!.id, amount: gap.amount, occurred_on: on, note: "Balance check", account_id: id, to_account_id: null, bill_id: null },
+    back,
+  );
+  redirect(`/accounts?a=${id}&done=checked`);
+}
+
 // ---- Bills -------------------------------------------------------------------------
 
 /** Add a bill, or change one when the form carries its id. */
@@ -420,6 +463,112 @@ export async function importCsv(_: ImportResult | null, form: FormData): Promise
   }
   revalidatePath("/", "layout");
   return { ok: true, imported: true, message: `Imported ${found}.`, skipped };
+}
+
+export type StatementResult = {
+  message: string;
+  ok: boolean;
+  /** Lines that could not be read, each with the reason. */
+  skipped: string[];
+  /** The statement set against what is logged, for choosing what each line is. */
+  lines?: PlannedLine[];
+  /** Tells one reading of a file from the next, so choices are kept while it is the same reading. */
+  token?: string;
+  /** Where the statement ends, and what the entries add up to for that day. */
+  closing?: { balance: number; on: string; expected: number };
+  imported?: boolean;
+};
+
+/**
+ * Read a statement for one account and set it against what is already logged, or,
+ * when the form's `mode` is "import", save the lines that were given a category or
+ * an account. Lines left without a choice are not saved and show up again next time.
+ */
+export async function importStatement(_: StatementResult | null, form: FormData): Promise<StatementResult> {
+  const accountId = text(form, "account");
+  const [categories, accounts, entries, transfers] = await Promise.all([
+    getCategories(),
+    getAccounts(),
+    getAllTransactions(),
+    getAllTransfers(),
+  ]);
+  const account = accounts.find((a) => a.id === accountId);
+  if (!account) return { ok: false, message: "That account is gone.", skipped: [] };
+
+  // A PDF arrives as the text of its pages, already taken out of the file in the browser.
+  const pdf = text(form, "pdf");
+  let pages: PdfRow[][] | null = null;
+  if (pdf) {
+    try {
+      const parsed: unknown = JSON.parse(pdf);
+      const isPage = (page: unknown) =>
+        Array.isArray(page) && page.every((row) => typeof row?.y === "number" && Array.isArray(row?.cells) && row.cells.every((c: PdfRow["cells"][number]) => typeof c?.x === "number" && typeof c?.w === "number" && typeof c?.s === "string"));
+      if (Array.isArray(parsed) && parsed.every(isPage)) pages = parsed as PdfRow[][];
+    } catch {
+      // Falls through to the message below.
+    }
+    if (!pages) return { ok: false, message: "That PDF could not be read. Choose the file again.", skipped: [] };
+  }
+  const statement = pages ? readPdfStatement(pages) : readStatement(parseCsv(text(form, "csv")));
+  const skipped = statement.skipped.slice(0, 20).map((s) => `Line ${s.line}: ${s.why}.`);
+  if (statement.error) return { ok: false, message: statement.error, skipped };
+  if (statement.lines.length === 0) return { ok: false, message: "There are no lines with a date and an amount in that file.", skipped };
+
+  const usable = { categories: categories.filter((c) => !c.archived_at), accounts: accounts.filter((a) => !a.archived_at) };
+  const lines = planStatement(statement.lines, accountId, { entries, transfers, ...usable });
+  const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  const fresh = lines.filter((l) => !l.logged).length;
+  /** The statement's last balance beside what the entries, and anything about to be saved, add up to that day. */
+  const closingWith = (more: Pick<ReturnType<typeof decide>, "entries" | "transfers">) => {
+    if (!statement.closing) return undefined;
+    const kindOf = new Map(categories.map((c) => [c.id, c.kind]));
+    const added = more.entries.map((e) => ({ ...e, to_account_id: null, category: { kind: kindOf.get(e.category_id)! } }));
+    const expected = balanceOn(account, [...entries, ...added], [...transfers, ...more.transfers], statement.closing.on);
+    return { ...statement.closing, expected };
+  };
+
+  if (text(form, "mode") !== "import") {
+    return {
+      ok: true,
+      message: `${count(lines.length, "line")} read: ${fresh} new, ${lines.length - fresh} already logged.`,
+      skipped,
+      lines,
+      token: String(Date.now()),
+      closing: fresh === 0 ? closingWith({ entries: [], transfers: [] }) : undefined,
+    };
+  }
+
+  const token = text(form, "token");
+  const choices = lines.map((_, i) => text(form, `choice_${i}`));
+  const decided = decide(lines, choices, accountId, usable.categories, usable.accounts);
+  const later = lines.filter((line, i) => !line.logged && !choices[i]).length;
+  if (decided.problems.length > 0) return { ok: false, message: decided.problems.slice(0, 5).join(" "), skipped, lines, token };
+  if (decided.entries.length + decided.transfers.length === 0) {
+    return { ok: false, message: "Nothing is chosen yet. Give at least one line a category or an account.", skipped, lines, token };
+  }
+  if (!isSupabaseConfigured) return { ok: false, message: "Demo mode: connect Supabase to import a statement.", skipped, lines, token };
+
+  const supabase = await createClient();
+  for (let at = 0; at < decided.entries.length; at += 500) {
+    const { error } = await supabase.from("transactions").insert(decided.entries.slice(at, at + 500));
+    if (error) return { ok: false, message: `Stopped after ${at} entries: ${error.message}`, skipped };
+  }
+  if (decided.transfers.length > 0) {
+    const { error } = await supabase.from("transfers").insert(decided.transfers);
+    if (error) return { ok: false, message: `The entries were saved, but the transfers were not: ${error.message}`, skipped };
+  }
+  revalidatePath("/", "layout");
+  const saved = [
+    decided.entries.length > 0 && count(decided.entries.length, "entry", "entries"),
+    decided.transfers.length > 0 && count(decided.transfers.length, "transfer"),
+  ].filter(Boolean);
+  return {
+    ok: true,
+    imported: true,
+    message: `Imported ${saved.join(" and ")} into ${account.name}.${later > 0 ? ` ${count(later, "new line")} left for later.` : ""}`,
+    skipped,
+    closing: closingWith(decided),
+  };
 }
 
 export async function signIn(form: FormData) {
