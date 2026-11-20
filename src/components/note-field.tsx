@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import type { Kind } from "@/lib/types";
 
 /**
@@ -13,11 +14,13 @@ export function NoteField({
   hints: { note: string; category_id: string; kind: Kind }[];
   defaultValue?: string;
 }) {
+  // The form can be on the page twice (new entry, and one being edited), so the list needs its own id.
+  const listId = useId();
   return (
     <>
       <input
         name="note"
-        list="notes"
+        list={listId}
         defaultValue={defaultValue}
         placeholder="Optional, e.g. Custom table"
         className="field"
@@ -34,7 +37,7 @@ export function NoteField({
           check(`category_${hint.kind}`, hint.category_id);
         }}
       />
-      <datalist id="notes">
+      <datalist id={listId}>
         {hints.map((h) => (
           <option key={h.note} value={h.note} />
         ))}

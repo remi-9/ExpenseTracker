@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { EntryResult } from "@/components/entry-result";
 import { NoteField } from "@/components/note-field";
+import { RoutePopup } from "@/components/popup";
 import { PlayOnMount } from "@/components/sound";
 import { Hearts } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
@@ -23,7 +24,7 @@ import { dayLabel, dayLong, money, parseMonth, shiftMonth, today } from "@/lib/f
 import { getPlayer, summarizeMonth, walletHp } from "@/lib/game";
 import { billsFor, dueLabel, leftAfterBills, openingTotal } from "@/lib/money";
 import { partnerAt, sprite } from "@/lib/partners";
-import type { Kind } from "@/lib/types";
+import type { Kind, Transaction } from "@/lib/types";
 
 const KINDS: { kind: Kind; label: string; ask: string; account: string }[] = [
   { kind: "expense", label: "I spent", ask: "On what?", account: "Paid from" },
@@ -98,14 +99,9 @@ export default async function LogPage({
   // Categories keep the order they have in Setup, so each stays where your hand expects it.
   // The form opens on the kind, category and account you used last.
   const choices = (kind: Kind) => categories.filter((c) => c.kind === kind && !c.archived_at);
-  const kind = editing?.category.kind ?? KINDS.find((k) => k.kind === params.kind)?.kind ?? "expense";
-  const picked = editing?.category_id ?? params.cat;
   const kindOf = new Map(categories.map((c) => [c.id, c.kind]));
   const noteHints = hints.flatMap((h) => (kindOf.has(h.category_id) ? [{ ...h, kind: kindOf.get(h.category_id)! }] : []));
 
-  // Accounts still in use, plus the one an old entry being edited sits in.
-  const usable = accounts.filter((a) => !a.archived_at || a.id === editing?.account_id || a.id === editing?.to_account_id);
-  const pickedAccount = editing?.account_id ?? usable.find((a) => a.id === params.acct)?.id ?? usable[0]?.id;
   const accountName = (id: string | null) => accounts.find((a) => a.id === id)?.name;
 
   // The month's bills, soonest first, with what is still to pay.
@@ -130,34 +126,223 @@ export default async function LogPage({
   const entriesHref = (p: number, kind: Kind | null | undefined = show) =>
     `/log?m=${month}${query ? `&q=${encodeURIComponent(query)}` : ""}${kind ? `&show=${kind}` : ""}${p > 1 ? `&p=${p}` : ""}`;
 
+  /**
+   * The entry form: a new entry on the page, or an entry being changed, in a pop-up.
+   * It opens on the kind, category and account you used last, or on the entry's own.
+   */
+  const entryForm = (editing: Transaction | undefined) => {
+    const kind = editing?.category.kind ?? KINDS.find((k) => k.kind === params.kind)?.kind ?? "expense";
+    const picked = editing?.category_id ?? params.cat;
+    // Accounts still in use, plus the one an old entry being edited sits in.
+    const usable = accounts.filter((a) => !a.archived_at || a.id === editing?.account_id || a.id === editing?.to_account_id);
+    const pickedAccount = editing?.account_id ?? usable.find((a) => a.id === params.acct)?.id ?? usable[0]?.id;
+    return (
+      <form
+        key={editing?.id ?? params.t ?? "new"}
+        action={editing ? updateTransaction : addTransaction}
+        className={editing ? "entry-form" : "window entry-form"}
+        aria-label={editing ? "Edit entry" : "New entry"}
+      >
+        {editing && (
+          <>
+            <input type="hidden" name="id" value={editing.id} />
+            <input type="hidden" name="m" value={month} />
+            <input type="hidden" name="bill_id" value={editing.bill_id ?? ""} />
+          </>
+        )}
+
+        <div className="flex flex-wrap" role="radiogroup" aria-label="Kind of entry">
+          {KINDS.map((k) => (
+            <label key={k.kind} className="chip">
+              <input type="radio" name="kind" value={k.kind} defaultChecked={k.kind === kind} />
+              {k.label}
+            </label>
+          ))}
+        </div>
+
+        <label className="flex flex-col gap-1">
+          How much?
+          <span className="flex">
+            <span className="grid place-items-center bg-ink px-3 font-display text-xs text-panel">₱</span>
+            <input
+              name="amount"
+              inputMode="decimal"
+              autoComplete="off"
+              required
+              autoFocus
+              defaultValue={editing?.amount}
+              placeholder="0"
+              aria-describedby="amount-hint"
+              className="field text-2xl"
+            />
+          </span>
+          <small id="amount-hint" className="text-muted">
+            Sums work too, like 1200+350.
+          </small>
+        </label>
+
+        {/* One list per kind; the stylesheet shows the list for the kind that is checked. */}
+        {KINDS.map((k) => {
+          const list = choices(k.kind);
+          const first = list.find((c) => c.id === picked) ?? list[0];
+          return (
+            <fieldset key={k.kind} className="kind-cats" data-kind={k.kind}>
+              <legend className="mb-1">{k.ask}</legend>
+              {list.length === 0 ? (
+                <p className="text-muted">
+                  Nothing in this pocket yet.{" "}
+                  <Link href={`/setup?s=bag&pocket=${k.kind}&new=1`} className="text-blue underline">
+                    Add a category
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <div className="flex flex-wrap">
+                  {list.map((c) => (
+                    <label key={c.id} className="chip">
+                      <input type="radio" name={`category_${k.kind}`} value={c.id} defaultChecked={c.id === first.id} />
+                      <CategoryIcon icon={c.icon} size={24} />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </fieldset>
+          );
+        })}
+
+        {usable.length > 0 && (
+          <fieldset>
+            {/* The question changes with the kind: paid from, paid into, taken from. */}
+            <legend className="mb-1">
+              {KINDS.map((k) => (
+                <span key={k.kind} className="kind-cats" data-kind={k.kind}>
+                  {k.account}
+                </span>
+              ))}
+            </legend>
+            <div className="flex flex-wrap">
+              {usable.map((a) => (
+                <label key={a.id} className="chip">
+                  <input type="radio" name="account" value={a.id} defaultChecked={a.id === pickedAccount} />
+                  <CategoryIcon icon={a.icon} size={24} />
+                  {a.name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        {usable.length > 1 && (
+          <fieldset className="kind-cats" data-kind="saving">
+            <legend className="mb-1">Moved to</legend>
+            <div className="flex flex-wrap">
+              <label className="chip">
+                <input type="radio" name="to_account" value="" defaultChecked={!editing?.to_account_id} />
+                It stays where it is
+              </label>
+              {usable.map((a) => (
+                <label key={a.id} className="chip">
+                  <input type="radio" name="to_account" value={a.id} defaultChecked={a.id === editing?.to_account_id} />
+                  <CategoryIcon icon={a.icon} size={24} />
+                  {a.name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        <fieldset>
+          <legend className="mb-1">When?</legend>
+          <div className="flex flex-wrap items-center">
+            {thisMonth && !editing && (
+              <>
+                <label className="chip">
+                  <input type="radio" name="when" value="today" defaultChecked />
+                  Today
+                </label>
+                <label className="chip">
+                  <input type="radio" name="when" value="yesterday" />
+                  Yesterday
+                </label>
+              </>
+            )}
+            <label className="chip">
+              <input type="radio" name="when" value="date" defaultChecked={!thisMonth || !!editing} />
+              Another day
+            </label>
+            <input
+              name="occurred_on"
+              type="date"
+              aria-label="Date"
+              defaultValue={editing?.occurred_on ?? (thisMonth ? today() : `${month}-01`)}
+              className="field when-date"
+            />
+          </div>
+        </fieldset>
+
+        <label className="flex flex-col gap-1">
+          Note
+          <NoteField hints={noteHints} defaultValue={editing?.note ?? ""} />
+        </label>
+
+        {editing ? (
+          <div className="flex flex-wrap items-center justify-between">
+            <Link href={`/log?m=${month}&del=${editing.id}`} className="px-2 text-red underline">
+              Toss this entry
+            </Link>
+            <span className="flex flex-wrap">
+              <Link href={`/log?m=${month}`} className="btn" data-sfx="page">
+                Cancel
+              </Link>
+              <SubmitButton sfx="confirm">Save changes</SubmitButton>
+            </span>
+          </div>
+        ) : (
+          <SubmitButton className="btn btn-primary py-3!" sfx="none">
+            Save entry
+          </SubmitButton>
+        )}
+      </form>
+    );
+  };
+
   return (
     <>
-      {params.error && (
-        <>
-          <PlayOnMount sounds={["error"]} />
-          <Dialog tone="error">{params.error}</Dialog>
-        </>
-      )}
+      {params.error && <PlayOnMount sounds={["error"]} />}
+      {/* An error from the edit form shows inside its pop-up. */}
+      {params.error && !editing && <Dialog tone="error">{params.error}</Dialog>}
       {params.done && DONE[params.done] && <Dialog>{DONE[params.done]}</Dialog>}
 
       {tossing && (
-        <div className="battle-bottom">
-          <p className="window battle-text" role="alert">
-            Toss {tossing.note ?? tossing.category.name}, {money(tossing.amount)} from {dayLong(tossing.occurred_on)}?
+        <RoutePopup title="Toss this entry?" closeHref={`/log?m=${month}`}>
+          <p className="mb-3" role="alert">
+            {tossing.note ?? tossing.category.name}, {money(tossing.amount)}, {dayLong(tossing.occurred_on)}.
           </p>
-          <div className="window menu" data-menu>
+          <div className="flex flex-wrap justify-end">
+            <Link href={`/log?m=${month}`} scroll={false} className="btn" data-sfx="page">
+              No, keep it
+            </Link>
             <form action={deleteTransaction}>
               <input type="hidden" name="id" value={tossing.id} />
               <input type="hidden" name="m" value={month} />
-              <SubmitButton className="menu-item" pending="…" sfx="delete">
-                Yes
+              <SubmitButton pending="…" sfx="delete">
+                Yes, toss it
               </SubmitButton>
             </form>
-            <Link href={`/log?m=${month}`} scroll={false} className="menu-item" data-sfx="page">
-              No
-            </Link>
           </div>
-        </div>
+        </RoutePopup>
+      )}
+
+      {editing && !tossing && (
+        <RoutePopup title="Edit entry" closeHref={`/log?m=${month}`}>
+          {params.error && (
+            <p className="mb-3 text-red" role="alert">
+              {params.error}
+            </p>
+          )}
+          {entryForm(editing)}
+        </RoutePopup>
       )}
 
       {/* The counter. Wide screens: status and the bills on the left, the entry
@@ -183,174 +368,7 @@ export default async function LogPage({
         </div>
 
         {/* Re-keyed after every save, so the amount clears and takes the cursor again. */}
-        <form
-          key={editing?.id ?? params.t ?? "new"}
-          action={editing ? updateTransaction : addTransaction}
-          className="window entry-form"
-          aria-label={editing ? "Edit entry" : "New entry"}
-        >
-          {editing && (
-            <>
-              <input type="hidden" name="id" value={editing.id} />
-              <input type="hidden" name="m" value={month} />
-              <input type="hidden" name="bill_id" value={editing.bill_id ?? ""} />
-              <h2 className="font-display text-xs leading-relaxed">Edit entry</h2>
-            </>
-          )}
-
-          <div className="flex flex-wrap" role="radiogroup" aria-label="Kind of entry">
-            {KINDS.map((k) => (
-              <label key={k.kind} className="chip">
-                <input type="radio" name="kind" value={k.kind} defaultChecked={k.kind === kind} />
-                {k.label}
-              </label>
-            ))}
-          </div>
-
-          <label className="flex flex-col gap-1">
-            How much?
-            <span className="flex">
-              <span className="grid place-items-center bg-ink px-3 font-display text-xs text-panel">₱</span>
-              <input
-                name="amount"
-                inputMode="decimal"
-                autoComplete="off"
-                required
-                autoFocus
-                defaultValue={editing?.amount}
-                placeholder="0"
-                aria-describedby="amount-hint"
-                className="field text-2xl"
-              />
-            </span>
-            <small id="amount-hint" className="text-muted">
-              Sums work too, like 1200+350.
-            </small>
-          </label>
-
-          {/* One list per kind; the stylesheet shows the list for the kind that is checked. */}
-          {KINDS.map((k) => {
-            const list = choices(k.kind);
-            const first = list.find((c) => c.id === picked) ?? list[0];
-            return (
-              <fieldset key={k.kind} className="kind-cats" data-kind={k.kind}>
-                <legend className="mb-1">{k.ask}</legend>
-                {list.length === 0 ? (
-                  <p className="text-muted">
-                    Nothing in this pocket yet.{" "}
-                    <Link href={`/setup?s=bag&pocket=${k.kind}&new=1`} className="text-blue underline">
-                      Add a category
-                    </Link>
-                    .
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap">
-                    {list.map((c) => (
-                      <label key={c.id} className="chip">
-                        <input type="radio" name={`category_${k.kind}`} value={c.id} defaultChecked={c.id === first.id} />
-                        <CategoryIcon icon={c.icon} size={24} />
-                        {c.name}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </fieldset>
-            );
-          })}
-
-          {usable.length > 0 && (
-            <fieldset>
-              {/* The question changes with the kind: paid from, paid into, taken from. */}
-              <legend className="mb-1">
-                {KINDS.map((k) => (
-                  <span key={k.kind} className="kind-cats" data-kind={k.kind}>
-                    {k.account}
-                  </span>
-                ))}
-              </legend>
-              <div className="flex flex-wrap">
-                {usable.map((a) => (
-                  <label key={a.id} className="chip">
-                    <input type="radio" name="account" value={a.id} defaultChecked={a.id === pickedAccount} />
-                    <CategoryIcon icon={a.icon} size={24} />
-                    {a.name}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
-
-          {usable.length > 1 && (
-            <fieldset className="kind-cats" data-kind="saving">
-              <legend className="mb-1">Moved to</legend>
-              <div className="flex flex-wrap">
-                <label className="chip">
-                  <input type="radio" name="to_account" value="" defaultChecked={!editing?.to_account_id} />
-                  It stays where it is
-                </label>
-                {usable.map((a) => (
-                  <label key={a.id} className="chip">
-                    <input type="radio" name="to_account" value={a.id} defaultChecked={a.id === editing?.to_account_id} />
-                    <CategoryIcon icon={a.icon} size={24} />
-                    {a.name}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
-
-          <fieldset>
-            <legend className="mb-1">When?</legend>
-            <div className="flex flex-wrap items-center">
-              {thisMonth && !editing && (
-                <>
-                  <label className="chip">
-                    <input type="radio" name="when" value="today" defaultChecked />
-                    Today
-                  </label>
-                  <label className="chip">
-                    <input type="radio" name="when" value="yesterday" />
-                    Yesterday
-                  </label>
-                </>
-              )}
-              <label className="chip">
-                <input type="radio" name="when" value="date" defaultChecked={!thisMonth || !!editing} />
-                Another day
-              </label>
-              <input
-                name="occurred_on"
-                type="date"
-                aria-label="Date"
-                defaultValue={editing?.occurred_on ?? (thisMonth ? today() : `${month}-01`)}
-                className="field when-date"
-              />
-            </div>
-          </fieldset>
-
-          <label className="flex flex-col gap-1">
-            Note
-            <NoteField hints={noteHints} defaultValue={editing?.note ?? ""} />
-          </label>
-
-          {editing ? (
-            <div className="flex flex-wrap items-center justify-between">
-              <Link href={`/log?m=${month}&del=${editing.id}`} className="px-2 text-red underline">
-                Toss this entry
-              </Link>
-              <span className="flex flex-wrap">
-                <Link href={`/log?m=${month}`} className="btn" data-sfx="page">
-                  Cancel
-                </Link>
-                <SubmitButton sfx="confirm">Save changes</SubmitButton>
-              </span>
-            </div>
-          ) : (
-            <SubmitButton className="btn btn-primary py-3!" sfx="none">
-              Save entry
-            </SubmitButton>
-          )}
-        </form>
+        {entryForm(undefined)}
 
         <Panel
           title="Bills"
