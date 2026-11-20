@@ -116,6 +116,26 @@ describe("the month's bills", () => {
     expect(status.state).toBe("overdue");
   });
 
+  test("a payment made in the last days of the month before counts for this month", () => {
+    const payments = [paid("net", "2026-10-02", 1500), paid("net", "2026-10-30", 1600)];
+    const [november] = billsFor("2026-11", [bill("net", 1)], payments, today);
+    expect(november).toMatchObject({ state: "paid", paid: 1600, paidOn: "2026-10-30", onTime: true });
+    const [october] = billsFor("2026-10", [bill("net", 1)], payments, today);
+    expect(october).toMatchObject({ state: "paid", paid: 1500, paidOn: "2026-10-02", onTime: false });
+  });
+
+  test("a payment early in a month counts for that month, however late in it the bill falls due", () => {
+    const payments = [paid("net", "2026-11-02")];
+    expect(billsFor("2026-11", [bill("net", 25)], payments, today)[0]).toMatchObject({ state: "paid", onTime: true });
+    expect(billsFor("2026-10", [bill("net", 25)], payments, today)[0].state).toBe("overdue");
+  });
+
+  test("a payment more than ten days early belongs to the month it was made in", () => {
+    const payments = [paid("net", "2026-10-18")];
+    expect(billsFor("2026-11", [bill("net", 1)], payments, today)[0].state).toBe("overdue");
+    expect(billsFor("2026-10", [bill("net", 1)], payments, today)[0].state).toBe("paid");
+  });
+
   test("unpaid bills are overdue, due soon or due later", () => {
     const list = billsFor("2026-11", [bill("past", 19), bill("today", 20), bill("week", 27), bill("far", 28)], [], today);
     expect(list.map((s) => s.state)).toEqual(["overdue", "soon", "soon", "later"]);

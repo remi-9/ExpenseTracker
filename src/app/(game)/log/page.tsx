@@ -110,7 +110,8 @@ export default async function LogPage({
 
   // The month's bills, soonest first, with what is still to pay.
   const statuses = billsFor(month, bills, payments, today());
-  const lastPaid = (id: string) => lastPayments.filter((p) => p.bill_id === id).reduce((sum, p) => sum + p.amount, 0);
+  const lastStatuses = billsFor(shiftMonth(month, -1), bills, lastPayments, today());
+  const lastPaid = (id: string) => lastStatuses.find((s) => s.bill.id === id)?.paid ?? 0;
   const afterBills = leftAfterBills(summary.remaining, statuses, kindOf);
 
   // What has gone in today, as a reminder while you log.

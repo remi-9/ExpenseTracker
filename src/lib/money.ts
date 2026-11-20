@@ -1,6 +1,6 @@
 // Accounts and bills: pure functions over rows, like game.ts. Nothing here is stored;
 // balances and bill states are worked out from entries, transfers and bills.
-import { dayLabel } from "./format";
+import { dayLabel, shiftMonth } from "./format";
 import type { Account, Bill, Kind, Transaction, Transfer } from "./types";
 
 // ---- Accounts ----------------------------------------------------------------------
@@ -84,15 +84,33 @@ export function daysBetween(from: string, to: string): number {
 
 export type BillPayment = { bill_id: string; occurred_on: string; amount: number };
 
+/** A bill paid up to this many days before it falls due counts for that due date, not the one before. */
+const EARLY_DAYS = 10;
+const addDays = (date: string, days: number) => {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+};
+
+/**
+ * Whether a payment counts towards the bill's due date in `month`. It does when it is
+ * made in that month, or in the ten days before that due date at the end of the month
+ * before: paying on the 30th for a bill due on the 1st settles the month that follows.
+ */
+function countsFor(bill: Pick<Bill, "due_day" | "cadence">, month: string, paidOn: string): boolean {
+  const earlyFor = (m: string) => !paidOn.startsWith(m) && paidOn < dueDate(bill, m) && paidOn >= addDays(dueDate(bill, m), -EARLY_DAYS);
+  if (earlyFor(month)) return true;
+  return paidOn.startsWith(month) && !(bill.cadence === "monthly" && earlyFor(shiftMonth(month, 1)));
+}
+
 export type BillStatus = {
   bill: Bill;
   /** The due date in the month asked about. */
   due: string;
   /** "soon" is due today or within a week. */
   state: "paid" | "overdue" | "soon" | "later";
-  /** What has been paid towards it this month. */
+  /** What has been paid towards this due date. */
   paid: number;
-  /** The date of the first payment this month. */
+  /** The date of the first payment towards it. */
   paidOn: string | null;
   /** Paid on or before the due date. */
   onTime: boolean;
@@ -105,7 +123,7 @@ export function billsFor(month: string, bills: Bill[], payments: BillPayment[], 
     .filter((b) => !b.archived_at && (b.cadence === "monthly" || b.due_month === monthNumber))
     .map((bill): BillStatus => {
       const due = dueDate(bill, month);
-      const mine = payments.filter((p) => p.bill_id === bill.id && p.occurred_on.startsWith(month));
+      const mine = payments.filter((p) => p.bill_id === bill.id && countsFor(bill, month, p.occurred_on));
       const paid = mine.reduce((sum, p) => sum + p.amount, 0);
       const paidOn = mine.map((p) => p.occurred_on).sort()[0] ?? null;
       const wait = daysBetween(today, due);

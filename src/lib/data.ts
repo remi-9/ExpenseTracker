@@ -198,7 +198,8 @@ async function loadBills(): Promise<Bill[]> {
 
 /** Entries that pay a bill, for one month (YYYY-MM). */
 async function loadBillPayments(month: string): Promise<BillPayment[]> {
-  const entries = await getTransactions(month);
+  // A bill can be paid a few days before the month starts or after it ends (see billsFor).
+  const entries = (await Promise.all([-1, 0, 1].map((n) => getTransactions(shiftMonth(month, n))))).flat();
   return entries.filter((t) => t.bill_id).map((t) => ({ bill_id: t.bill_id!, occurred_on: t.occurred_on, amount: t.amount }));
 }
 
