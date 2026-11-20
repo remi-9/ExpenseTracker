@@ -71,7 +71,7 @@ export default async function DexPage({
           <p className="text-muted">Choose a partner on Home to start a team.</p>
         )}
         <p className="mt-2 text-muted">
-          Your partner always leads. Add up to five Pokémon from the PC below; the whole party battles at Lv {level}.
+          Your partner leads. Add up to five from the PC. The party battles at Lv {level}.
         </p>
       </Panel>
 

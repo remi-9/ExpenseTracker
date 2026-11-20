@@ -244,16 +244,13 @@ function Data() {
     <>
       <Panel title="Import entries">
         <p className="mb-3 text-muted">
-          Bring in entries from a spreadsheet saved as CSV. The first row names the columns:{" "}
-          <b>date</b>, <b>category</b> and <b>amount</b> are needed; <b>note</b>, <b>account</b> and <b>kind</b>{" "}
-          (income, expense or saving) are optional. Categories and accounts that do not exist yet are created.
+          A CSV with <b>date</b>, <b>category</b> and <b>amount</b> columns. <b>note</b>, <b>account</b> and <b>kind</b> are optional.
         </p>
         <ImportForm />
       </Panel>
       <Panel title="Export entries">
         <p className="mb-3 text-muted">
-          Every entry you have logged, as one CSV file with the same columns the import reads. Open it in any
-          spreadsheet, or keep it as a backup.
+          Every entry as one CSV file, in the same columns. Keep it as a backup.
         </p>
         <a href="/export" download className="btn">
           Download entries.csv
@@ -321,8 +318,7 @@ async function Options() {
         </div>
       </div>
       <p className="mt-2 text-muted">
-        Text speed sets how fast messages type out and battles move. Frame changes the colour of every message window.
-        The backdrop is a colour with a generated pattern over it; choose each separately.
+        Frame recolours every window. Backdrop and pattern are chosen separately.
       </p>
     </section>
   );

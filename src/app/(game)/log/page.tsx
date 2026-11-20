@@ -504,7 +504,7 @@ export default async function LogPage({
           {/* Searches every month, by note or category name. */}
           <form action="/log" className="flex items-center" role="search">
             <input type="hidden" name="m" value={month} />
-            <input name="q" type="search" defaultValue={query} placeholder="Search every month" aria-label="Search entries" className="field search" />
+            <input name="q" type="search" defaultValue={query} placeholder="Search" aria-label="Search entries" className="field search" />
             <button className="btn">Find</button>
             {query && (
               <Link href={`/log?m=${month}`} scroll={false} className="btn" data-sfx="page">
