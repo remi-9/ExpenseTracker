@@ -5,6 +5,7 @@ import { PaySplit, StepLine } from "@/components/charts";
 import { EntryResult } from "@/components/entry-result";
 import { LowHpAlarm } from "@/components/nav";
 import { PartnerPicker, PartnerSprite, type Mood } from "@/components/partner";
+import { Popup } from "@/components/popup";
 import { Scene } from "@/components/scene";
 import { SceneBox } from "@/components/scene-box";
 import { PlayOnMount } from "@/components/sound";
@@ -201,18 +202,82 @@ export default async function Home({
       />
 
       {/* Message on the left, commands on the right, as in a battle. */}
-      <div className="battle-bottom">
+      <div className="battle-bottom home-bottom">
         <Typewriter lines={lines} />
+        {/* The second column of commands opens pop-ups, so Home itself stays short. */}
         <nav className="window menu commands" aria-label="Shortcuts" data-menu>
-          <Link href="/log" className="menu-item" data-sfx="confirm">
-            Log
-          </Link>
+          <Popup label="Log" title="Quick log" className="menu-item" closeOnSubmit>
+            <form key={params.t ?? "new"} action={addTransaction} className="quick-log">
+              <input type="hidden" name="from" value="home" />
+              <input type="hidden" name="when" value="today" />
+              <input name="amount" inputMode="decimal" autoComplete="off" required autoFocus placeholder="₱ amount" aria-label="Amount" className="field" />
+              <select name="category_id" required aria-label="Category" defaultValue={params.cat ?? ""} className="field">
+                {(Object.keys(KIND_LABEL) as Kind[]).map((kind) => (
+                  <optgroup key={kind} label={KIND_LABEL[kind]}>
+                    {categories
+                      .filter((c) => c.kind === kind && !c.archived_at)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                ))}
+              </select>
+              {usable.length > 0 && (
+                <select name="account" aria-label="Account" defaultValue={params.acct ?? usable[0].id} className="field">
+                  {usable.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <SubmitButton className="btn btn-primary" sfx="none">
+                Log
+              </SubmitButton>
+            </form>
+            <Link href="/log" className="mt-3 inline-block underline">
+              Full form
+            </Link>
+          </Popup>
           <Link href="/battle" className="menu-item" data-sfx="confirm">
             Battle
           </Link>
-          <Link href={`/stats?m=${month}`} className="menu-item">
-            Stats
-          </Link>
+          <Popup label="Accounts" title="Accounts" className="menu-item">
+            {party.length > 0 ? <AccountParty rows={party} /> : <p className="text-muted">No accounts yet.</p>}
+            <Link href="/accounts" className="mt-3 inline-block underline">
+              Manage
+            </Link>
+          </Popup>
+          <Popup label="Money" title={monthLabel(month)} className="menu-item">
+            <div className="tiles">
+              <Panel title={`${monthLabel(month).split(" ")[0]}'s pay`} aside={<span>{money(summary.income)}</span>}>
+                {summary.income === 0 && summary.expense === 0 ? (
+                  <p className="text-muted">Log your pay and this bar shows where it goes.</p>
+                ) : (
+                  <PaySplit income={summary.income} expense={summary.expense} saving={summary.saving} />
+                )}
+              </Panel>
+
+              <Panel title="Money" aside={<span>{money(summary.balance)}</span>}>
+                <StepLine points={balances} label="Everything you hold at the end of each of the last six months" />
+              </Panel>
+            </div>
+            <Link href={`/stats?m=${month}`} className="mt-3 inline-block underline">
+              Full stats
+            </Link>
+          </Popup>
+          <Popup label="Recent" title="Latest entries" className="menu-item">
+            {transactions.length === 0 ? (
+              <p className="text-muted">Nothing logged this month.</p>
+            ) : (
+              <EntryList entries={transactions.slice(0, 8)} />
+            )}
+            <Link href={`/log?m=${month}`} className="mt-3 inline-block underline">
+              See all
+            </Link>
+          </Popup>
           <Link href={`/quests?m=${month}`} className="menu-item">
             Quests
           </Link>
@@ -234,89 +299,6 @@ export default async function Home({
           from="home"
         />
       )}
-
-      {/* One line to log something without leaving Home. Re-keyed after a save so it clears. */}
-      <Panel
-        title="Quick log"
-        aside={
-          <Link href="/log" className="underline">
-            Full form
-          </Link>
-        }
-      >
-        <form key={params.t ?? "new"} action={addTransaction} className="quick-log">
-          <input type="hidden" name="from" value="home" />
-          <input type="hidden" name="when" value="today" />
-          <input name="amount" inputMode="decimal" autoComplete="off" required placeholder="₱ amount" aria-label="Amount" className="field" />
-          <select name="category_id" required aria-label="Category" defaultValue={params.cat ?? ""} className="field">
-            {(Object.keys(KIND_LABEL) as Kind[]).map((kind) => (
-              <optgroup key={kind} label={KIND_LABEL[kind]}>
-                {categories
-                  .filter((c) => c.kind === kind && !c.archived_at)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
-          </select>
-          {usable.length > 0 && (
-            <select name="account" aria-label="Account" defaultValue={params.acct ?? usable[0].id} className="field">
-              {usable.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <SubmitButton className="btn btn-primary" sfx="none">
-            Log
-          </SubmitButton>
-        </form>
-      </Panel>
-
-      {party.length > 0 && (
-        <Panel
-          title="Accounts"
-          aside={
-            <Link href="/accounts" className="underline">
-              Manage
-            </Link>
-          }
-        >
-          <AccountParty rows={party} />
-        </Panel>
-      )}
-
-      <div className="tiles">
-        <Panel title={`${monthLabel(month).split(" ")[0]}'s pay`} aside={<span>{money(summary.income)}</span>}>
-          {summary.income === 0 && summary.expense === 0 ? (
-            <p className="text-muted">Log your pay and this bar shows where it goes.</p>
-          ) : (
-            <PaySplit income={summary.income} expense={summary.expense} saving={summary.saving} />
-          )}
-        </Panel>
-
-        <Panel title="Money" aside={<span>{money(summary.balance)}</span>}>
-          <StepLine points={balances} label="Everything you hold at the end of each of the last six months" />
-        </Panel>
-      </div>
-
-      <Panel
-        title="Latest entries"
-        aside={
-          <Link href={`/log?m=${month}`} className="underline">
-            See all
-          </Link>
-        }
-      >
-        {transactions.length === 0 ? (
-          <p className="text-muted">Nothing logged this month.</p>
-        ) : (
-          <EntryList entries={transactions.slice(0, 5)} />
-        )}
-      </Panel>
     </>
   );
 }

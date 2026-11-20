@@ -287,7 +287,10 @@ export function Keys() {
       const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
       const menu = focused?.closest("[data-menu]");
       if (step && menu) {
-        const choices = [...menu.querySelectorAll<HTMLElement>("a, button:not(:disabled), input:not([type=hidden])")];
+        // A pop-up kept inside a menu is not one of the menu's choices.
+        const choices = [...menu.querySelectorAll<HTMLElement>("a, button:not(:disabled), input:not([type=hidden])")].filter(
+          (choice) => (choice.closest("dialog") ?? null) === (focused!.closest("dialog") ?? null),
+        );
         const index = choices.indexOf(focused!);
         if (index < 0) return;
         event.preventDefault();
@@ -295,7 +298,8 @@ export function Keys() {
         return;
       }
 
-      if (isTyping(event)) return;
+      // Shortcuts are for the page: not while typing, and not while a pop-up is open over it.
+      if (isTyping(event) || document.querySelector("dialog[open]")) return;
       const numbered = /^\d$/.test(event.key) ? SCREENS.findIndex((_, i) => keyFor(i) === event.key) : -1;
       const target = event.key === "[" ? wrap(at - 1) : event.key === "]" ? wrap(at + 1) : SCREENS[numbered];
       if (target && target !== SCREENS[at]) {
