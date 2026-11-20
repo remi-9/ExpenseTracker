@@ -1,8 +1,10 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
 import Link from "next/link";
+import { CategoryPicker } from "@/components/category-picker";
 import { EntryResult } from "@/components/entry-result";
 import { Glance, type GlanceTab } from "@/components/glance";
 import { MoveForm } from "@/components/move-form";
+import { NoteField } from "@/components/note-field";
 import { LowHpAlarm } from "@/components/nav";
 import { PartnerPicker, PartnerSprite, type Mood } from "@/components/partner";
 import { Popup } from "@/components/popup";
@@ -11,7 +13,7 @@ import { SceneBox } from "@/components/scene-box";
 import { PlayOnMount } from "@/components/sound";
 import { SubmitButton } from "@/components/submit";
 import { Typewriter } from "@/components/typewriter";
-import { Bar, CategoryIcon, Dialog, EntryList, hpTone, MonthPicker, Panel } from "@/components/ui";
+import { Bar, Dialog, EntryList, hpTone, MonthPicker, Panel } from "@/components/ui";
 import { WildPokemon } from "@/components/wild";
 import { addTransaction } from "@/lib/actions";
 import {
@@ -22,9 +24,11 @@ import {
   getCategories,
   getCaught,
   getMonthTotals,
+  getNoteHints,
   getOptions,
   getPartnerId,
   getPokemonNames,
+  getRecentCategories,
   getTrainerId,
   getTransactionsFrom,
   getTransfersFrom,
@@ -33,12 +37,13 @@ import { money, monthLabel, parseMonth, shiftMonth, today } from "@/lib/format";
 import { getPlayer, getQuests, isShiny, payMonth, summarizeMonth, walletHp, type MonthSummary } from "@/lib/game";
 import { accountBalances, accountDeltas, accountMonth, billsFor, dailyBalances, daysIn, needsPaying, openingTotal } from "@/lib/money";
 import { MAX_DEX, partnerAt, sprite } from "@/lib/partners";
+import { startCategory } from "@/lib/picks";
 import type { Account, Category, Kind } from "@/lib/types";
 
 /** The quick-log pop-ups: what each asks, and where the money goes or comes from. */
-const QUICK: { kind: Kind; label: string; title: string; ask: string; account: string }[] = [
-  { kind: "expense", label: "Spent", title: "Spent", ask: "On what?", account: "From" },
-  { kind: "income", label: "Earned", title: "Earned", ask: "From what?", account: "Into" },
+const QUICK: { kind: Kind; label: string; title: string; account: string }[] = [
+  { kind: "expense", label: "Spent", title: "Spent", account: "From" },
+  { kind: "income", label: "Earned", title: "Earned", account: "Into" },
 ];
 const DONE: Record<string, string> = { moved: "Money moved." };
 function moodFor(s: MonthSummary): Mood {
@@ -76,7 +81,7 @@ export default async function Home({
   const params = await searchParams;
   const month = parseMonth(params.m);
   const first = `${month}-01`;
-  const [categories, totals, since, moves, partnerId, trainerId, caught, names, accounts, net, bills, payments, options] = await Promise.all([
+  const [categories, totals, since, moves, partnerId, trainerId, caught, names, accounts, net, bills, payments, options, hints, recentCategories] = await Promise.all([
     getCategories(),
     getMonthTotals(),
     // Everything from the first of the month onwards: a balance is worked back from what it is now.
@@ -91,6 +96,8 @@ export default async function Home({
     getBills(),
     getBillPayments(month),
     getOptions(),
+    getNoteHints(),
+    getRecentCategories(),
   ]);
   const monthEnd = `${shiftMonth(month, 1)}-01`;
   const transactions = since.filter((t) => t.occurred_on < monthEnd);
@@ -241,6 +248,8 @@ export default async function Home({
               accounts={usable}
               account={account?.id ?? usable.find((a) => a.id === params.acct)?.id}
               lastCategory={params.cat}
+              recent={recentCategories}
+              hints={hints}
               view={view}
             />
           </Popup>
@@ -323,13 +332,15 @@ export default async function Home({
   );
 }
 
-/** The form in a quick-log pop-up: an amount, a category and an account, each one tap. */
+/** The form in a quick-log pop-up: an amount, a category, what it was for and an account. */
 function QuickLog({
   quick,
   categories,
   accounts,
   account,
   lastCategory,
+  recent,
+  hints,
   view,
 }: {
   quick: (typeof QUICK)[number];
@@ -339,10 +350,16 @@ function QuickLog({
   account?: string;
   /** The category of the entry logged last, which the form opens on if it is of this kind. */
   lastCategory?: string;
+  /** Categories of the latest entries, newest first: the form starts on the latest of this kind. */
+  recent: string[];
+  /** Notes used before, for the "What for" suggestions. */
+  hints: { note: string; category_id: string }[];
   view: string;
 }) {
   const choices = categories.filter((c) => c.kind === quick.kind && !c.archived_at);
-  const startOn = choices.find((c) => c.id === lastCategory)?.id ?? choices[0]?.id;
+  const startOn = startCategory(choices, lastCategory, recent);
+  const offered = new Set(choices.map((c) => c.id));
+  const noteHints = hints.filter((h) => offered.has(h.category_id)).map((h) => ({ ...h, kind: quick.kind }));
   return (
     <form action={addTransaction} className="popup-form">
       <input type="hidden" name="from" value="home" />
@@ -352,18 +369,11 @@ function QuickLog({
         How much?
         <input name="amount" inputMode="decimal" autoComplete="off" required autoFocus data-autofocus placeholder="₱" className="field" />
       </label>
-      <fieldset>
-        <legend>{quick.ask}</legend>
-        <div className="flex flex-wrap">
-          {choices.map((c) => (
-            <label key={c.id} className="chip">
-              <input type="radio" name="category_id" value={c.id} defaultChecked={c.id === startOn} required />
-              <CategoryIcon icon={c.icon} size={24} />
-              {c.name}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <CategoryPicker name="category_id" choices={choices} picked={startOn} label="Category" />
+      <label>
+        What for?
+        <NoteField hints={noteHints} />
+      </label>
       {accounts.length > 0 && (
         <fieldset>
           <legend>{quick.account}</legend>
@@ -378,9 +388,8 @@ function QuickLog({
         </fieldset>
       )}
       <details>
-        <summary className="cursor-pointer text-muted">Note or date</summary>
+        <summary className="cursor-pointer text-muted">Date: today</summary>
         <div className="quick-more">
-          <input name="note" placeholder="Note" aria-label="Note" className="field" />
           <input name="occurred_on" type="date" defaultValue={today()} max={today()} aria-label="Date" className="field" />
         </div>
       </details>

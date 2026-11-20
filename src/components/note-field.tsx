@@ -1,11 +1,12 @@
 "use client";
 
 import { useId } from "react";
+import { PICK_EVENT } from "./category-picker";
 import type { Kind } from "@/lib/types";
 
 /**
- * The note on the entry form. It suggests notes used before, from any month, and
- * choosing one selects the kind and category it was last logged under.
+ * The "What for" field of an entry form. It suggests notes used before, from any
+ * month, and choosing one selects the kind and category it was last logged under.
  */
 export function NoteField({
   hints,
@@ -29,12 +30,11 @@ export function NoteField({
           const hint = typed && hints.find((h) => h.note.toLowerCase() === typed);
           const form = event.target.form;
           if (!hint || !form) return;
-          const check = (name: string, value: string) => {
-            const radio = form.querySelector<HTMLInputElement>(`input[name="${name}"][value="${CSS.escape(value)}"]`);
-            if (radio) radio.checked = true;
-          };
-          check("kind", hint.kind);
-          check(`category_${hint.kind}`, hint.category_id);
+          const kind = form.querySelector<HTMLInputElement>(`input[name="kind"][value="${hint.kind}"]`);
+          if (kind?.type === "radio") kind.checked = true;
+          // The category picker for that kind: one per kind on Log, a single one in the Home pop-ups.
+          const picker = form.querySelector(`input[name="category_${hint.kind}"], input[name="category_id"]`);
+          picker?.dispatchEvent(new CustomEvent(PICK_EVENT, { detail: hint.category_id }));
         }}
       />
       <datalist id={listId}>

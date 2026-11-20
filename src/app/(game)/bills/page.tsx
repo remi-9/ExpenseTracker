@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CategoryPicker } from "@/components/category-picker";
 import { PlayOnMount } from "@/components/sound";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Dialog, MonthPicker, Panel } from "@/components/ui";
@@ -125,22 +126,16 @@ export default async function BillsPage({
               Name
               <input name="name" required defaultValue={form.name ?? category(form.category_id ?? "")?.name} placeholder="e.g. Rent" className="field" />
             </label>
-            <label className="flex flex-col gap-1">
-              Logged under
-              <select name="category_id" required defaultValue={form.category_id} className="field">
-                {(Object.keys(KIND_LABEL) as Kind[]).map((kind) => (
-                  <optgroup key={kind} label={KIND_LABEL[kind]}>
-                    {categories
-                      .filter((c) => c.kind === kind && (!c.archived_at || c.id === form.category_id))
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
+            <CategoryPicker
+              name="category_id"
+              label="Logged under"
+              picked={form.category_id}
+              choices={(Object.keys(KIND_LABEL) as Kind[]).flatMap((kind) =>
+                categories
+                  .filter((c) => c.kind === kind && (!c.archived_at || c.id === form.category_id))
+                  .map(({ id, name, icon }) => ({ id, name, icon, group: KIND_LABEL[kind] })),
+              )}
+            />
             <label className="flex flex-col gap-1">
               Usual amount
               <input name="amount" inputMode="decimal" autoComplete="off" defaultValue={form.amount ?? ""} placeholder="Leave empty if it varies" className="field" />

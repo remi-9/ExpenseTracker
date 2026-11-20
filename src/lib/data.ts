@@ -179,6 +179,22 @@ async function loadNoteHints(): Promise<{ note: string; category_id: string }[]>
   return [...seen.values()].slice(0, 80);
 }
 
+/** Categories of the latest entries, most recently logged first, each once: what the entry forms start on. */
+async function loadRecentCategories(): Promise<string[]> {
+  let ids: string[];
+  if (!isSupabaseConfigured) {
+    // Entries added in this browser are the newest; the sample entries go by date.
+    const edits = await getDemoEdits();
+    const sample = demoTransactions(edits).toSorted((a, b) => b.occurred_on.localeCompare(a.occurred_on));
+    ids = [...edits.added.toReversed(), ...sample].map((t) => t.category_id);
+  } else {
+    const supabase = await createClient();
+    const rows = check(await supabase.from("transactions").select("category_id").order("created_at", { ascending: false }).limit(200));
+    ids = rows.map((r) => r.category_id as string);
+  }
+  return [...new Set(ids)];
+}
+
 // ---- Accounts, transfers and bills -------------------------------------------------
 
 async function loadAccounts(): Promise<Account[]> {
@@ -462,6 +478,7 @@ export const getTransactionsFrom = cache(loadTransactionsFrom);
 export const searchTransactions = cache(loadSearch);
 export const getAllTransactions = cache(loadAllTransactions);
 export const getNoteHints = cache(loadNoteHints);
+export const getRecentCategories = cache(loadRecentCategories);
 export const getAccounts = cache(loadAccounts);
 export const getAccountNet = cache(loadAccountNet);
 export const getTransfers = cache(loadTransfers);

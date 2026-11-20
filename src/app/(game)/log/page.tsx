@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprite */
 import Link from "next/link";
+import { CategoryPicker } from "@/components/category-picker";
 import { EntryResult } from "@/components/entry-result";
 import { NoteField } from "@/components/note-field";
 import { RoutePopup } from "@/components/popup";
@@ -17,6 +18,7 @@ import {
   getNoteHints,
   getPartnerId,
   getPokemonNames,
+  getRecentCategories,
   getTransactions,
   searchTransactions,
 } from "@/lib/data";
@@ -24,6 +26,7 @@ import { dayLabel, dayLong, money, parseMonth, shiftMonth, today } from "@/lib/f
 import { getPlayer, payMonth, summarizeMonth, walletHp } from "@/lib/game";
 import { billsFor, dueLabel, leftAfterBills, openingTotal } from "@/lib/money";
 import { partnerAt, sprite } from "@/lib/partners";
+import { startCategory } from "@/lib/picks";
 import type { Kind, Transaction } from "@/lib/types";
 
 const KINDS: { kind: Kind; label: string; ask: string; account: string }[] = [
@@ -73,7 +76,7 @@ export default async function LogPage({
   const params = await searchParams;
   const month = parseMonth(params.m);
   const query = (params.q ?? "").trim();
-  const [categories, transactions, totals, partnerId, names, accounts, bills, payments, lastPayments, hints, found] =
+  const [categories, transactions, totals, partnerId, names, accounts, bills, payments, lastPayments, hints, found, recent] =
     await Promise.all([
       getCategories(),
       getTransactions(month),
@@ -86,6 +89,7 @@ export default async function LogPage({
       getBillPayments(shiftMonth(month, -1)),
       getNoteHints(),
       query ? searchTransactions(query) : Promise.resolve([]),
+      getRecentCategories(),
     ]);
   const summary = summarizeMonth(totals, month, openingTotal(accounts));
   const partner = partnerAt(partnerId, getPlayer(totals).level, names);
@@ -98,8 +102,9 @@ export default async function LogPage({
   const savedEntry = transactions.find((t) => t.id === params.id);
 
   // Categories keep the order they have in Setup, so each stays where your hand expects it.
-  // The form opens on the kind, category and account you used last.
-  const choices = (kind: Kind) => categories.filter((c) => c.kind === kind && !c.archived_at);
+  // The form opens on the kind, category and account you used last. An entry being
+  // edited keeps its own category even if that has since been archived.
+  const choices = (kind: Kind, keep?: string) => categories.filter((c) => c.kind === kind && (!c.archived_at || c.id === keep));
   const kindOf = new Map(categories.map((c) => [c.id, c.kind]));
   const noteHints = hints.flatMap((h) => (kindOf.has(h.category_id) ? [{ ...h, kind: kindOf.get(h.category_id)! }] : []));
 
@@ -184,11 +189,10 @@ export default async function LogPage({
 
         {/* One list per kind; the stylesheet shows the list for the kind that is checked. */}
         {KINDS.map((k) => {
-          const list = choices(k.kind);
-          const first = list.find((c) => c.id === picked) ?? list[0];
+          const list = choices(k.kind, editing?.category_id);
+          const first = editing ? editing.category_id : startCategory(list, picked, recent);
           return (
             <fieldset key={k.kind} className="kind-cats" data-kind={k.kind}>
-              <legend className="mb-1">{k.ask}</legend>
               {list.length === 0 ? (
                 <p className="text-muted">
                   Nothing in this pocket yet.{" "}
@@ -198,19 +202,16 @@ export default async function LogPage({
                   .
                 </p>
               ) : (
-                <div className="flex flex-wrap">
-                  {list.map((c) => (
-                    <label key={c.id} className="chip">
-                      <input type="radio" name={`category_${k.kind}`} value={c.id} defaultChecked={c.id === first.id} />
-                      <CategoryIcon icon={c.icon} size={24} />
-                      {c.name}
-                    </label>
-                  ))}
-                </div>
+                <CategoryPicker name={`category_${k.kind}`} choices={list} picked={first} label={k.ask} />
               )}
             </fieldset>
           );
         })}
+
+        <label className="flex flex-col gap-1">
+          What for?
+          <NoteField hints={noteHints} defaultValue={editing?.note ?? ""} />
+        </label>
 
         {usable.length > 0 && (
           <fieldset>
@@ -281,11 +282,6 @@ export default async function LogPage({
             />
           </div>
         </fieldset>
-
-        <label className="flex flex-col gap-1">
-          Note
-          <NoteField hints={noteHints} defaultValue={editing?.note ?? ""} />
-        </label>
 
         {editing ? (
           <div className="popup-actions">
