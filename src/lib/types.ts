@@ -74,4 +74,6 @@ export type MonthTotal = {
   kind: Kind;
   total: number;
   entries: number;
+  /** Income only: the part of `total` that landed late in the month before (see withLatePay in game.ts). */
+  early?: number;
 };

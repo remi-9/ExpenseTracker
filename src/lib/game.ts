@@ -1,5 +1,6 @@
 // All game rules live here as pure functions over the month_totals rows.
 // Nothing about the game is stored in the database, so rules can change freely.
+import { shiftMonth } from "./format";
 import type { Category, Kind, MonthTotal } from "./types";
 
 export type MonthSummary = {
@@ -19,15 +20,64 @@ export type MonthSummary = {
 export function summarizeMonth(totals: MonthTotal[], month: string, opening = 0): MonthSummary {
   const key = `${month}-01`;
   const s = { income: 0, expense: 0, saving: 0, remaining: 0, balance: opening };
+  const next = `${shiftMonth(month, 1)}-01`;
   for (const t of totals) {
     if (t.month === key) s[t.kind] += t.total;
     if (t.month <= key) {
       if (t.kind === "income") s.balance += t.total;
       if (t.kind === "expense") s.balance -= t.total;
     }
+    // Pay brought forward from this month is already in hand, though it counts as next month's income.
+    else if (t.month === next && t.early) s.balance += t.early;
   }
   s.remaining = s.income - s.expense - s.saving;
   return s;
+}
+
+// ---- Pay that lands early ---------------------------------------------------
+// Pay often arrives in the last days of a month and is meant for the month after.
+
+/** Income dated on or after this day of the month counts for the next month. */
+export const LATE_PAY_DAY = 25;
+
+/** The month (YYYY-MM) an income entry counts for, given the date it landed. */
+export const payMonth = (date: string) =>
+  Number(date.slice(8, 10)) >= LATE_PAY_DAY ? shiftMonth(date.slice(0, 7), 1) : date.slice(0, 7);
+
+/**
+ * Month totals with late income moved to the month it is meant for. The amount moves;
+ * the entry still counts in the month it was logged, and `early` records what was
+ * brought forward so that "everything you hold" can go by the day the money landed.
+ */
+export function withLatePay(
+  totals: MonthTotal[],
+  income: { occurred_on: string; category_id: string; amount: number }[],
+): MonthTotal[] {
+  const rows = totals.map((t) => ({ ...t }));
+  const row = (month: string, category_id: string) => {
+    let found = rows.find((t) => t.month === month && t.category_id === category_id);
+    if (!found) rows.push((found = { month, category_id, kind: "income", total: 0, entries: 0 }));
+    return found;
+  };
+  for (const e of income) {
+    const landed = e.occurred_on.slice(0, 7);
+    const counts = payMonth(e.occurred_on);
+    if (counts === landed) continue;
+    row(`${landed}-01`, e.category_id).total -= e.amount;
+    const to = row(`${counts}-01`, e.category_id);
+    to.total += e.amount;
+    to.early = (to.early ?? 0) + e.amount;
+  }
+  return rows;
+}
+
+/** Hi-score: the finished month (before `current`) that ended with the most left over. */
+export function bestMonth(totals: MonthTotal[], current: string): { month: string; left: number } | null {
+  const best = months(totals)
+    .filter((m) => m.month < current)
+    .map((m) => ({ month: m.month, left: m.remaining }))
+    .sort((a, b) => b.left - a.left)[0];
+  return best ?? null;
 }
 
 // ---- XP and levels ---------------------------------------------------------
@@ -137,9 +187,9 @@ export type Badge = {
   earned: (input: BadgeInput) => boolean;
 };
 
-/** Every month with entries, oldest first, with its summary. */
+/** Every month with entries, oldest first, with its summary. Pay brought forward into a month is not an entry in it. */
 function months(totals: MonthTotal[]) {
-  const keys = [...new Set(totals.map((t) => t.month.slice(0, 7)))].sort();
+  const keys = [...new Set(totals.filter((t) => t.entries > 0).map((t) => t.month.slice(0, 7)))].sort();
   return keys.map((m) => ({ month: m, ...summarizeMonth(totals, m) }));
 }
 

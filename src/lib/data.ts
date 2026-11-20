@@ -10,6 +10,7 @@ import { DEFAULT_OPTIONS, FRAMES, SCENES, SPEEDS, type SceneSize, type Speed } f
 import { DEFAULT_TRAINER, MAX_DEX, TRAINERS } from "./partners";
 import { createClient } from "./supabase/server";
 import type { Run, RunSummary } from "./run";
+import { withLatePay } from "./game";
 import { netByAccount, type BillPayment } from "./money";
 import type { Account, Bill, Category, MonthTotal, Transaction, Transfer } from "./types";
 
@@ -39,14 +40,30 @@ async function loadCategories(): Promise<Category[]> {
   })) as Category[];
 }
 
-/** Every month × category total. Small (rows ≈ months × categories), so we load it all. */
+/**
+ * Every month × category total. Small (rows ≈ months × categories), so we load it all.
+ * Income that lands late in a month is counted for the month after (see withLatePay),
+ * which needs each income entry's date: a handful of rows a month.
+ */
 async function loadMonthTotals(): Promise<MonthTotal[]> {
-  if (!isSupabaseConfigured) return demoTotals(demoTransactions(await getDemoEdits()));
+  if (!isSupabaseConfigured) {
+    const entries = demoTransactions(await getDemoEdits());
+    return withLatePay(demoTotals(entries), entries.filter((t) => t.category.kind === "income"));
+  }
   const supabase = await createClient();
-  const rows = check(
-    await supabase.from("month_totals").select("month, category_id, kind, total, entries"),
+  const [totals, income] = await Promise.all([
+    supabase.from("month_totals").select("month, category_id, kind, total, entries"),
+    supabase
+      .from("transactions")
+      .select("occurred_on, category_id, amount, category:categories!inner(kind)")
+      .eq("category.kind", "income")
+      .order("occurred_on", { ascending: false })
+      .limit(1000),
+  ]);
+  return withLatePay(
+    check(totals).map((r) => ({ ...r, total: Number(r.total) })) as MonthTotal[],
+    check(income).map((r) => ({ occurred_on: r.occurred_on as string, category_id: r.category_id as string, amount: Number(r.amount) })),
   );
-  return rows.map((r) => ({ ...r, total: Number(r.total) })) as MonthTotal[];
 }
 
 const ENTRY_COLUMNS = "id, category_id, amount, occurred_on, note, account_id, to_account_id, bill_id, category:categories(name, kind, icon)";
@@ -71,6 +88,26 @@ async function loadTransactions(month: string): Promise<Transaction[]> {
       .order("created_at", { ascending: false }),
   );
   return asEntries(rows);
+}
+
+/** Entries dated on or after a day (YYYY-MM-DD), newest first: what has moved an account since then. */
+async function loadTransactionsFrom(from: string): Promise<Transaction[]> {
+  if (!isSupabaseConfigured) return demoTransactions(await getDemoEdits()).filter((t) => t.occurred_on >= from);
+  const supabase = await createClient();
+  const all: Transaction[] = [];
+  for (let at = 0; ; at += 1000) {
+    const rows = check(
+      await supabase
+        .from("transactions")
+        .select(ENTRY_COLUMNS)
+        .gte("occurred_on", from)
+        .order("occurred_on", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(at, at + 999),
+    );
+    all.push(...asEntries(rows));
+    if (rows.length < 1000) return all;
+  }
 }
 
 /** Entries from any month whose note or category name contains the text, newest first, up to a hundred. */
@@ -179,6 +216,21 @@ async function loadTransfers(): Promise<Transfer[]> {
       .order("occurred_on", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(20),
+  );
+  return rows.map((r) => ({ ...r, amount: Number(r.amount) })) as Transfer[];
+}
+
+/** Transfers dated on or after a day (YYYY-MM-DD). */
+async function loadTransfersFrom(from: string): Promise<Transfer[]> {
+  if (!isSupabaseConfigured) return (await getDemoEdits()).transfers.filter((t) => t.occurred_on >= from);
+  const supabase = await createClient();
+  const rows = check(
+    await supabase
+      .from("transfers")
+      .select("id, from_account, to_account, amount, occurred_on, note")
+      .gte("occurred_on", from)
+      .order("occurred_on", { ascending: false })
+      .limit(1000),
   );
   return rows.map((r) => ({ ...r, amount: Number(r.amount) })) as Transfer[];
 }
@@ -398,12 +450,14 @@ const getPlayerRow = cache(loadPlayer);
 export const getCategories = cache(loadCategories);
 export const getMonthTotals = cache(loadMonthTotals);
 export const getTransactions = cache(loadTransactions);
+export const getTransactionsFrom = cache(loadTransactionsFrom);
 export const searchTransactions = cache(loadSearch);
 export const getAllTransactions = cache(loadAllTransactions);
 export const getNoteHints = cache(loadNoteHints);
 export const getAccounts = cache(loadAccounts);
 export const getAccountNet = cache(loadAccountNet);
 export const getTransfers = cache(loadTransfers);
+export const getTransfersFrom = cache(loadTransfersFrom);
 export const getAllTransfers = cache(loadAllTransfers);
 export const getBills = cache(loadBills);
 export const getBillPayments = cache(loadBillPayments);

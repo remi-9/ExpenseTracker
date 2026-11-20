@@ -4,7 +4,7 @@ import { Hearts } from "@/components/sprite";
 import { CategoryIcon, MonthPicker, Panel } from "@/components/ui";
 import { getCategories, getMonthTotals, getTransactions } from "@/lib/data";
 import { dayLabel, money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
-import { summarizeMonth, walletHp } from "@/lib/game";
+import { bestMonth, summarizeMonth, walletHp } from "@/lib/game";
 
 const shortMonth = (month: string) => monthLabel(month).slice(0, 3);
 const SERIES = 7; // categories that get their own colour; the rest fold into "Other"
@@ -23,11 +23,8 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
   const peak = Math.max(1, ...history.flatMap((h) => [h.income, h.expense]));
   const summary = history[history.length - 1];
 
-  // Hi-score: the month that ended with the most left over.
-  const allMonths = [...new Set(totals.map((t) => t.month.slice(0, 7)))];
-  const best = allMonths
-    .map((m) => ({ month: m, left: summarizeMonth(totals, m).remaining }))
-    .sort((a, b) => b.left - a.left)[0];
+  // Hi-score: the finished month that ended with the most left over.
+  const best = bestMonth(totals, parseMonth());
 
   // Spending by category. A category keeps its colour (by its place in the list)
   // whatever it ranks this month.
