@@ -83,9 +83,10 @@ export function RoutePopup({ title, closeHref, children }: { title: string; clos
     const element = dialog.current;
     shown.current = true;
     if (element && !element.open) element.showModal();
+    // Leaving the page takes the dialog with it. It is not closed by hand here: its close
+    // event arrives late, and in development React mounts twice, so it would look like a real close.
     return () => {
       shown.current = false;
-      element?.close();
     };
   }, []);
 

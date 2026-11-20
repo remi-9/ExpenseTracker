@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
 import Link from "next/link";
 import { ACCOUNT_KIND_LABEL, AccountParty } from "@/components/accounts";
+import { RoutePopup } from "@/components/popup";
 import { PlayOnMount } from "@/components/sound";
 import { StatementForm } from "@/components/statement-form";
 import { SubmitButton } from "@/components/submit";
@@ -82,15 +83,15 @@ export default async function AccountsPage({
   const gap = actual === null ? null : balanceGap(expected, actual);
   const gapKind = gap?.state === "over" ? "income" : "expense";
   const gapChoices = usable.filter((c) => c.kind === gapKind);
+  // The short forms open as pop-ups over the page; closing one comes back to the account.
+  const inPopup = adding || !!editing || moving || checking;
+  const back = picked ? `/accounts?a=${picked.account.id}` : "/accounts";
 
   return (
     <>
-      {params.error && (
-        <>
-          <PlayOnMount sounds={["error"]} />
-          <Dialog tone="error">{params.error}</Dialog>
-        </>
-      )}
+      {params.error && <PlayOnMount sounds={["error"]} />}
+      {/* A form in a pop-up shows its own error; anything else shows it here. */}
+      {params.error && !inPopup && <Dialog tone="error">{params.error}</Dialog>}
       {params.done && DONE[params.done] && <Dialog>{DONE[params.done]}</Dialog>}
 
       <Panel title="Pokémon" aside={<span>{money(total)} in all</span>}>
@@ -152,7 +153,12 @@ export default async function AccountsPage({
       </div>
 
       {(adding || editing) && (
-        <Panel title={editing ? `Edit ${editing.name}` : "New account"}>
+        <RoutePopup title={editing ? `Edit ${editing.name}` : "New account"} closeHref={back}>
+          {params.error && (
+            <p className="mb-3 text-red" role="alert">
+              {params.error}
+            </p>
+          )}
           {!isSupabaseConfigured && <p className="mb-2 text-muted">Demo mode: accounts can be changed once Supabase is connected.</p>}
           <form action={saveAccount} className="grid gap-3 sm:grid-cols-2">
             {editing && <input type="hidden" name="id" value={editing.id} />}
@@ -212,11 +218,16 @@ export default async function AccountsPage({
               </Link>
             </div>
           </form>
-        </Panel>
+        </RoutePopup>
       )}
 
       {moving && (
-        <Panel title="Move money">
+        <RoutePopup title="Move money" closeHref={back}>
+          {params.error && (
+            <p className="mb-3 text-red" role="alert">
+              {params.error}
+            </p>
+          )}
           <form action={addTransfer} className="grid gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1">
               From
@@ -262,11 +273,16 @@ export default async function AccountsPage({
               </Link>
             </div>
           </form>
-        </Panel>
+        </RoutePopup>
       )}
 
       {checking && (
-        <Panel title={`Check ${picked.account.name}`}>
+        <RoutePopup title={`Check ${picked.account.name}`} closeHref={back}>
+          {params.error && (
+            <p className="mb-3 text-red" role="alert">
+              {params.error}
+            </p>
+          )}
           <form action="/accounts" className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="a" value={picked.account.id} />
             <input type="hidden" name="check" value="1" />
@@ -343,7 +359,7 @@ export default async function AccountsPage({
               )}
             </form>
           )}
-        </Panel>
+        </RoutePopup>
       )}
 
       {importing && (
