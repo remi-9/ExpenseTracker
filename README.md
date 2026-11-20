@@ -38,8 +38,8 @@ bun run lint
    (and later your Vercel URL) to **Redirect URLs**.
 5. `bun dev`, sign in with your email, click the link.
 6. In the SQL editor, run [`supabase/seed.sql`](supabase/seed.sql) for the starter
-   categories and a first account. If you have `supabase/seed.local.sql` (your spreadsheet history,
-   not committed), run it next.
+   categories and a first account. If you have `supabase/seed.local.sql` (your own accounts,
+   bills and history, not committed), run that instead.
 7. Under Authentication, Sign In / Providers, turn off **Allow new users to sign up**,
    or set `ALLOWED_EMAIL` so only you can request a link.
 
@@ -50,6 +50,28 @@ straight away. `0003` puts everything you have logged into a first account calle
 set the real due days in Bill's PC afterwards. At the bottom of that file is an
 optional, commented-out block that moves an "Opening Balance" income entry onto the
 account as its opening balance. It deletes that entry, so read it before running it.
+
+## Or keep everything on your own computer
+
+The same database can run on your machine, so nothing you log leaves it. You need
+the [Supabase CLI](https://supabase.com/docs/guides/local-development) and a container
+runtime such as Docker Desktop, OrbStack or Colima.
+
+```bash
+supabase start   # starts the database and runs the migrations the first time
+bun dev
+```
+
+1. Put the API URL and publishable key that `supabase start` prints into `.env.local`.
+2. Sign in at `localhost:3000/login`. The login email is not sent anywhere: open it in
+   the local inbox at `http://127.0.0.1:54324`, in the same browser.
+3. Load `supabase/seed.sql`, or your own `supabase/seed.local.sql`, with
+   `docker exec -i supabase_db_ExpenseTracker psql -U postgres < supabase/seed.sql`.
+
+`supabase stop` keeps your data; `supabase db reset` erases it. Export a CSV from Bag,
+Data now and then as a backup. With Colima, published ports listen on every network
+interface unless you forward them to `127.0.0.1` only, so check that before loading
+real data.
 
 ## Deploy to Vercel
 
@@ -74,6 +96,7 @@ src/
     game.ts                  trainer rules: summary, XP, levels, quests, badges
     money.ts                 account balances and bills: what is due, paid, overdue
     csv.ts                   reading and writing CSV, planning an import
+    statement.ts             reading a bank statement, matching it to what is logged
     fight.ts                 battle content: moves, abilities, held items, areas, opponents
     battle.ts                the battle rules: one pure step per turn
     run.ts                   the roguelike run: map, rewards, shop, events, perks
@@ -91,6 +114,7 @@ src/
     entry-result.tsx         the result shown after logging an entry
     note-field.tsx           the note box: suggests old notes and picks their category
     import-form.tsx          check a CSV file, then import it
+    statement-form.tsx       check a statement, choose what each line is, import
     accounts.tsx             accounts drawn as a party, each with an HP bar
     submit.tsx               submit button with a saving state
     sprite.tsx               icons, chest, shield, hearts and town-map buildings drawn as character grids
@@ -147,6 +171,8 @@ The Log screen (the Poké Mart) is built for speed, because logging is the thing
 - **Bills** (Bill's PC) are anything on a schedule: rent, a subscription, savings, even your pay. A bill has a category, a due day, a usual amount (or none, if it varies) and a usual account, and comes round every month or once a year.
 - **The bills list** on the Log screen shows the month's bills soonest first: overdue, due within a week, later, or paid. One tap pays one, dated today; when you are catching up on another month the date starts on the due date and can be changed.
 - **After bills** on the Log screen is what is left of the month's income once the bills still to pay are set aside. Home mentions bills that are overdue or due this week.
+- **Import statement** on an account reads the statement or transaction history your bank or wallet lets you download, as a PDF or a CSV file. A PDF is opened in your browser, so the file and its password stay on your device. It finds the date, description, amount (or debit and credit) and balance columns by name, marks the lines you have already logged, and suggests what each new line is: a transfer when it names another of your accounts or is an ATM withdrawal, otherwise the category last used with that description. Lines you leave alone are not saved and show up again next time.
+- **Check balance** on an account compares what it really holds with what your entries add up to, for today or an earlier day, and logs the difference as one entry. After a statement import the two are compared for you.
 - **Import and export** live under Bag, Data: paste or choose a CSV file with `date`, `category` and `amount` columns (and optionally `note`, `account`, `kind`), check what it would bring in, then import. Export downloads every entry in the same shape.
 
 ## Data model
@@ -169,11 +195,11 @@ How the spreadsheet maps onto it:
 
 | Spreadsheet | Here |
 | --- | --- |
-| Income columns (Salary, Second salary, Other income) | `income` categories, each with a bill for its pay day |
-| Fixed columns (Family, Relatives, Internet, Electricity) | `expense` categories, each with a bill |
+| Income columns (each salary) | `income` categories, each with a bill for its pay day |
+| Fixed columns (internet, electricity) | `expense` categories, each with a bill |
 | Save column | a `saving` category with a monthly goal |
 | Expenses sheet rows | transactions |
-| Bank tracker | an account. Its balance is its opening balance plus what has gone in, minus what has come out |
+| The bank balance tracker | an account. Its balance is its opening balance plus what has gone in, minus what has come out |
 | Remaining from Salary | **Wallet HP** = income − expenses − savings, for the month |
 
 ## The game
