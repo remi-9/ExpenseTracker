@@ -80,6 +80,12 @@ Push to GitHub, import the repo in Vercel, add the same environment variables,
 deploy. Then add `https://YOUR-APP.vercel.app/auth/callback` to Supabase's
 Redirect URLs and set **Site URL** to your Vercel URL.
 
+## Versions
+
+The version is the `version` field in `package.json`, and each release is tagged `vX.Y.Z`.
+A round of new features raises the middle number, a fix raises the last. What changed
+in each one is in [`CHANGELOG.md`](CHANGELOG.md).
+
 ## How it's organised
 
 ```
