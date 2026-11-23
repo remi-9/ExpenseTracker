@@ -409,7 +409,7 @@ export default async function LogPage({
                 const c = categories.find((cat) => cat.id === s.bill.category_id);
                 return (
                   <li key={s.bill.id} data-state={s.state}>
-                    <span className="truncate" title={s.bill.name}>
+                    <span className="min-w-0 break-words">
                       <CategoryIcon icon={c?.icon ?? "poke-ball"} size={24} />
                       {s.bill.name}
                     </span>

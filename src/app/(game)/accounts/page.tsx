@@ -122,7 +122,7 @@ export default async function AccountsPage({
                   {transfers.map((t) => (
                     <li key={t.id}>
                       <span className="text-muted">{dayLabel(t.occurred_on)}</span>
-                      <span className="truncate">
+                      <span className="min-w-0 break-words">
                         {nameOf(t.from_account)} to {nameOf(t.to_account)}
                         {t.note && <span className="ml-3 text-muted">{t.note}</span>}
                       </span>

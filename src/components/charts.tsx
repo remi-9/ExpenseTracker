@@ -150,7 +150,7 @@ export function SpendBars({ rows }: { rows: { id: string; name: string; icon?: R
     <ul className="spend-bars" aria-label="Where the spending went">
       {rows.map((r) => (
         <li key={r.id}>
-          <span className="truncate">
+          <span className="min-w-0 break-words">
             {r.icon}
             {r.name}
           </span>
@@ -187,7 +187,7 @@ export function Waffle({ slices, total }: { slices: Slice[]; total: number }) {
       <ul className="flex flex-col gap-1">
         {slices.map((s, i) => (
           <li key={s.id} className="flex items-center justify-between gap-3">
-            <span className="legend min-w-0 truncate" style={tone(s.color)}>
+            <span className="legend min-w-0 break-words" style={tone(s.color)}>
               {s.icon}
               {s.name}
             </span>

@@ -176,7 +176,7 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                 {biggestDays.map(({ date, total, top }) => (
                   <li key={date}>
                     <span className="text-muted">{dayLabel(date)}</span>
-                    <span className="truncate">
+                    <span className="min-w-0 break-words">
                       {top && <CategoryIcon icon={top.category.icon} />}
                       {top?.note ?? top?.category.name}
                     </span>
