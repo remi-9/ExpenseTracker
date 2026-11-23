@@ -219,8 +219,8 @@ export function cry(dex: number) {
 }
 
 // ---- Background music -----------------------------------------------------------
-// Two original chiptune loops written for this app: a relaxed one for the menus
-// and a quicker minor-key one for battles. Each has a lead, bass, a soft arpeggio
+// Two original chiptune loops written for this app: a slow, warm one for the menus
+// ("Cozy") and a quicker minor-key one for battles. Each has a lead, bass, a soft arpeggio
 // and light drums. Numbers are MIDI notes (60 = middle C); 0 is a rest.
 // Eight eighth-notes per bar. Edit the lists to change a tune.
 
@@ -235,31 +235,21 @@ type Song = {
 };
 
 const SONGS: Record<"town" | "battle", Song> = {
+  // "Cozy": slow and warm, in F major.
   town: {
-    step: 0.25,
-    minor: [40, 45],
+    step: 0.3,
+    minor: [38, 45, 43],
     lead: [
-      [76, 0, 79, 0, 84, 0, 79, 76],
-      [81, 0, 76, 0, 72, 0, 76, 0],
-      [77, 0, 81, 0, 84, 0, 81, 77],
-      [74, 0, 79, 0, 83, 0, 79, 0],
-      [76, 79, 84, 0, 88, 0, 84, 79],
-      [83, 0, 79, 0, 76, 0, 79, 83],
-      [81, 0, 77, 81, 83, 0, 79, 74],
-      [72, 0, 76, 79, 84, 0, 0, 0],
-      [81, 0, 84, 0, 89, 0, 84, 81],
-      [83, 0, 86, 0, 91, 0, 86, 83],
-      [79, 0, 83, 0, 88, 0, 83, 79],
-      [81, 0, 84, 0, 88, 0, 84, 0],
-      [77, 81, 84, 0, 89, 0, 84, 81],
-      [79, 83, 86, 0, 91, 0, 86, 83],
-      [84, 0, 79, 0, 76, 0, 79, 84],
-      [72, 0, 76, 79, 84, 0, 0, 0],
+      [72, 0, 69, 0, 65, 0, 69, 72],
+      [74, 0, 72, 69, 0, 0, 65, 0],
+      [70, 0, 74, 0, 77, 0, 74, 70],
+      [72, 0, 76, 0, 79, 0, 0, 0],
+      [77, 0, 76, 74, 72, 0, 69, 0],
+      [70, 72, 74, 0, 70, 0, 67, 0],
+      [69, 0, 70, 0, 72, 74, 76, 0],
+      [77, 0, 72, 0, 65, 0, 0, 0],
     ],
-    bass: [
-      [48, 48], [45, 45], [41, 41], [43, 43], [48, 48], [40, 40], [41, 43], [48, 48],
-      [41, 41], [43, 43], [40, 40], [45, 45], [41, 41], [43, 43], [48, 48], [48, 43],
-    ],
+    bass: [[41, 41], [38, 38], [46, 46], [48, 48], [41, 45], [46, 43], [46, 48], [41, 41]],
   },
   battle: {
     step: 0.15,
