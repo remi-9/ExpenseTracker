@@ -126,7 +126,7 @@ export default async function AccountsPage({
                         {nameOf(t.from_account)} to {nameOf(t.to_account)}
                         {t.note && <span className="ml-3 text-muted">{t.note}</span>}
                       </span>
-                      <span className="flex items-center">
+                      <span className="flex items-center gap-3">
                         <span className="amount">{money(t.amount)}</span>
                         <form action={deleteTransfer}>
                           <input type="hidden" name="id" value={t.id} />
