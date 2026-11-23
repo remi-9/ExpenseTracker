@@ -9,6 +9,8 @@ import { CategoryIcon, Columns, Dialog, Panel } from "@/components/ui";
 import { ImportForm } from "@/components/import-form";
 import { addCategory, addPreset, setCategoryArchived, setOption, setPassword } from "@/lib/actions";
 import { getCategories, getCaught, getOptions, getPartnerId, getPokemonNames, getTrainerId, getUserEmail } from "@/lib/data";
+// The release number, shown in small text on Options.
+import { version } from "../../../../package.json";
 import { money } from "@/lib/format";
 import type { CSSProperties } from "react";
 import { PATTERNS, TONE_COLORS, TONES, type Tone } from "@/lib/backdrop";
@@ -346,6 +348,7 @@ async function Options() {
           <p className="mt-2 text-muted">
             Frame recolours every window. Backdrop and pattern are chosen separately.
           </p>
+          <p className="mt-2 text-right text-sm text-muted">Version {version}</p>
         </section>
       </Columns>
     </>

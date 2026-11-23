@@ -31,7 +31,7 @@ bun run lint
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. In the SQL editor, run the files in [`supabase/migrations/`](supabase/migrations/) in order:
-   `0001_init.sql`, `0002_expedition.sql`, `0003_accounts_bills.sql`.
+   `0001_init.sql`, `0002_expedition.sql`, `0003_accounts_bills.sql`, `0004_tossed.sql`.
 3. Copy `.env.example` to `.env.local` and fill in the project URL and key
    (under Project Settings, API).
 4. Under Authentication, URL Configuration, add `http://localhost:3000/auth/callback`
@@ -43,8 +43,8 @@ bun run lint
 7. Under Authentication, Sign In / Providers, turn off **Allow new users to sign up**,
    or set `ALLOWED_EMAIL` so only you can request a link.
 
-**Already running an earlier version?** Run `0002_expedition.sql` and then
-`0003_accounts_bills.sql` before deploying this code: the app reads the new columns
+**Already running an earlier version?** Run `0002_expedition.sql`, then
+`0003_accounts_bills.sql`, then `0004_tossed.sql` before deploying this code: the app reads the new columns
 straight away. `0003` puts everything you have logged into a first account called
 "Main account" and turns each category marked monthly into a bill due on the 1st, so
 set the real due days in Bill's PC afterwards. At the bottom of that file is an
@@ -93,6 +93,8 @@ supabase/
   migrations/0001_init.sql            categories, transactions, catches, the month_totals view
   migrations/0002_expedition.sql      who you play as, the expedition in progress, finished expeditions
   migrations/0003_accounts_bills.sql  accounts, transfers, bills, the account_totals view
+  migrations/0004_tossed.sql          tossed entries and transfers, kept 30 days to restore
+  tests/database/tossed.test.sql      pgTAP test for tossing and restoring (supabase test db)
   seed.sql                            starter categories and a first account
 src/
   proxy.ts                   session refresh + login redirect (Next 16's "middleware")
