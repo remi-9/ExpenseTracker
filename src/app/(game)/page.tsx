@@ -202,138 +202,154 @@ export default async function Home({
       {params.done === "tossed" && params.r && (
         <TossedNotice message="Entry tossed." id={params.r} back={view === "all" || !params.a ? "/" : `/?a=${encodeURIComponent(params.a)}`} month={month} />
       )}
-      <MonthPicker month={month} path="/" />
+      {/* Wide windows: the account and the scene on the left, the jobs and the latest
+          entries on the right (placed by .home-grid in globals.css). Phones: this order. */}
+      <div className="home-grid">
+        <MonthPicker month={month} path="/" />
 
-      {savedAmount > 0 && savedCategory && params.id && (
-        <EntryResult
-          key={params.t}
-          kind={savedCategory.kind}
-          amount={savedAmount}
-          categoryName={savedCategory.name}
-          month={month}
-          totals={totals}
-          opening={opening}
-          partnerId={partnerId}
-          names={names}
-          entryId={params.id}
-          from="home"
-          view={view}
-          countsFor={savedCategory.kind === "income" && savedEntry ? payMonth(savedEntry.occurred_on) : undefined}
-        />
-      )}
-
-      {usable.length === 0 ? (
-        <Panel title="Accounts">
-          <p className="text-muted">No accounts yet.</p>
-          <Link href="/accounts?new=1" className="btn mt-3" data-sfx="page">
-            Add an account
-          </Link>
-        </Panel>
-      ) : (
-        <Glance
-          tabs={tabs}
-          current={view}
-          month={month}
-          balance={balance}
-          opening={line.opening}
-          days={line.days}
-          span={daysIn(month)}
-          figures={figures}
-          went={went}
-        />
-      )}
-
-      {/* The everyday jobs, one tap each. The log pop-ups start on the account being looked at. */}
-      <nav className="window menu commands home-commands" aria-label="Shortcuts" data-menu>
-        {QUICK.map((quick) => (
-          <Popup key={quick.kind} label={quick.label} title={quick.title} size="small" className="menu-item" closeOnSubmit>
-            <QuickLog
-              key={params.t ?? "new"}
-              quick={quick}
-              categories={categories}
-              accounts={usable}
-              account={account?.id ?? usable.find((a) => a.id === params.acct)?.id}
-              lastCategory={params.cat}
-              recent={recentCategories}
-              hints={hints}
-              view={view}
-            />
-          </Popup>
-        ))}
-        {usable.length > 1 && (
-          <Popup label="Move" title="Move money" size="small" className="menu-item" closeOnSubmit>
-            <MoveForm key={`${view}-${params.t ?? ""}`} accounts={usable.map(({ id, name }) => ({ id, name }))} from={account?.id} view={view} />
-          </Popup>
+        {savedAmount > 0 && savedCategory && params.id && (
+          <EntryResult
+            key={params.t}
+            kind={savedCategory.kind}
+            amount={savedAmount}
+            categoryName={savedCategory.name}
+            month={month}
+            totals={totals}
+            opening={opening}
+            partnerId={partnerId}
+            names={names}
+            entryId={params.id}
+            from="home"
+            view={view}
+            countsFor={savedCategory.kind === "income" && savedEntry ? payMonth(savedEntry.occurred_on) : undefined}
+          />
         )}
-        <Popup
-          label="Recent"
-          title={account ? `${account.name}: latest` : "Latest entries"}
-          className="menu-item"
-          footer={
-            <Link href={`/log?m=${month}`} className="btn" data-sfx="page">
-              See all
-            </Link>
-          }
-        >
-          {recent.length === 0 ? <p className="text-muted">Nothing logged this month.</p> : <EntryList entries={recent.slice(0, 8)} />}
-        </Popup>
-        <Link href={account ? `/accounts?a=${account.id}&check=1` : "/accounts"} className="menu-item" data-sfx="confirm" title="Compare with what the bank shows">
-          Check
-        </Link>
-        <Link href="/battle" className="menu-item" data-sfx="confirm">
-          Battle
-        </Link>
-      </nav>
 
-      <SceneBox
-        startFolded={options.scene === "compact"}
-        scene={
-          <Scene>
-            <img src={sprite.trainer(trainerId)} alt="" className="pixel sprite scene-trainer" />
-            <div className="scene-partner">
-              <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} />
-            </div>
-            <WildPokemon balls={Math.max(0, player.entries - caught.length)} caught={caught} names={names} />
-            {statusBox}
-          </Scene>
-        }
-        strip={
-          <Scene strip>
-            <img src={sprite.icon(peeking)} alt="" className="pixel strip-wild" />
-            <img src={sprite.trainer(trainerId)} alt="" className="pixel strip-trainer" />
-            <div className="strip-partner" data-mood={mood}>
-              <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} card />
-            </div>
-            {statusBox}
-          </Scene>
-        }
-        status={
-          <div className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-x-2 gap-y-2">
-            <p className="col-span-3 flex items-center justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
-              <span className="flex items-center gap-2">
-                {partner.name}
-                {shiny && <span className="star" title="Shiny" />}
+        {usable.length === 0 ? (
+          <Panel title="Accounts">
+            <p className="text-muted">No accounts yet.</p>
+            <Link href="/accounts?new=1" className="btn mt-3" data-sfx="page">
+              Add an account
+            </Link>
+          </Panel>
+        ) : (
+          <Glance
+            tabs={tabs}
+            current={view}
+            month={month}
+            balance={balance}
+            opening={line.opening}
+            days={line.days}
+            span={daysIn(month)}
+            figures={figures}
+            went={went}
+          />
+        )}
+        <div className="home-side">
+          {/* The everyday jobs, one tap each. The log pop-ups start on the account being looked at. */}
+          <nav className="window menu commands home-commands" aria-label="Shortcuts" data-menu>
+            {QUICK.map((quick) => (
+              <Popup key={quick.kind} label={quick.label} title={quick.title} size="small" className="menu-item" closeOnSubmit>
+                <QuickLog
+                  key={params.t ?? "new"}
+                  quick={quick}
+                  categories={categories}
+                  accounts={usable}
+                  account={account?.id ?? usable.find((a) => a.id === params.acct)?.id}
+                  lastCategory={params.cat}
+                  recent={recentCategories}
+                  hints={hints}
+                  view={view}
+                />
+              </Popup>
+            ))}
+            {usable.length > 1 && (
+              <Popup label="Move" title="Move money" size="small" className="menu-item" closeOnSubmit>
+                <MoveForm key={`${view}-${params.t ?? ""}`} accounts={usable.map(({ id, name }) => ({ id, name }))} from={account?.id} view={view} />
+              </Popup>
+            )}
+            <Popup
+              label="Recent"
+              title={account ? `${account.name}: latest` : "Latest entries"}
+              className="menu-item"
+              footer={
+                <Link href={`/log?m=${month}`} className="btn" data-sfx="page">
+                  See all
+                </Link>
+              }
+            >
+              {recent.length === 0 ? <p className="text-muted">Nothing logged this month.</p> : <EntryList entries={recent.slice(0, 8)} />}
+            </Popup>
+            <Link href={account ? `/accounts?a=${account.id}&check=1` : "/accounts"} className="menu-item" data-sfx="confirm" title="Compare with what the bank shows">
+              Check
+            </Link>
+            <Link href="/battle" className="menu-item" data-sfx="confirm">
+              Battle
+            </Link>
+          </nav>
+          {/* Wide windows only: the latest entries, which phones open from Recent. */}
+          <Panel
+            title={account ? `${account.name}: latest` : "Latest entries"}
+            className="wide-only"
+            aside={
+              <Link href={`/log?m=${month}`} className="underline" data-sfx="page">
+                See all
+              </Link>
+            }
+          >
+            {recent.length === 0 ? <p className="text-muted">Nothing logged this month.</p> : <EntryList entries={recent.slice(0, 8)} />}
+          </Panel>
+        </div>
+        <SceneBox
+          startFolded={options.scene === "compact"}
+          scene={
+            <Scene>
+              <img src={sprite.trainer(trainerId)} alt="" className="pixel sprite scene-trainer" />
+              <div className="scene-partner">
+                <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} />
+              </div>
+              <WildPokemon balls={Math.max(0, player.entries - caught.length)} caught={caught} names={names} />
+              {statusBox}
+            </Scene>
+          }
+          strip={
+            <Scene strip>
+              <img src={sprite.icon(peeking)} alt="" className="pixel strip-wild" />
+              <img src={sprite.trainer(trainerId)} alt="" className="pixel strip-trainer" />
+              <div className="strip-partner" data-mood={mood}>
+                <PartnerSprite dex={partner.dex} name={partner.name} mood={mood} shiny={shiny} card />
+              </div>
+              {statusBox}
+            </Scene>
+          }
+          status={
+            <div className="grid grid-cols-[1.75rem_1fr_auto] items-center gap-x-2 gap-y-2">
+              <p className="col-span-3 flex items-center justify-between gap-2 font-display text-[0.65rem] leading-relaxed">
+                <span className="flex items-center gap-2">
+                  {partner.name}
+                  {shiny && <span className="star" title="Shiny" />}
+                </span>
+                <span>Lv {player.level}</span>
+              </p>
+              <span className="font-display text-[0.6rem] text-gold">HP</span>
+              <Bar ratio={hp} tone={hpTone(hp)} label="Share of this month's pay left" />
+              <span className="text-muted">
+                {money(Math.max(0, summary.remaining))} / {money(summary.income)}
               </span>
-              <span>Lv {player.level}</span>
-            </p>
-            <span className="font-display text-[0.6rem] text-gold">HP</span>
-            <Bar ratio={hp} tone={hpTone(hp)} label="Share of this month's pay left" />
-            <span className="text-muted">
-              {money(Math.max(0, summary.remaining))} / {money(summary.income)}
-            </span>
-          </div>
-        }
-        message={<Typewriter lines={lines} plain />}
-        xp={
-          <>
-            <span className="font-display text-[0.6rem] text-blue">XP</span>
-            <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />
-            <span className="text-muted">
-              {player.xpIntoLevel} / {player.xpForNext}
-            </span>
-          </>
-        }
-      />
+            </div>
+          }
+          message={<Typewriter lines={lines} plain />}
+          xp={
+            <>
+              <span className="font-display text-[0.6rem] text-blue">XP</span>
+              <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />
+              <span className="text-muted">
+                {player.xpIntoLevel} / {player.xpForNext}
+              </span>
+            </>
+          }
+        />
+      </div>
     </>
   );
 }

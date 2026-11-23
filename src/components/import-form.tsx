@@ -45,7 +45,7 @@ export function ImportForm() {
           className="field font-mono text-base"
         />
       </label>
-      <div className="flex flex-wrap">
+      <div className="flex flex-wrap gap-3">
         <button name="mode" value="check" className="btn" disabled={pending}>
           {pending ? "Reading…" : "Check the file"}
         </button>

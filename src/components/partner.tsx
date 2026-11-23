@@ -74,7 +74,7 @@ export function PartnerPicker({
 }) {
   return (
     <form action={choosePartner} className="flex flex-col gap-3">
-      <div className="grid grid-cols-3 sm:grid-cols-4">
+      <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 sm:gap-2">
         {PARTNERS.map((p) => (
           <button
             key={p.id}
@@ -85,7 +85,7 @@ export function PartnerPicker({
             aria-pressed={p.id === current}
           >
             <img src={sprite.still(p.stages[0].dex)} alt="" width={64} height={64} className="pixel" />
-            <span className="max-w-full truncate">{p.stages[0].name}</span>
+            <span className="max-w-full text-center text-[0.55rem] leading-snug sm:text-[0.65rem]">{p.stages[0].name}</span>
           </button>
         ))}
       </div>
@@ -117,7 +117,7 @@ export function PartnerPicker({
 /** Choose which famous trainer represents you. */
 export function TrainerPicker({ current }: { current: string }) {
   return (
-    <form action={chooseTrainer} className="grid grid-cols-4 sm:grid-cols-5">
+    <form action={chooseTrainer} className="grid grid-cols-4 gap-1 sm:grid-cols-5 sm:gap-2">
       {TRAINERS.map((t) => (
         <button
           key={t.id}
@@ -128,7 +128,7 @@ export function TrainerPicker({ current }: { current: string }) {
           aria-pressed={t.id === current}
         >
           <img src={sprite.trainer(t.id)} alt="" width={64} height={64} className="pixel" loading="lazy" />
-          <span className="max-w-full truncate">{t.name}</span>
+          <span className="max-w-full text-center text-[0.55rem] leading-snug sm:text-[0.65rem]">{t.name}</span>
         </button>
       ))}
     </form>

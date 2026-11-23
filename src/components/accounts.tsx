@@ -28,7 +28,7 @@ export function AccountParty({
               <CategoryIcon icon={account.icon} size={compact ? 30 : 40} />
               <span className="party-info">
                 <span className="flex items-baseline justify-between gap-2">
-                  <span className="truncate font-display text-[0.6rem] leading-relaxed uppercase">{account.name}</span>
+                  <span className="min-w-0 break-words font-display text-[0.6rem] leading-relaxed uppercase">{account.name}</span>
                   {!compact && <span className="shrink-0 text-muted">{ACCOUNT_KIND_LABEL[account.kind]}</span>}
                 </span>
                 <span className="hpbar" role="meter" aria-label={`${account.name}: share left after this month's spending`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(ratio * 100)}>

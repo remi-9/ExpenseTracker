@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { PartyScreen, Type } from "@/components/party";
 import { PlayOnMount } from "@/components/sound";
-import { Dialog, Panel } from "@/components/ui";
+import { Columns, Dialog, Panel } from "@/components/ui";
 import { choosePartner, toggleTeam } from "@/lib/actions";
 import { getBattleData, getCaught, getMonthTotals, getPartnerId, getPokemonNames, getRunHistory, getTeam } from "@/lib/data";
 import { ABILITIES, abilityFor, makeBattler, teamLevel } from "@/lib/fight";
@@ -57,124 +57,131 @@ export default async function DexPage({
         </>
       )}
 
-      <Panel
-        title="Pokémon"
-        aside={
-          <Link href="/battle" className="underline">
-            Battle
-          </Link>
+      {/* Wide windows: the party beside the PC boxes. */}
+      <Columns split="even"
+        side={
+          <>
+            <section className="box p-0!" aria-label="PC storage">
+              <header className="pc-header">
+                <Link href={boxHref(box - 1)} className="btn" aria-label="Previous box" data-sfx="page">
+                  ◀
+                </Link>
+                <h1>
+                  Box {box}
+                  <small className="flex gap-4">
+                    <span>
+                      Own {caught.length} / {MAX_DEX}
+                    </span>
+                    <span>Balls ×{balls}</span>
+                  </small>
+                </h1>
+                <Link href={boxHref(box + 1)} className="btn" aria-label="Next box" data-sfx="page">
+                  ▶
+                </Link>
+              </header>
+
+              {sorted.length === 0 ? (
+                <p className="p-4 text-muted">
+                  The PC is empty. Weaken a wild Pokémon, then throw a Poké Ball.
+                </p>
+              ) : (
+                <div className="pc">
+                  <div className="pc-grid" data-menu>
+                    {Array.from({ length: BOX_SIZE }, (_, i) => {
+                      const dex = inBox[i];
+                      return dex ? (
+                        <Link
+                          key={i}
+                          href={`/dex?box=${box}&p=${dex}`}
+                          scroll={false}
+                          className="pc-cell"
+                          data-sfx="chip"
+                          aria-current={dex === picked ? "true" : undefined}
+                          aria-label={nameOf(dex)}
+                          title={nameOf(dex)}
+                        >
+                          <img src={sprite.icon(dex)} alt="" width={40} height={30} className="pixel" loading="lazy" />
+                          {(team.includes(dex) || partnerId === `dex:${dex}`) && <span className="pip" />}
+                        </Link>
+                      ) : (
+                        <span key={i} className="pc-cell" />
+                      );
+                    })}
+                  </div>
+
+                  {picked && (
+                    <div className="window pc-detail">
+                      <img src={sprite.pokemon(picked)} alt="" className="pixel sprite-card mx-auto" />
+                      <p className="text-muted leading-none">No. {String(picked).padStart(3, "0")}</p>
+                      <h2 className="font-display text-xs leading-relaxed uppercase">{nameOf(picked)}</h2>
+                      {data && (
+                        <>
+                          <p className="flex gap-1">
+                            {data.species[picked - 1].t.map((t) => (
+                              <Type key={t} id={t} />
+                            ))}
+                          </p>
+                          <p className="leading-tight" title={ABILITIES[abilityFor(picked, data.species[picked - 1].t)].text}>
+                            {ABILITIES[abilityFor(picked, data.species[picked - 1].t)].name}
+                            {data.species[picked - 1].e && (
+                              <span className="block text-muted">
+                                Evolves into {nameOf(data.species[picked - 1].e![0])} at Lv {data.species[picked - 1].e![1]} on an
+                                expedition.
+                              </span>
+                            )}
+                          </p>
+                        </>
+                      )}
+                      {records.get(picked) && (
+                        <p className="leading-tight text-muted">
+                          {records.get(picked)!.runs} {records.get(picked)!.runs === 1 ? "expedition" : "expeditions"},{" "}
+                          {records.get(picked)!.kos} knockouts, best floor {records.get(picked)!.best}.
+                        </p>
+                      )}
+                      <div className="menu mt-1" data-menu>
+                        <form action={toggleTeam}>
+                          <input type="hidden" name="dex" value={picked} />
+                          <button className="menu-item" data-sfx={onTeam ? "page" : "confirm"}>
+                            {onTeam ? "Withdraw" : "Add to party"}
+                          </button>
+                        </form>
+                        {partnerId !== `dex:${picked}` && (
+                          <form action={choosePartner}>
+                            <button name="partner" value={`dex:${picked}`} className="menu-item" data-sfx="confirm">
+                              Make partner
+                            </button>
+                          </form>
+                        )}
+                        <Link href={`/battle`} className="menu-item">
+                          Battle
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          </>
         }
       >
-        {party.length > 0 ? (
-          <PartyScreen party={party} note={(i) => (i === 0 ? "Partner" : undefined)} />
-        ) : (
-          <p className="text-muted">Choose a partner on Home to start a team.</p>
-        )}
-        <p className="mt-2 text-muted">
-          Your partner leads. Add up to five from the PC. The party battles at Lv {level}.
-        </p>
-      </Panel>
-
-      <section className="box p-0!" aria-label="PC storage">
-        <header className="pc-header">
-          <Link href={boxHref(box - 1)} className="btn" aria-label="Previous box" data-sfx="page">
-            ◀
-          </Link>
-          <h1>
-            Box {box}
-            <small className="flex gap-4">
-              <span>
-                Own {caught.length} / {MAX_DEX}
-              </span>
-              <span>Balls ×{balls}</span>
-            </small>
-          </h1>
-          <Link href={boxHref(box + 1)} className="btn" aria-label="Next box" data-sfx="page">
-            ▶
-          </Link>
-        </header>
-
-        {sorted.length === 0 ? (
-          <p className="p-4 text-muted">
-            The PC is empty. Weaken a wild Pokémon, then throw a Poké Ball.
+        <Panel
+          title="Pokémon"
+          aside={
+            <Link href="/battle" className="underline">
+              Battle
+            </Link>
+          }
+        >
+          {party.length > 0 ? (
+            <PartyScreen party={party} note={(i) => (i === 0 ? "Partner" : undefined)} />
+          ) : (
+            <p className="text-muted">Choose a partner on Home to start a team.</p>
+          )}
+          <p className="mt-2 text-muted">
+            Your partner leads. Add up to five from the PC. The party battles at Lv {level}.
           </p>
-        ) : (
-          <div className="pc">
-            <div className="pc-grid" data-menu>
-              {Array.from({ length: BOX_SIZE }, (_, i) => {
-                const dex = inBox[i];
-                return dex ? (
-                  <Link
-                    key={i}
-                    href={`/dex?box=${box}&p=${dex}`}
-                    scroll={false}
-                    className="pc-cell"
-                    data-sfx="chip"
-                    aria-current={dex === picked ? "true" : undefined}
-                    aria-label={nameOf(dex)}
-                    title={nameOf(dex)}
-                  >
-                    <img src={sprite.icon(dex)} alt="" width={40} height={30} className="pixel" loading="lazy" />
-                    {(team.includes(dex) || partnerId === `dex:${dex}`) && <span className="pip" />}
-                  </Link>
-                ) : (
-                  <span key={i} className="pc-cell" />
-                );
-              })}
-            </div>
-
-            {picked && (
-              <div className="window pc-detail">
-                <img src={sprite.pokemon(picked)} alt="" className="pixel sprite-card mx-auto" />
-                <p className="text-muted leading-none">No. {String(picked).padStart(3, "0")}</p>
-                <h2 className="font-display text-xs leading-relaxed uppercase">{nameOf(picked)}</h2>
-                {data && (
-                  <>
-                    <p className="flex gap-1">
-                      {data.species[picked - 1].t.map((t) => (
-                        <Type key={t} id={t} />
-                      ))}
-                    </p>
-                    <p className="leading-tight" title={ABILITIES[abilityFor(picked, data.species[picked - 1].t)].text}>
-                      {ABILITIES[abilityFor(picked, data.species[picked - 1].t)].name}
-                      {data.species[picked - 1].e && (
-                        <span className="block text-muted">
-                          Evolves into {nameOf(data.species[picked - 1].e![0])} at Lv {data.species[picked - 1].e![1]} on an
-                          expedition.
-                        </span>
-                      )}
-                    </p>
-                  </>
-                )}
-                {records.get(picked) && (
-                  <p className="leading-tight text-muted">
-                    {records.get(picked)!.runs} {records.get(picked)!.runs === 1 ? "expedition" : "expeditions"},{" "}
-                    {records.get(picked)!.kos} knockouts, best floor {records.get(picked)!.best}.
-                  </p>
-                )}
-                <div className="menu mt-1" data-menu>
-                  <form action={toggleTeam}>
-                    <input type="hidden" name="dex" value={picked} />
-                    <button className="menu-item" data-sfx={onTeam ? "page" : "confirm"}>
-                      {onTeam ? "Withdraw" : "Add to party"}
-                    </button>
-                  </form>
-                  {partnerId !== `dex:${picked}` && (
-                    <form action={choosePartner}>
-                      <button name="partner" value={`dex:${picked}`} className="menu-item" data-sfx="confirm">
-                        Make partner
-                      </button>
-                    </form>
-                  )}
-                  <Link href={`/battle`} className="menu-item">
-                    Battle
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+        </Panel>
+      </Columns>
     </>
   );
 }

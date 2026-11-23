@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { SpendCalendar, Waffle, type Slice } from "@/components/charts";
 import { Hearts } from "@/components/sprite";
-import { CategoryIcon, MonthPicker, Panel } from "@/components/ui";
+import { CategoryIcon, Columns, MonthPicker, Panel } from "@/components/ui";
 import { getCategories, getMonthTotals, getTransactions } from "@/lib/data";
 import { dayLabel, money, monthLabel, parseMonth, shiftMonth } from "@/lib/format";
 import { bestMonth, summarizeMonth, walletHp } from "@/lib/game";
@@ -87,77 +87,83 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         </div>
       </section>
 
-      <Panel
-        title="Earned and spent"
-        aside={
-          <span className="flex gap-3">
-            <span className="legend" style={{ "--tone": "var(--chart-earned)" } as CSSProperties}>
-              Earned
-            </span>
-            <span className="legend" style={{ "--tone": "var(--chart-spent)" } as CSSProperties}>
-              Spent
-            </span>
-          </span>
+      {/* Wide windows: earned and spent beside where the month went, which gets the wider side. */}
+      <Columns split="side" from="wider"
+        side={
+          <>
+            <Panel title={`Where ${monthLabel(month).split(" ")[0]} went`} aside={<span>{money(summary.expense)}</span>}>
+              {slices.length === 0 ? (
+                <p className="text-muted">No spending logged this month.</p>
+              ) : (
+                <>
+                  <Waffle slices={slices} total={summary.expense} />
+                  <p className="mt-3 text-muted">
+                    Each square is 1% of the month&apos;s spending. Bills came to {money(fixed)}; everything else to{" "}
+                    {money(summary.expense - fixed)}.
+                  </p>
+                </>
+              )}
+            </Panel>
+          </>
         }
       >
-        <div className="chart" role="img" aria-label="Earned and spent per month. The table below has the figures.">
-          {history.map((h) => (
-            <div key={h.month} className="chart-month">
-              <div className="chart-cols">
-                <span
-                  title={`${monthLabel(h.month)}: earned ${money(h.income)}`}
-                  style={{ "--h": (h.income / peak) * 100, "--tone": "var(--chart-earned)" } as CSSProperties}
-                />
-                <span
-                  title={`${monthLabel(h.month)}: spent ${money(h.expense)}`}
-                  style={{ "--h": (h.expense / peak) * 100, "--tone": "var(--chart-spent)" } as CSSProperties}
-                />
-              </div>
-              <span className={h.month === month ? "font-display text-[0.6rem]" : "text-muted"}>
-                {shortMonth(h.month)}
+        <Panel
+          title="Earned and spent"
+          aside={
+            <span className="flex gap-3">
+              <span className="legend" style={{ "--tone": "var(--chart-earned)" } as CSSProperties}>
+                Earned
               </span>
-            </div>
-          ))}
-        </div>
+              <span className="legend" style={{ "--tone": "var(--chart-spent)" } as CSSProperties}>
+                Spent
+              </span>
+            </span>
+          }
+        >
+          <div className="chart" role="img" aria-label="Earned and spent per month. The table below has the figures.">
+            {history.map((h) => (
+              <div key={h.month} className="chart-month">
+                <div className="chart-cols">
+                  <span
+                    title={`${monthLabel(h.month)}: earned ${money(h.income)}`}
+                    style={{ "--h": (h.income / peak) * 100, "--tone": "var(--chart-earned)" } as CSSProperties}
+                  />
+                  <span
+                    title={`${monthLabel(h.month)}: spent ${money(h.expense)}`}
+                    style={{ "--h": (h.expense / peak) * 100, "--tone": "var(--chart-spent)" } as CSSProperties}
+                  />
+                </div>
+                <span className={h.month === month ? "font-display text-[0.6rem]" : "text-muted"}>
+                  {shortMonth(h.month)}
+                </span>
+              </div>
+            ))}
+          </div>
 
-        <table className="mt-3 w-full text-right">
-          <thead>
-            <tr className="text-muted">
-              <th className="text-left font-normal">Month</th>
-              <th className="font-normal">Earned</th>
-              <th className="font-normal">Spent</th>
-              <th className="font-normal">Left over</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history
-              .filter((h) => h.income || h.expense)
-              .map((h) => (
-                <tr key={h.month} className="border-t-4 border-dotted border-track">
-                  <td className="text-left">{monthLabel(h.month)}</td>
-                  <td>{money(h.income)}</td>
-                  <td>{money(h.expense)}</td>
-                  <td className={h.remaining < 0 ? "text-red" : ""}>{money(h.remaining)}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </Panel>
-
-      <Panel title={`Where ${monthLabel(month).split(" ")[0]} went`} aside={<span>{money(summary.expense)}</span>}>
-        {slices.length === 0 ? (
-          <p className="text-muted">No spending logged this month.</p>
-        ) : (
-          <>
-            <Waffle slices={slices} total={summary.expense} />
-            <p className="mt-3 text-muted">
-              Each square is 1% of the month&apos;s spending. Bills came to {money(fixed)}; everything else to{" "}
-              {money(summary.expense - fixed)}.
-            </p>
-          </>
-        )}
-      </Panel>
-
+          <table className="mt-3 w-full text-right">
+            <thead>
+              <tr className="text-muted">
+                <th className="text-left font-normal">Month</th>
+                <th className="font-normal">Earned</th>
+                <th className="font-normal">Spent</th>
+                <th className="font-normal">Left over</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history
+                .filter((h) => h.income || h.expense)
+                .map((h) => (
+                  <tr key={h.month} className="border-t-4 border-dotted border-track">
+                    <td className="text-left">{monthLabel(h.month)}</td>
+                    <td>{money(h.income)}</td>
+                    <td>{money(h.expense)}</td>
+                    <td className={h.remaining < 0 ? "text-red" : ""}>{money(h.remaining)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </Panel>
+      </Columns>
       <Panel title="Day by day">
         <div className="grid gap-x-8 gap-y-4 sm:grid-cols-[auto_minmax(0,1fr)]">
           <SpendCalendar month={month} byDay={byDay} />

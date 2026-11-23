@@ -91,6 +91,31 @@ export function CategoryIcon({ icon, size = 30 }: { icon: string; size?: number 
   return <img src={src} alt="" width={size} height={size} className="pixel icon" />;
 }
 
+/**
+ * A screen's main column and side column, side by side on a wide window. Narrower
+ * windows stack them, main first, just as if they were not wrapped, so phones keep
+ * their layout. `split` sets the widths: "main" wider (3:2), "even", or "side" wider.
+ */
+export function Columns({
+  children,
+  side,
+  split = "main",
+  from = "wide",
+}: {
+  children: ReactNode;
+  side: ReactNode;
+  split?: "main" | "even" | "side";
+  /** "wider" waits for a window of 1400px, for screens whose columns need the room. */
+  from?: "wide" | "wider";
+}) {
+  return (
+    <div className="columns" data-split={split} data-from={from}>
+      <div className="columns-part">{children}</div>
+      <div className="columns-part">{side}</div>
+    </div>
+  );
+}
+
 /** A plain dialog box, used for error messages. Narration uses <Typewriter />. */
 export function Dialog({ children, tone }: { children: ReactNode; tone?: "error" }) {
   return (
@@ -117,7 +142,7 @@ export function EntryList({ entries }: { entries: Transaction[] }) {
 
 export function EntryWhat({ entry: t }: { entry: Transaction }) {
   return (
-    <span className="truncate">
+    <span className="min-w-0 break-words">
       <CategoryIcon icon={t.category.icon} />
       {t.category.name}
       {t.note && <span className="ml-3 text-muted">{t.note}</span>}

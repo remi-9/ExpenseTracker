@@ -176,7 +176,7 @@ export default async function BillsPage({
                 </select>
               </div>
             </fieldset>
-            <div className="flex flex-wrap sm:col-span-2">
+            <div className="flex flex-wrap gap-3 sm:col-span-2">
               <SubmitButton pending="Saving…" sfx="confirm">
                 {editing ? "Save changes" : "Store in the PC"}
               </SubmitButton>
@@ -206,7 +206,7 @@ export default async function BillsPage({
           <ul className="bills">
             {statuses.map((s) => (
               <li key={s.bill.id} data-state={s.state}>
-                <span className="truncate">
+                <span className="min-w-0 break-words">
                   <CategoryIcon icon={category(s.bill.category_id)?.icon ?? "poke-ball"} size={24} />
                   {s.bill.name}
                   <span className="ml-3 text-muted">

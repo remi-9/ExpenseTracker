@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- tiny remote pixel sprites */
 import { PartnerSprite } from "@/components/partner";
 import { Chest, Shield } from "@/components/sprite";
-import { Bar, CategoryIcon, MonthPicker, Panel } from "@/components/ui";
+import { Bar, CategoryIcon, Columns, MonthPicker, Panel } from "@/components/ui";
 import { getAccounts, getCategories, getCaught, getMonthTotals, getPartnerId, getPokemonNames, getTrainerId } from "@/lib/data";
 import { money, monthLabel, parseMonth } from "@/lib/format";
 import { BADGES, getPlayer, getQuests, isShiny, REGIONS, summarizeMonth } from "@/lib/game";
@@ -42,77 +42,83 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <section className="box trainer-card flex flex-col gap-3" aria-label="Trainer card">
-        <header className="flex items-baseline justify-between gap-3 font-display text-xs leading-relaxed">
-          <h1>Trainer card</h1>
-          <span>
-            {badges.filter((b) => b.has).length} / {badges.length} badges
-          </span>
-        </header>
-        <div className="flex items-center gap-4 pt-3">
-          <img src={sprite.trainer(trainer.id)} alt="" className="pixel sprite-card shrink-0" />
-          {partner && <PartnerSprite dex={partner.dex} name={partner.name} shiny={shiny} card />}
-          <dl className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-4 leading-tight">
-            {facts.map(([label, value]) => (
-              <div key={label} className="contents">
-                <dt className="text-muted">{label}</dt>
-                <dd className="truncate">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />
-          {/* The badge case along the bottom of the card. */}
-          <ul className="badge-case">
-            {badges.map((b) => (
-              <li key={b.id} title={b.has ? b.name : `${b.name}: ${b.how}`}>
-                <img src={sprite.badge(b.sprite)} alt={b.has ? b.name : `${b.name}, not earned`} className={b.has ? "" : "unearned"} />
-              </li>
-            ))}
-          </ul>
-          <p className="text-muted">
-            {player.xpForNext - player.xpIntoLevel} XP to Lv {player.level + 1}.
-            {partner?.nextName && ` ${partner.name} evolves into ${partner.nextName} at Lv ${partner.evolvesAt}.`}
-          </p>
-        </div>
-      </section>
-
-      <MonthPicker month={month} path="/quests" />
-
-      <Panel title="Quests this month" aside={shiny ? <span><span className="star" />Shiny month</span> : undefined}>
-        {quests.length === 0 ? (
-          <p className="text-muted">
-            No quests yet. Give a category a monthly target in Setup.
-          </p>
-        ) : (
+      {/* Wide windows: the trainer card beside the month's quests; badges below. */}
+      <Columns split="even"
+        side={
           <>
-            <ul className="flex flex-col gap-3">
-              {quests.map(({ category: c, done, target, saving, complete }) => (
-                <li key={c.id} className="flex items-center gap-3">
-                  {saving ? <Chest open={complete} /> : <Shield broken={!complete} />}
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex justify-between gap-3">
-                      <span className="min-w-0 truncate">
-                        <CategoryIcon icon={c.icon} />
-                        {saving ? `Set aside ${money(target)} in ${c.name}` : `Keep ${c.name} under ${money(target)}`}
-                      </span>
-                      <span className={`shrink-0 ${complete ? "text-green" : saving ? "text-muted" : "text-red"}`}>
-                        {saving && complete ? "Complete!" : `${money(done)} / ${money(target)}`}
-                      </span>
-                    </div>
-                    <Bar ratio={done / target} tone={saving ? "gold" : done > target ? "red" : "green"} label={`${c.name} progress`} />
-                  </div>
+            <MonthPicker month={month} path="/quests" />
+
+            <Panel title="Quests this month" aside={shiny ? <span><span className="star" />Shiny month</span> : undefined}>
+              {quests.length === 0 ? (
+                <p className="text-muted">
+                  No quests yet. Give a category a monthly target in Setup.
+                </p>
+              ) : (
+                <>
+                  <ul className="flex flex-col gap-3">
+                    {quests.map(({ category: c, done, target, saving, complete }) => (
+                      <li key={c.id} className="flex items-center gap-3">
+                        {saving ? <Chest open={complete} /> : <Shield broken={!complete} />}
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <div className="flex justify-between gap-3">
+                            <span className="min-w-0">
+                              <CategoryIcon icon={c.icon} />
+                              {saving ? `Set aside ${money(target)} in ${c.name}` : `Keep ${c.name} under ${money(target)}`}
+                            </span>
+                            <span className={`shrink-0 ${complete ? "text-green" : saving ? "text-muted" : "text-red"}`}>
+                              {saving && complete ? "Complete!" : `${money(done)} / ${money(target)}`}
+                            </span>
+                          </div>
+                          <Bar ratio={done / target} tone={saving ? "gold" : done > target ? "red" : "green"} label={`${c.name} progress`} />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {!shiny && (
+                    <p className="mt-3 text-muted">Finish every quest and your partner turns shiny.</p>
+                  )}
+                </>
+              )}
+            </Panel>
+          </>
+        }
+      >
+        <section className="box trainer-card flex flex-col gap-3" aria-label="Trainer card">
+          <header className="flex items-baseline justify-between gap-3 font-display text-xs leading-relaxed">
+            <h1>Trainer card</h1>
+            <span>
+              {badges.filter((b) => b.has).length} / {badges.length} badges
+            </span>
+          </header>
+          <div className="flex items-center gap-4 pt-3">
+            <img src={sprite.trainer(trainer.id)} alt="" className="pixel sprite-card shrink-0" />
+            {partner && <PartnerSprite dex={partner.dex} name={partner.name} shiny={shiny} card />}
+            <dl className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-4 leading-tight">
+              {facts.map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="text-muted">{label}</dt>
+                  <dd className="min-w-0 break-words">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Bar ratio={player.xpIntoLevel / player.xpForNext} tone="blue" label="Progress to next level" />
+            {/* The badge case along the bottom of the card. */}
+            <ul className="badge-case">
+              {badges.map((b) => (
+                <li key={b.id} title={b.has ? b.name : `${b.name}: ${b.how}`}>
+                  <img src={sprite.badge(b.sprite)} alt={b.has ? b.name : `${b.name}, not earned`} className={b.has ? "" : "unearned"} />
                 </li>
               ))}
             </ul>
-            {!shiny && (
-              <p className="mt-3 text-muted">Finish every quest and your partner turns shiny.</p>
-            )}
-          </>
-        )}
-      </Panel>
-
+            <p className="text-muted">
+              {player.xpForNext - player.xpIntoLevel} XP to Lv {player.level + 1}.
+              {partner?.nextName && ` ${partner.name} evolves into ${partner.nextName} at Lv ${partner.evolvesAt}.`}
+            </p>
+          </div>
+        </section>
+      </Columns>
       <Panel
         title="Badges"
         aside={
@@ -124,7 +130,7 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
         {REGIONS.map((region) => (
           <section key={region} className="mb-4 last:mb-0">
             <h3 className="mb-1 font-display text-[0.65rem] leading-loose text-muted uppercase">{region}</h3>
-            <ul className="grid grid-cols-2 sm:grid-cols-4">
+            <ul className="badge-grid grid grid-cols-2 sm:grid-cols-4">
               {badges
                 .filter((b) => b.region === region)
                 .map((b) => (

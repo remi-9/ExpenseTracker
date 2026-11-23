@@ -2971,3 +2971,143 @@ dialog.popup::backdrop {
     grid-template-columns: minmax(0, 1fr) auto 5.5rem auto;
   }
 }
+
+/* ---- Wide windows (1100px and up) ---------------------------------------------------
+   The page frame grows to use the window, and screens split into two columns
+   (Columns in components/ui.tsx). Windows get more room inside and between them.
+   Narrower windows, phones included, keep the single column above. */
+.columns,
+.columns-part {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+@media (min-width: 1100px) {
+  .app {
+    max-width: 80rem;
+    padding: 2rem 2.5rem;
+  }
+  .frame-stack,
+  .screen,
+  .columns-part {
+    gap: 2rem;
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+    gap: 2rem 2.5rem;
+  }
+  .columns[data-split="even"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .columns[data-split="side"] {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  }
+  #main .box {
+    padding: 1.5rem;
+  }
+  #main .window {
+    padding: 1rem 1.25rem;
+  }
+  /* Log: the counter gets a wider left side, and the entries two rows of six. */
+  .shop {
+    grid-template-columns: 24rem minmax(0, 1fr);
+    gap: 1.5rem 2rem;
+  }
+  .cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  /* Pop-ups grow a little with the window. */
+  dialog.popup {
+    width: min(40rem, calc(100vw - 2rem));
+  }
+  dialog.popup[data-size="small"] {
+    width: min(28rem, calc(100vw - 2rem));
+  }
+  dialog.popup[data-size="large"] {
+    width: min(48rem, calc(100vw - 2rem));
+  }
+  .popup-body {
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+/* ---- Breathing room ---------------------------------------------------------------- */
+/* Buttons along the bottom of a pop-up or form no longer touch. */
+.popup-foot,
+.popup-actions {
+  gap: 0.75rem;
+}
+/* Options: each row's buttons clear the next row's. */
+.option {
+  padding-block: 0.3rem;
+}
+/* Phones: the screen name shows above the tab bar, not over the app name. */
+@media (max-width: 639px) {
+  .location-banner {
+    top: auto;
+    bottom: 5.5rem;
+  }
+}
+/* Home on a wide window: the account and the scene on the left, the jobs and the
+   latest entries on the right. Narrower windows keep the order written in the page. */
+.home-grid,
+.home-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+.wide-only {
+  display: none;
+}
+@media (min-width: 1100px) {
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-rows: repeat(4, auto) 1fr;
+    align-items: start;
+    gap: 2rem 2.5rem;
+  }
+  .home-grid > * {
+    grid-column: 1;
+  }
+  .home-grid > .home-side {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    gap: 2rem;
+  }
+  .wide-only {
+    display: block;
+  }
+  .home-side .menu.commands.home-commands {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1400px) {
+  /* Log: twelve entry cards a page, two rows of six once there is room. */
+  .cards {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+/* An entry card's category and note wrap rather than being cut off. */
+.card-name,
+.card-note {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* Columns that need more room wait for a wider window (Stats). */
+@media (min-width: 1100px) and (max-width: 1399px) {
+  .columns[data-from="wider"] {
+    display: flex;
+  }
+}
+/* Quests: on a wide window each region's eight badges sit on one row. */
+@media (min-width: 1100px) {
+  .badge-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}

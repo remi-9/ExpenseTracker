@@ -4,6 +4,7 @@
 // The expedition screen. The run itself is a plain object moved along by the pure
 // steps in lib/run.ts; this file draws whichever phase it is in and saves it after
 // every step (to Supabase, or to the browser in demo mode).
+import { Columns } from "./ui";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { catchPokemon, endRun, saveRun } from "@/lib/actions";
@@ -299,80 +300,86 @@ function Screens({
     });
     return (
       <>
-        <section className="box p-0!">
-          <div className="arena arena-short" style={{ backgroundImage: `url(${backdrop("route")})` }}>
-            <p className="window battle-text absolute inset-x-1 bottom-1">
-              Beat the champion on floor {FINAL_FLOOR}. HP carries over, and the run ends when your team has fainted.
-            </p>
-          </div>
-          <div className="flex flex-col gap-4 p-4">
-            <div className="flex flex-wrap items-center justify-between">
-              {/* How the run is set up, and how past runs went, are a tap away, not on the page. */}
-              <span className="flex flex-wrap">
-                <Popup label="Supplies" title="Supplies">
-                  <ul className="facts">
-                    {supplies.map(({ icon, text }) => (
-                      <li key={text}>
-                        <img src={sprite.item(icon)} alt="" width={30} height={30} className="pixel" />
-                        {text}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="text-muted">
-                    Five floors an area, a gym battle at the end. Pokémon you catch join the run.
-                  </p>
-                </Popup>
-                <Popup label={`Record (${career.runs})`} title="Record">
-                  <p>
-                    {career.best > 0 ? `Best floor: ${career.best}.` : "No runs finished yet."}
-                    {career.clears > 0 && ` Champion beaten ${career.clears} ${career.clears === 1 ? "time" : "times"}.`}
-                  </p>
-                  <ul className="perks mt-2">
-                    {PERKS.map((perk) => {
-                      const has = perk.has(career);
-                      return (
-                        <li key={perk.id} className={has ? "" : "locked"}>
-                          <span>
-                            {perk.name}: {perk.text}
-                          </span>
-                          <span className={has ? "text-green" : ""}>{has ? "Unlocked" : perk.how}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {past.length > 0 && (
-                    <ul className="entries mt-3">
-                      {past.slice(0, 5).map((h, i) => (
-                        <li key={i}>
-                          <span className="text-muted">Floor {h.floor}</span>
-                          <span className="flex items-center truncate">
-                            {h.party.map((p, j) => (
-                              <img key={j} src={sprite.icon(p.dex)} alt={nameOf(p.dex)} title={`${nameOf(p.dex)}: ${p.kos} knockouts`} width={40} height={30} className="pixel" />
-                            ))}
-                          </span>
-                          <span className="amount">{h.cleared ? "Cleared" : `${h.wins} ${h.wins === 1 ? "win" : "wins"}`}</span>
+        {/* Wide windows: the expedition beside the team. */}
+        <Columns
+          side={
+            <>
+              <TeamList party={lead} />
+            </>
+          }
+        >
+          <section className="box p-0!">
+            <div className="arena arena-short" style={{ backgroundImage: `url(${backdrop("route")})` }}>
+              <p className="window battle-text absolute inset-x-1 bottom-1">
+                Beat the champion on floor {FINAL_FLOOR}. HP carries over, and the run ends when your team has fainted.
+              </p>
+            </div>
+            <div className="flex flex-col gap-4 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* How the run is set up, and how past runs went, are a tap away, not on the page. */}
+                <span className="flex flex-wrap gap-3">
+                  <Popup label="Supplies" title="Supplies">
+                    <ul className="facts">
+                      {supplies.map(({ icon, text }) => (
+                        <li key={text}>
+                          <img src={sprite.item(icon)} alt="" width={30} height={30} className="pixel" />
+                          {text}
                         </li>
                       ))}
                     </ul>
+                    <p className="text-muted">
+                      Five floors an area, a gym battle at the end. Pokémon you catch join the run.
+                    </p>
+                  </Popup>
+                  <Popup label={`Record (${career.runs})`} title="Record">
+                    <p>
+                      {career.best > 0 ? `Best floor: ${career.best}.` : "No runs finished yet."}
+                      {career.clears > 0 && ` Champion beaten ${career.clears} ${career.clears === 1 ? "time" : "times"}.`}
+                    </p>
+                    <ul className="perks mt-2">
+                      {PERKS.map((perk) => {
+                        const has = perk.has(career);
+                        return (
+                          <li key={perk.id} className={has ? "" : "locked"}>
+                            <span>
+                              {perk.name}: {perk.text}
+                            </span>
+                            <span className={has ? "text-green" : ""}>{has ? "Unlocked" : perk.how}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {past.length > 0 && (
+                      <ul className="entries mt-3">
+                        {past.slice(0, 5).map((h, i) => (
+                          <li key={i}>
+                            <span className="text-muted">Floor {h.floor}</span>
+                            <span className="flex items-center truncate">
+                              {h.party.map((p, j) => (
+                                <img key={j} src={sprite.icon(p.dex)} alt={nameOf(p.dex)} title={`${nameOf(p.dex)}: ${p.kos} knockouts`} width={40} height={30} className="pixel" />
+                              ))}
+                            </span>
+                            <span className="amount">{h.cleared ? "Cleared" : `${h.wins} ${h.wins === 1 ? "win" : "wins"}`}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </Popup>
+                </span>
+                <span className="ml-auto flex flex-wrap justify-end gap-3">
+                  {stored && stored.phase.name !== "over" && (
+                    <button className="btn py-3!" data-sfx="confirm" onClick={resume}>
+                      Continue from floor {stored.floor}
+                    </button>
                   )}
-                </Popup>
-              </span>
-              <span className="ml-auto flex flex-wrap justify-end">
-                {stored && stored.phase.name !== "over" && (
-                  <button className="btn py-3!" data-sfx="confirm" onClick={resume}>
-                    Continue from floor {stored.floor}
+                  <button className="btn btn-primary py-3!" data-sfx="confirm" onClick={start}>
+                    Start a new expedition
                   </button>
-                )}
-                <button className="btn btn-primary py-3!" data-sfx="confirm" onClick={start}>
-                  Start a new expedition
-                </button>
-              </span>
+                </span>
+              </div>
             </div>
-          </div>
-        </section>
-
-
-        <TeamList party={lead} />
+          </section>
+        </Columns>
       </>
     );
   }

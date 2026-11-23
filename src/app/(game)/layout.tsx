@@ -63,7 +63,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
         Skip to content
       </a>
 
-      <div className="flex min-w-0 flex-col gap-6">
+      <div className="frame-stack flex min-w-0 flex-col gap-6">
         <header className="box flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <Link href="/" className="flex items-center gap-2 font-display text-sm leading-relaxed">
             <Logo size={32} />
