@@ -36,6 +36,10 @@ function audio() {
   return ctx;
 }
 
+// Every sound fades in over a few milliseconds. Starting at full volume makes the
+// speaker jump, which is heard as a click on top of the note.
+const ATTACK = 0.005;
+
 type Tone = {
   /** Frequency in Hz. */
   f: number;
@@ -56,14 +60,15 @@ function tone({ f, to, at = 0, len, vol = 0.03, type = "square" }: Tone) {
   osc.type = type;
   osc.frequency.setValueAtTime(f, start);
   if (to) osc.frequency.exponentialRampToValueAtTime(to, start + len);
-  gain.gain.setValueAtTime(vol, start);
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(vol, start + ATTACK);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + len);
   osc.connect(gain).connect(a.destination);
   osc.start(start);
   osc.stop(start + len);
 }
 
-/** A burst of noise: drums, impacts, static. `bright` keeps only the hiss (hi-hats). */
+/** A burst of noise: drums, impacts, static. `bright` keeps only the hiss. */
 function noise({ at = 0, len, vol = 0.03, bright = false }: { at?: number; len: number; vol?: number; bright?: boolean }) {
   const a = audio();
   if (!hiss) {
@@ -78,7 +83,8 @@ function noise({ at = 0, len, vol = 0.03, bright = false }: { at?: number; len: 
   source.buffer = hiss;
   filter.type = bright ? "highpass" : "lowpass";
   filter.frequency.value = bright ? 6000 : 1800;
-  gain.gain.setValueAtTime(vol, start);
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(vol, start + ATTACK);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + len);
   source.connect(filter).connect(gain).connect(a.destination);
   source.start(start);
@@ -221,7 +227,8 @@ export function cry(dex: number) {
 // ---- Background music -----------------------------------------------------------
 // Two original chiptune loops written for this app: a slow, warm one for the menus
 // ("Cozy") and a quicker minor-key one for battles. Each has a lead, bass, a soft arpeggio
-// and light drums. Numbers are MIDI notes (60 = middle C); 0 is a rest.
+// and light drums (kick and snare; hi-hats were left out, as at this volume they are
+// heard as clicks). Numbers are MIDI notes (60 = middle C); 0 is a rest.
 // Eight eighth-notes per bar. Edit the lists to change a tune.
 
 type Song = {
@@ -285,10 +292,9 @@ function queueBar(song: Song, bar: number, at: number) {
     [0, third, 7, 12, 7, third, 0, third].forEach((offset, i) =>
       tone({ f: hz(root + 24 + offset), at: t + (i * step) / 2, len: step / 2, vol: 0.004, type: "triangle" }),
     );
-    // Drums: kick on the beat, snare on the back beat, hats in between.
+    // Drums: kick on the beat, snare on the back beat.
     tone({ f: 130, to: 50, at: t, len: 0.1, vol: 0.03, type: "sine" });
     noise({ at: t + 2 * step, len: 0.07, vol: 0.008 });
-    [1, 3].forEach((i) => noise({ at: t + i * step, len: 0.025, vol: 0.004, bright: true }));
   });
 }
 
