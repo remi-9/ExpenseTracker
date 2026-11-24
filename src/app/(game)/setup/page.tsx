@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/nav";
 import { PartnerPicker, TrainerPicker } from "@/components/partner";
-import { PlayOnMount, SoundSwitch } from "@/components/sound";
+import { PlayOnMount, SoundSwitch, VolumeSlider } from "@/components/sound";
 import { Icon } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
 import { CategoryIcon, Columns, Dialog, Panel } from "@/components/ui";
@@ -337,6 +337,18 @@ async function Options() {
             <span className="option-label">Sound</span>
             <div className="option-choices">
               <SoundSwitch />
+            </div>
+          </div>
+          <div className="option">
+            <span className="option-label">Music</span>
+            <div className="option-choices">
+              <VolumeSlider channel="music" />
+            </div>
+          </div>
+          <div className="option">
+            <span className="option-label">Effects</span>
+            <div className="option-choices">
+              <VolumeSlider channel="sfx" />
             </div>
           </div>
           <div className="option">

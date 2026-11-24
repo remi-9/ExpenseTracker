@@ -26,14 +26,57 @@ export function subscribeSound(callback: () => void) {
   return () => window.removeEventListener(EVENT, callback);
 }
 
+// ---- Volume -------------------------------------------------------------------
+// Music and effects each have their own volume, 0 to 100, kept in this browser.
+// 100 is the level the app was written for.
+
+export type Channel = "music" | "sfx";
+const VOLUME_KEY: Record<Channel, string> = { music: "music-volume", sfx: "sfx-volume" };
+
+export function getVolume(channel: Channel): number {
+  try {
+    const saved = Number(localStorage.getItem(VOLUME_KEY[channel]) ?? 100);
+    return Number.isFinite(saved) ? Math.min(100, Math.max(0, saved)) : 100;
+  } catch {
+    return 100;
+  }
+}
+
+export function setVolume(channel: Channel, volume: number) {
+  try {
+    localStorage.setItem(VOLUME_KEY[channel], String(volume));
+  } catch {}
+  if (buses) buses[channel].gain.setTargetAtTime(level(channel), audio().currentTime, 0.03);
+  window.dispatchEvent(new Event(EVENT));
+}
+
+/** The gain for a channel. Squared, so the slider feels even to the ear. */
+export const level = (channel: Channel) => (getVolume(channel) / 100) ** 2;
+
 // ---- The synth ----------------------------------------------------------------
 
 let ctx: AudioContext | null = null;
 let hiss: AudioBuffer | null = null;
+let buses: Record<Channel, GainNode> | null = null;
 
 function audio() {
   ctx ??= new AudioContext();
   return ctx;
+}
+
+/** Where a channel's sounds go: through its own volume to the speakers. */
+function bus(channel: Channel) {
+  const a = audio();
+  if (!buses) {
+    const make = (c: Channel) => {
+      const gain = a.createGain();
+      gain.gain.value = level(c);
+      gain.connect(a.destination);
+      return gain;
+    };
+    buses = { music: make("music"), sfx: make("sfx") };
+  }
+  return buses[channel];
 }
 
 // Every sound fades in over a few milliseconds. Starting at full volume makes the
@@ -50,9 +93,11 @@ type Tone = {
   len: number;
   vol?: number;
   type?: OscillatorType;
+  /** Music or an effect: which volume it follows. */
+  channel?: Channel;
 };
 
-function tone({ f, to, at = 0, len, vol = 0.03, type = "square" }: Tone) {
+function tone({ f, to, at = 0, len, vol = 0.03, type = "square", channel = "sfx" }: Tone) {
   const a = audio();
   const start = a.currentTime + at;
   const osc = a.createOscillator();
@@ -63,13 +108,25 @@ function tone({ f, to, at = 0, len, vol = 0.03, type = "square" }: Tone) {
   gain.gain.setValueAtTime(0, start);
   gain.gain.linearRampToValueAtTime(vol, start + ATTACK);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + len);
-  osc.connect(gain).connect(a.destination);
+  osc.connect(gain).connect(bus(channel));
   osc.start(start);
   osc.stop(start + len);
 }
 
 /** A burst of noise: drums, impacts, static. `bright` keeps only the hiss. */
-function noise({ at = 0, len, vol = 0.03, bright = false }: { at?: number; len: number; vol?: number; bright?: boolean }) {
+function noise({
+  at = 0,
+  len,
+  vol = 0.03,
+  bright = false,
+  channel = "sfx",
+}: {
+  at?: number;
+  len: number;
+  vol?: number;
+  bright?: boolean;
+  channel?: Channel;
+}) {
   const a = audio();
   if (!hiss) {
     hiss = a.createBuffer(1, a.sampleRate, a.sampleRate);
@@ -86,7 +143,7 @@ function noise({ at = 0, len, vol = 0.03, bright = false }: { at?: number; len: 
   gain.gain.setValueAtTime(0, start);
   gain.gain.linearRampToValueAtTime(vol, start + ATTACK);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + len);
-  source.connect(filter).connect(gain).connect(a.destination);
+  source.connect(filter).connect(gain).connect(bus(channel));
   source.start(start);
   source.stop(start + len);
 }
@@ -220,7 +277,8 @@ export function play(name: SfxName) {
 export function cry(dex: number) {
   if (!isSoundOn()) return;
   const clip = new Audio(`https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${dex}.ogg`);
-  clip.volume = 0.2;
+  clip.volume = 0.2 * level("sfx");
+  if (clip.volume === 0) return;
   clip.play().catch(() => {}); // unsupported format or blocked: stay silent
 }
 
@@ -282,19 +340,20 @@ let musicTimer: ReturnType<typeof setInterval> | undefined;
 
 function queueBar(song: Song, bar: number, at: number) {
   const { step } = song;
-  song.lead[bar].forEach((n, i) => n && tone({ f: hz(n), at: at + i * step, len: step * 1.6, vol: 0.012 }));
+  const channel = "music";
+  song.lead[bar].forEach((n, i) => n && tone({ f: hz(n), at: at + i * step, len: step * 1.6, vol: 0.012, channel }));
   song.bass[bar].forEach((root, half) => {
     const t = at + half * 4 * step;
-    tone({ f: hz(root), at: t, len: step * 1.8, vol: 0.035, type: "triangle" });
-    tone({ f: hz(root + 7), at: t + 2 * step, len: step * 1.2, vol: 0.025, type: "triangle" });
+    tone({ f: hz(root), at: t, len: step * 1.8, vol: 0.035, type: "triangle", channel });
+    tone({ f: hz(root + 7), at: t + 2 * step, len: step * 1.2, vol: 0.025, type: "triangle", channel });
     // Arpeggio: the chord's three notes in sixteenths, two octaves up.
     const third = song.minor.includes(root) ? 3 : 4;
     [0, third, 7, 12, 7, third, 0, third].forEach((offset, i) =>
-      tone({ f: hz(root + 24 + offset), at: t + (i * step) / 2, len: step / 2, vol: 0.004, type: "triangle" }),
+      tone({ f: hz(root + 24 + offset), at: t + (i * step) / 2, len: step / 2, vol: 0.004, type: "triangle", channel }),
     );
     // Drums: kick on the beat, snare on the back beat.
-    tone({ f: 130, to: 50, at: t, len: 0.1, vol: 0.03, type: "sine" });
-    noise({ at: t + 2 * step, len: 0.07, vol: 0.008 });
+    tone({ f: 130, to: 50, at: t, len: 0.1, vol: 0.03, type: "sine", channel });
+    noise({ at: t + 2 * step, len: 0.07, vol: 0.008, channel });
   });
 }
 

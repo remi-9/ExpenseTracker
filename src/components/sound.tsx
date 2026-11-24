@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore, type CSSProperties } from "react";
 import {
+  getVolume,
   isSoundOn,
+  level,
   play,
   resumeAudio,
   setSoundOn,
+  setVolume,
   startMusic,
   stopMusic,
   subscribeSound,
+  type Channel,
   type SfxName,
 } from "@/lib/sfx";
 import { Icon } from "./sprite";
@@ -26,12 +30,17 @@ const MUSIC_VOLUME = 0.12;
  */
 export function SoundToggle() {
   const on = useSyncExternalStore(subscribeSound, isSoundOn, () => false);
+  const musicVolume = useSyncExternalStore(subscribeSound, () => getVolume("music"), () => 100);
   const music = useRef<HTMLAudioElement>(null);
+
+  // Your own track follows the music volume too.
+  useEffect(() => {
+    if (music.current) music.current.volume = MUSIC_VOLUME * level("music");
+  }, [musicVolume]);
 
   useEffect(() => {
     const audio = music.current;
     if (audio) {
-      audio.volume = MUSIC_VOLUME;
       if (on) audio.play().catch(() => {}); // browsers block this until the first click; see below
       else audio.pause();
     }
@@ -89,6 +98,31 @@ export function SoundSwitch() {
     >
       <Icon name="note" size={20} />
     </button>
+  );
+}
+
+const CHANNEL_LABEL: Record<Channel, string> = { music: "Music volume", sfx: "Effects volume" };
+
+/** A volume slider for the music or the effects (Options screen). Effects play a sample as it moves. */
+export function VolumeSlider({ channel }: { channel: Channel }) {
+  const volume = useSyncExternalStore(subscribeSound, () => getVolume(channel), () => 100);
+  return (
+    <label className="volume">
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={10}
+        value={volume}
+        aria-label={CHANNEL_LABEL[channel]}
+        style={{ "--fill": volume } as CSSProperties}
+        onChange={(event) => {
+          setVolume(channel, Number(event.target.value));
+          if (channel === "sfx") play("chip");
+        }}
+      />
+      <span className="volume-value">{volume}%</span>
+    </label>
   );
 }
 
