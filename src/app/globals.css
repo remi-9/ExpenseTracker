@@ -3070,10 +3070,20 @@ dialog.popup::backdrop {
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     grid-template-rows: repeat(4, auto) 1fr;
     align-items: start;
-    gap: 2rem 2.5rem;
+    /* Space between rows comes from margins, not row gaps: a row left empty (no
+       saved-entry message, say) would still add its gap, and the right column,
+       which spans every row, would run past the scene. */
+    gap: 0 2.5rem;
   }
   .home-grid > * {
     grid-column: 1;
+  }
+  .home-grid > * + :not(.home-side) {
+    margin-top: 2rem;
+  }
+  /* A framed box keeps the 4px margin it has everywhere on top of the 2rem. */
+  .home-grid > * + .box {
+    margin-top: calc(2rem + 4px);
   }
   .home-grid > .home-side {
     grid-column: 2;
@@ -3085,6 +3095,24 @@ dialog.popup::backdrop {
   }
   .home-side .menu.commands.home-commands {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* The latest entries end where the scene ends, folded or not, whatever the account.
+     The left column sets the height: the list takes no room of its own (contain: size)
+     and fills what is left under the shortcuts, scrolling when it holds more. */
+  .home-grid > .home-side {
+    align-self: stretch;
+  }
+  .home-latest {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 14rem;
+  }
+  .home-latest-list {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    contain: size;
   }
 }
 @media (min-width: 1400px) {

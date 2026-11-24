@@ -287,17 +287,20 @@ export default async function Home({
               Battle
             </Link>
           </nav>
-          {/* Wide windows only: the latest entries, which phones open from Recent. */}
+          {/* Wide windows only: the latest entries, which phones open from Recent. The
+              panel ends where the scene does and the month's entries scroll inside it. */}
           <Panel
             title={account ? `${account.name}: latest` : "Latest entries"}
-            className="wide-only"
+            className="wide-only home-latest"
             aside={
               <Link href={`/log?m=${month}`} className="underline" data-sfx="page">
                 See all
               </Link>
             }
           >
-            {recent.length === 0 ? <p className="text-muted">Nothing logged this month.</p> : <EntryList entries={recent.slice(0, 8)} />}
+            <div className="home-latest-list">
+              {recent.length === 0 ? <p className="text-muted">Nothing logged this month.</p> : <EntryList entries={recent} />}
+            </div>
           </Panel>
         </div>
         <SceneBox
