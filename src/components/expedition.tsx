@@ -51,7 +51,8 @@ import {
   type RunSummary,
   type ShopItem,
 } from "@/lib/run";
-import { play, setMusicTheme } from "@/lib/sfx";
+import { setMusicTheme } from "@/lib/music";
+import { play } from "@/lib/sfx";
 import { BattleWipe, wipeFor, type WipeStyle } from "./battle-wipe";
 import { Fight } from "./fight";
 import { Popup } from "./popup";

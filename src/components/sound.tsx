@@ -9,12 +9,11 @@ import {
   resumeAudio,
   setSoundOn,
   setVolume,
-  startMusic,
-  stopMusic,
   subscribeSound,
   type Channel,
   type SfxName,
 } from "@/lib/sfx";
+import { startMusic, stopMusic } from "@/lib/music";
 import { Icon } from "./sprite";
 
 // Optional: your own track replaces the built-in loop. Set at build time by next.config.ts
@@ -45,7 +44,7 @@ export function SoundToggle() {
       else audio.pause();
     }
     if (!on) return;
-    if (!audio) startMusic(); // built-in loop
+    if (!audio) startMusic(); // built-in music, chosen by the time of day
 
     const onClick = (event: MouseEvent) => {
       resumeAudio();

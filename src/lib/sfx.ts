@@ -1,7 +1,7 @@
 // Sound, browser-only. Every effect and the music are synthesized here with the
 // Web Audio API (square, triangle and noise channels, like an 8-bit console), so
-// there are no audio files. Cries stream from PokeAPI. Quiet by design, and off
-// until switched on with the note button in the header.
+// there are no audio files; the music is in lib/music.ts. Cries stream from PokeAPI.
+// Quiet by design, and off until switched on with the note button in the header.
 
 const KEY = "sound";
 const EVENT = "soundchange";
@@ -59,13 +59,14 @@ let ctx: AudioContext | null = null;
 let hiss: AudioBuffer | null = null;
 let buses: Record<Channel, GainNode> | null = null;
 
-function audio() {
+/** The one audio context, made on first use. lib/music.ts plays through it too. */
+export function audio() {
   ctx ??= new AudioContext();
   return ctx;
 }
 
 /** Where a channel's sounds go: through its own volume to the speakers. */
-function bus(channel: Channel) {
+export function bus(channel: Channel) {
   const a = audio();
   if (!buses) {
     const make = (c: Channel) => {
@@ -280,114 +281,6 @@ export function cry(dex: number) {
   clip.volume = 0.2 * level("sfx");
   if (clip.volume === 0) return;
   clip.play().catch(() => {}); // unsupported format or blocked: stay silent
-}
-
-// ---- Background music -----------------------------------------------------------
-// Two original chiptune loops written for this app: a slow, warm one for the menus
-// ("Cozy") and a quicker minor-key one for battles. Each has a lead, bass, a soft arpeggio
-// and light drums (kick and snare; hi-hats were left out, as at this volume they are
-// heard as clicks). Numbers are MIDI notes (60 = middle C); 0 is a rest.
-// Eight eighth-notes per bar. Edit the lists to change a tune.
-
-type Song = {
-  /** Seconds per eighth-note. */
-  step: number;
-  lead: number[][];
-  /** Chord root for each half bar. */
-  bass: number[][];
-  /** Roots whose chords are minor. */
-  minor: number[];
-};
-
-const SONGS: Record<"town" | "battle", Song> = {
-  // "Cozy": slow and warm, in F major.
-  town: {
-    step: 0.3,
-    minor: [38, 45, 43],
-    lead: [
-      [72, 0, 69, 0, 65, 0, 69, 72],
-      [74, 0, 72, 69, 0, 0, 65, 0],
-      [70, 0, 74, 0, 77, 0, 74, 70],
-      [72, 0, 76, 0, 79, 0, 0, 0],
-      [77, 0, 76, 74, 72, 0, 69, 0],
-      [70, 72, 74, 0, 70, 0, 67, 0],
-      [69, 0, 70, 0, 72, 74, 76, 0],
-      [77, 0, 72, 0, 65, 0, 0, 0],
-    ],
-    bass: [[41, 41], [38, 38], [46, 46], [48, 48], [41, 45], [46, 43], [46, 48], [41, 41]],
-  },
-  battle: {
-    step: 0.15,
-    minor: [45, 40, 38],
-    lead: [
-      [69, 72, 76, 72, 81, 76, 72, 76],
-      [69, 72, 77, 72, 81, 77, 72, 77],
-      [71, 74, 79, 74, 83, 79, 74, 79],
-      [71, 76, 79, 76, 83, 79, 76, 71],
-      [81, 0, 81, 79, 76, 0, 72, 76],
-      [77, 0, 77, 76, 72, 0, 69, 72],
-      [74, 77, 81, 77, 86, 81, 77, 74],
-      [76, 80, 83, 80, 88, 83, 80, 76],
-    ],
-    bass: [[45, 45], [41, 41], [43, 43], [40, 40], [45, 45], [41, 41], [38, 38], [40, 40]],
-  },
-};
-
-const hz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
-
-let theme: keyof typeof SONGS = "town";
-let musicTimer: ReturnType<typeof setInterval> | undefined;
-
-function queueBar(song: Song, bar: number, at: number) {
-  const { step } = song;
-  const channel = "music";
-  song.lead[bar].forEach((n, i) => n && tone({ f: hz(n), at: at + i * step, len: step * 1.6, vol: 0.012, channel }));
-  song.bass[bar].forEach((root, half) => {
-    const t = at + half * 4 * step;
-    tone({ f: hz(root), at: t, len: step * 1.8, vol: 0.035, type: "triangle", channel });
-    tone({ f: hz(root + 7), at: t + 2 * step, len: step * 1.2, vol: 0.025, type: "triangle", channel });
-    // Arpeggio: the chord's three notes in sixteenths, two octaves up.
-    const third = song.minor.includes(root) ? 3 : 4;
-    [0, third, 7, 12, 7, third, 0, third].forEach((offset, i) =>
-      tone({ f: hz(root + 24 + offset), at: t + (i * step) / 2, len: step / 2, vol: 0.004, type: "triangle", channel }),
-    );
-    // Drums: kick on the beat, snare on the back beat.
-    tone({ f: 130, to: 50, at: t, len: 0.1, vol: 0.03, type: "sine", channel });
-    noise({ at: t + 2 * step, len: 0.07, vol: 0.008, channel });
-  });
-}
-
-export function startMusic() {
-  if (musicTimer) return;
-  const a = audio();
-  const song = SONGS[theme];
-  let bar = 0;
-  let barStart = a.currentTime + 0.1;
-  // Queue each bar a little before it is due.
-  const queue = () => {
-    while (barStart < a.currentTime + 0.6) {
-      queueBar(song, bar, barStart - a.currentTime);
-      bar = (bar + 1) % song.lead.length;
-      barStart += song.step * 8;
-    }
-  };
-  queue();
-  musicTimer = setInterval(queue, 200);
-}
-
-export function stopMusic() {
-  clearInterval(musicTimer);
-  musicTimer = undefined;
-}
-
-/** Switch between the menu tune and the battle tune. Takes effect at once if music is playing. */
-export function setMusicTheme(next: keyof typeof SONGS) {
-  if (next === theme) return;
-  theme = next;
-  if (musicTimer) {
-    stopMusic();
-    startMusic();
-  }
 }
 
 /** Browsers keep audio suspended until the first click; call this from a click handler. */
