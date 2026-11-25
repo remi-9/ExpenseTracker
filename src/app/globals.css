@@ -3429,3 +3429,25 @@ dialog.popup::backdrop {
     contain: size;
   }
 }
+
+/* ---- Pokédex: the party and the PC box as an even pair --------------------------- */
+@media (min-width: 1100px) {
+  .columns:has(.dex-box) {
+    align-items: stretch;
+  }
+  .columns:has(.dex-box) > .columns-part > * {
+    flex: 1;
+  }
+  /* The box wallpaper runs to the bottom of the window, whatever is in it. */
+  .dex-box {
+    display: flex;
+    flex-direction: column;
+  }
+  .dex-box > .pc,
+  .dex-box > p {
+    flex: 1;
+  }
+  .dex-box > .pc {
+    align-content: start;
+  }
+}

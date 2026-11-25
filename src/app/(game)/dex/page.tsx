@@ -61,7 +61,7 @@ export default async function DexPage({
       <Columns split="even"
         side={
           <>
-            <section className="box p-0!" aria-label="PC storage">
+            <section className="box dex-box p-0!" aria-label="PC storage">
               <header className="pc-header">
                 <Link href={boxHref(box - 1)} className="btn" aria-label="Previous box" data-sfx="page">
                   ◀
