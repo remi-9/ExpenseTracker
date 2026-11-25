@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { BADGES, bestMonth, getPlayer, payMonth, summarizeMonth, withLatePay } from "./game";
+import type { BillStatus } from "./money";
+import { BADGES, bestMonth, getChallenges, getPlayer, LOG_DAYS, payMonth, summarizeMonth, withLatePay } from "./game";
 import type { Kind, MonthTotal } from "./types";
 
 const total = (month: string, kind: Kind, amount: number, entries = 1, category_id: string = kind): MonthTotal => ({
@@ -79,5 +80,41 @@ describe("badges", () => {
     const totals = withLatePay(logged, [pay("2026-10-30", 38000), pay("2026-11-28", 100)]);
     const threeMonths = BADGES.find((b) => b.id === "mineral")!;
     expect(threeMonths.earned({ player: getPlayer(totals), totals, categories: [], caught: 0 })).toBe(false);
+  });
+});
+
+describe("getChallenges", () => {
+  const bill = (state: BillStatus["state"], onTime = state === "paid"): BillStatus => ({
+    bill: { id: state + onTime, name: "Bill" } as BillStatus["bill"],
+    due: "2026-11-10",
+    state,
+    paid: state === "paid" ? 100 : 0,
+    paidOn: state === "paid" ? "2026-11-09" : null,
+    onTime,
+  });
+  const base = { bills: [] as BillStatus[], loggedDays: 0, spent: 0, lastSpent: 0, finished: false };
+
+  test("a month with no bills and nothing spent last month has only the logging quest", () => {
+    expect(getChallenges(base).map((c) => c.id)).toEqual(["days"]);
+  });
+
+  test("the bills quest counts bills paid on time, and late ones do not finish it", () => {
+    const [bills] = getChallenges({ ...base, bills: [bill("paid"), bill("paid", false), bill("soon")] });
+    expect(bills).toMatchObject({ id: "bills", done: 1, target: 3, complete: false });
+    expect(getChallenges({ ...base, bills: [bill("paid"), bill("paid")] })[0].complete).toBe(true);
+  });
+
+  test(`logging on ${LOG_DAYS} different days finishes the logging quest`, () => {
+    const days = (n: number) => getChallenges({ ...base, loggedDays: n }).find((c) => c.id === "days")!;
+    expect(days(LOG_DAYS - 1).complete).toBe(false);
+    expect(days(LOG_DAYS)).toMatchObject({ done: LOG_DAYS, target: LOG_DAYS, complete: true });
+  });
+
+  test("spending less than last month is on track until the month ends, then complete", () => {
+    const less = (spent: number, finished: boolean) =>
+      getChallenges({ ...base, spent, lastSpent: 1000, finished }).find((c) => c.id === "less")!;
+    expect(less(800, false)).toMatchObject({ complete: false, status: "On track", lowerIsBetter: true });
+    expect(less(800, true)).toMatchObject({ complete: true, status: "Complete!" });
+    expect(less(1200, true)).toMatchObject({ complete: false, status: "Over" });
   });
 });

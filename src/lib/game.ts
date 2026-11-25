@@ -1,6 +1,7 @@
 // All game rules live here as pure functions over the month_totals rows.
 // Nothing about the game is stored in the database, so rules can change freely.
 import { shiftMonth } from "./format";
+import type { BillStatus } from "./money";
 import type { Category, Kind, MonthTotal } from "./types";
 
 export type MonthSummary = {
@@ -156,6 +157,82 @@ export function getQuests(categories: Category[], totals: MonthTotal[], month: s
       const saving = category.kind === "saving";
       return { category, done, target, saving, complete: saving ? done >= target : done <= target };
     });
+}
+
+// ---- Monthly challenges --------------------------------------------------------
+// Quests every month brings, beside the category ones: pay the bills on time, keep
+// logging, and spend less than last month. They do not count towards a shiny month.
+
+/** Days with at least one entry that finish the logging quest. */
+export const LOG_DAYS = 15;
+
+export type Challenge = {
+  id: "bills" | "days" | "less";
+  title: string;
+  done: number;
+  target: number;
+  /** done and target are money (else counts). */
+  money: boolean;
+  /** Under the target is good (spending), rather than reaching it. */
+  lowerIsBetter: boolean;
+  complete: boolean;
+  /** A word on how it stands, when the figures alone do not say it. */
+  status?: string;
+};
+
+export function getChallenges({
+  bills,
+  loggedDays,
+  spent,
+  lastSpent,
+  finished,
+}: {
+  /** The month's bills and whether each was paid on time (billsFor in money.ts). */
+  bills: BillStatus[];
+  /** Different days with an entry this month. */
+  loggedDays: number;
+  /** Spending this month and the month before. */
+  spent: number;
+  lastSpent: number;
+  /** The month is over, so "on track" can become "complete". */
+  finished: boolean;
+}): Challenge[] {
+  const challenges: Challenge[] = [];
+  if (bills.length > 0) {
+    const onTime = bills.filter((b) => b.state === "paid" && b.onTime).length;
+    challenges.push({
+      id: "bills",
+      title: "Pay every bill on time",
+      done: onTime,
+      target: bills.length,
+      money: false,
+      lowerIsBetter: false,
+      complete: onTime === bills.length,
+    });
+  }
+  challenges.push({
+    id: "days",
+    title: `Log on ${LOG_DAYS} different days`,
+    done: Math.min(loggedDays, LOG_DAYS),
+    target: LOG_DAYS,
+    money: false,
+    lowerIsBetter: false,
+    complete: loggedDays >= LOG_DAYS,
+  });
+  if (lastSpent > 0) {
+    const under = spent < lastSpent;
+    challenges.push({
+      id: "less",
+      title: "Spend less than last month",
+      done: spent,
+      target: lastSpent,
+      money: true,
+      lowerIsBetter: true,
+      complete: finished && under,
+      status: !under ? "Over" : finished ? "Complete!" : "On track",
+    });
+  }
+  return challenges;
 }
 
 /** The partner turns shiny for a month once income is logged and every quest is complete. */
