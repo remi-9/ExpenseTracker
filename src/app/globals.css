@@ -2182,6 +2182,84 @@ legend > .kind-cats {
   width: auto;
   flex: 1;
 }
+.town-place svg {
+  width: 60px;
+  height: 60px;
+}
+/* The menu fits without scrolling. Wide windows put the screens beside the accounts
+   and save; narrower ones fold each window up instead of stacking them tall. */
+@media (min-width: 900px) {
+  .start-pop,
+  .start-pop.wide {
+    flex-direction: row;
+    align-items: flex-start;
+    width: auto;
+  }
+  .menu.town {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .start-pop > .menu {
+    width: 21rem;
+  }
+  .start-pop.wide > .menu {
+    width: 30rem;
+  }
+  .start-pop > .start-side {
+    width: 17rem;
+  }
+}
+@media (max-width: 899px) {
+  .start-pop,
+  .start-pop.wide {
+    width: min(26rem, calc(100vw - 1.5rem));
+  }
+  /* The screens in two columns, without their hints. */
+  .start-pop .menu:not(.town) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .start-pop .menu:not(.town) .menu-item small {
+    display: none;
+  }
+  .start-pop .menu:not(.town) .menu-item {
+    gap: 0.4rem;
+    padding-right: 0.25rem;
+    font-size: 0.6rem;
+  }
+  .start-pop .has-cursor .menu:not(.town) .menu-item,
+  .start-pop .menu.has-cursor:not(.town) .menu-item {
+    padding-left: 2.3rem;
+  }
+  .menu.town {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .town-place svg {
+    width: 44px;
+    height: 44px;
+  }
+  /* One line per account: name, HP bar, money. */
+  .start-pop .account-party.compact .party-info {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .start-pop .account-party.compact .party-info > :first-child {
+    flex: 0 0 5.5rem;
+  }
+  .start-pop .account-party.compact .hpbar {
+    flex: 1;
+  }
+  .start-pop .account-party.compact img {
+    width: 24px;
+    height: auto;
+  }
+  /* The save summary as two pairs side by side. */
+  .start-pop .save-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 1rem;
+  }
+}
 /* The phone tab bar now holds four screens and the Menu button. */
 .tab-bar {
   grid-template-columns: repeat(5, 1fr);
