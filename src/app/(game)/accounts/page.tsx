@@ -5,7 +5,7 @@ import { RoutePopup } from "@/components/popup";
 import { PlayOnMount } from "@/components/sound";
 import { StatementForm } from "@/components/statement-form";
 import { SubmitButton } from "@/components/submit";
-import { CategoryIcon, Columns, Dialog, Panel } from "@/components/ui";
+import { Bar, CategoryIcon, Columns, Dialog, hpTone, Panel } from "@/components/ui";
 import { TossedNotice } from "@/components/tossed";
 import { addTransfer, deleteTransfer, logBalanceGap, saveAccount, setAccountArchived } from "@/lib/actions";
 import { isSupabaseConfigured } from "@/lib/config";
@@ -17,10 +17,9 @@ import {
   getCategories,
   getPokemonNames,
   getTransactions,
-  getTransfers,
 } from "@/lib/data";
 import { dayLabel, dayLong, money, parseAmount, parseMonth, today } from "@/lib/format";
-import { accountBalances, accountHealth, balanceGap, balanceOn, gapCategory } from "@/lib/money";
+import { accountBalances, accountHealth, accountMonth, balanceGap, balanceOn, gapCategory } from "@/lib/money";
 import { sprite } from "@/lib/partners";
 import type { AccountKind } from "@/lib/types";
 
@@ -38,6 +37,9 @@ const readBalance = (typed: string) => {
   return amount === null ? null : typed.startsWith("-") ? -amount : amount;
 };
 
+/** Transfers listed for an account, until "See all" asks for the latest 20. */
+const TRANSFERS_SHOWN = 8;
+
 export default async function AccountsPage({
   searchParams,
 }: {
@@ -50,6 +52,10 @@ export default async function AccountsPage({
     actual?: string;
     on?: string;
     import?: string;
+    /** Asking to archive the account: the confirmation pop-up. */
+    archive?: string;
+    /** "all" lists the account's latest 20 transfers instead of 8. */
+    t?: string;
     error?: string;
     done?: string;
     /** After undoing a transfer: its id, so the message can offer Restore. */
@@ -57,12 +63,13 @@ export default async function AccountsPage({
   }>;
 }) {
   const params = await searchParams;
-  const [accounts, net, transfers, names, transactions] = await Promise.all([
+  const month = parseMonth();
+  const [accounts, net, everyTransfer, names, transactions] = await Promise.all([
     getAccounts(),
     getAccountNet(),
-    getTransfers(),
+    getAllTransfers(),
     getPokemonNames(),
-    getTransactions(parseMonth()),
+    getTransactions(month),
   ]);
   const rows = accountHealth(accountBalances(accounts, net), transactions);
   const active = rows.filter((r) => !r.account.archived_at);
@@ -71,14 +78,21 @@ export default async function AccountsPage({
   const editing = params.edit && picked ? picked.account : undefined;
   const adding = !!params.new;
   const moving = !!params.move && active.length > 1;
+  const confirmingArchive = !!params.archive && !!picked && !picked.account.archived_at;
   const nameOf = (id: string) => accounts.find((a) => a.id === id)?.name ?? "an account that is gone";
   const total = rows.reduce((sum, r) => sum + r.balance, 0);
+
+  // The picked account's month, and its transfers. Every transfer comes oldest first;
+  // the list wants the newest on top.
+  const figures = picked ? accountMonth(picked.account.id, transactions, everyTransfer.filter((t) => t.occurred_on.startsWith(month))) : null;
+  const ownTransfers = picked ? everyTransfer.filter((t) => t.from_account === picked.account.id || t.to_account === picked.account.id).reverse() : [];
+  const showAll = params.t === "all";
+  const listed = ownTransfers.slice(0, showAll ? 20 : TRANSFERS_SHOWN);
 
   // Checking a balance and importing a statement both look at everything logged.
   const checking = !!params.check && !!picked;
   const importing = !!params.import && !!picked;
-  const [categories, everyEntry, everyTransfer] =
-    checking || importing ? await Promise.all([getCategories(), getAllTransactions(), getAllTransfers()]) : [[], [], []];
+  const [categories, everyEntry] = checking || importing ? await Promise.all([getCategories(), getAllTransactions()]) : [[], []];
   const usable = categories.filter((c) => !c.archived_at);
   const checkedOn = /^\d{4}-\d{2}-\d{2}$/.test(params.on ?? "") ? params.on! : today();
   const actual = checking && params.actual ? readBalance(params.actual.trim()) : null;
@@ -87,7 +101,7 @@ export default async function AccountsPage({
   const gapKind = gap?.state === "over" ? "income" : "expense";
   const gapChoices = usable.filter((c) => c.kind === gapKind);
   // The short forms open as pop-ups over the page; closing one comes back to the account.
-  const inPopup = adding || !!editing || moving || checking;
+  const inPopup = adding || !!editing || moving || checking || confirmingArchive;
   const back = picked ? `/accounts?a=${picked.account.id}` : "/accounts";
 
   return (
@@ -97,49 +111,78 @@ export default async function AccountsPage({
       {params.error && !inPopup && <Dialog tone="error">{params.error}</Dialog>}
       {params.done && DONE[params.done] && <Dialog>{DONE[params.done]}</Dialog>}
       {params.done === "unmoved" && params.r && <TossedNotice message="Transfer undone." id={params.r} back="/accounts" />}
+      {params.done === "unarchived" && picked && <Dialog>{picked.account.name} is back.</Dialog>}
+      {params.done === "archived" && picked?.account.archived_at && (
+        <div className="box flex flex-wrap items-center justify-between gap-3" role="status">
+          <p className="text-xl">{picked.account.name} is archived. It is under Archived now.</p>
+          <form action={setAccountArchived}>
+            <input type="hidden" name="id" value={picked.account.id} />
+            <input type="hidden" name="archive" value="0" />
+            <SubmitButton pending="Restoring…" sfx="confirm">
+              Restore
+            </SubmitButton>
+          </form>
+        </div>
+      )}
 
       <Panel title="Pokémon" aside={<span>{money(total)} in all</span>}>
         {active.length === 0 ? (
-          <p className="text-muted">
-            No accounts yet. Add your bank, e-wallet or cash.
-          </p>
+          <p className="text-muted">No accounts yet. Add your bank, e-wallet or cash.</p>
         ) : (
           <AccountParty rows={active} current={picked?.account.id} />
         )}
       </Panel>
 
-      {/* Wide windows: the account and its jobs on the left, transfers on the right. */}
+      {/* Wide windows: the account on the left, its transfers on the right. */}
       <Columns
         side={
           <>
-            <Panel title="Latest transfers">
-              {transfers.length === 0 ? (
-                <p className="text-muted">
-                  Nothing moved yet.
-                </p>
-              ) : (
-                <ul className="entries transfers">
-                  {transfers.map((t) => (
-                    <li key={t.id}>
-                      <span className="text-muted">{dayLabel(t.occurred_on)}</span>
-                      <span className="min-w-0 break-words">
-                        {nameOf(t.from_account)} to {nameOf(t.to_account)}
-                        {t.note && <span className="ml-3 text-muted">{t.note}</span>}
-                      </span>
-                      <span className="flex items-center gap-3">
-                        <span className="amount">{money(t.amount)}</span>
-                        <form action={deleteTransfer}>
-                          <input type="hidden" name="id" value={t.id} />
-                          <SubmitButton className="btn" pending="…" sfx="delete">
-                            Undo
-                          </SubmitButton>
-                        </form>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
+            {picked && (
+              <Panel
+                className="account-transfers-panel"
+                title={`${picked.account.name}: transfers`}
+                aside={
+                  ownTransfers.length > TRANSFERS_SHOWN && (
+                    <Link href={showAll ? back : `${back}&t=all`} scroll={false} className="underline" data-sfx="page">
+                      {showAll ? "Fewer" : "See all"}
+                    </Link>
+                  )
+                }
+              >
+                {listed.length === 0 ? (
+                  <p className="text-muted">Nothing moved in or out yet.</p>
+                ) : (
+                  <div className="account-transfers-scroll">
+                    <ul className="account-transfers">
+                      {listed.map((t) => {
+                        const incoming = t.to_account === picked.account.id;
+                        return (
+                          <li key={t.id}>
+                            <span className="text-muted">{dayLabel(t.occurred_on)}</span>
+                            <span className="min-w-0 break-words">
+                              {incoming ? `From ${nameOf(t.from_account)}` : `To ${nameOf(t.to_account)}`}
+                              {t.note && <span className="block text-muted">{t.note}</span>}
+                            </span>
+                            <span className="transfer-end">
+                              <span className={`amount ${incoming ? "text-green" : ""}`}>
+                                {incoming ? "+" : "−"}
+                                {money(t.amount)}
+                              </span>
+                              <form action={deleteTransfer}>
+                                <input type="hidden" name="id" value={t.id} />
+                                <SubmitButton className="btn" pending="…" sfx="delete">
+                                  Undo
+                                </SubmitButton>
+                              </form>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </Panel>
+            )}
 
             {archived.length > 0 && (
               <Panel title="Archived">
@@ -149,53 +192,119 @@ export default async function AccountsPage({
           </>
         }
       >
-        <div className="battle-bottom">
-          <p className="window battle-text">
-            {picked ? (
-              <>
-                <CategoryIcon icon={picked.account.icon} />
-                {picked.account.name} holds {money(picked.balance)}. {money(picked.spent)} spent this month.
-                {picked.account.archived_at ? " Archived." : ""}
-              </>
-            ) : (
-              "Add an account to start tracking where your money sits."
+        {picked ? (
+          <Panel
+            title={picked.account.name}
+            aside={
+              <span>
+                {ACCOUNT_KIND_LABEL[picked.account.kind]}
+                {picked.account.archived_at ? " · Archived" : ""}
+              </span>
+            }
+          >
+            <div className="account-head">
+              <CategoryIcon icon={picked.account.icon} size={48} />
+              <div className="min-w-0 flex-1">
+                <p className="account-balance">{money(picked.balance)}</p>
+                <Bar ratio={picked.ratio} tone={hpTone(picked.ratio)} label="Share left after this month's spending" />
+              </div>
+            </div>
+            {figures && (
+              <dl className="account-figures">
+                <div>
+                  <dt>Came in</dt>
+                  <dd className="text-green">{money(figures.cameIn)}</dd>
+                </div>
+                <div>
+                  <dt>Spent</dt>
+                  <dd>{money(figures.spent)}</dd>
+                </div>
+                <div>
+                  <dt>Moved in</dt>
+                  <dd>{money(figures.movedIn)}</dd>
+                </div>
+                <div>
+                  <dt>Moved out</dt>
+                  <dd>{money(figures.movedOut)}</dd>
+                </div>
+                <div>
+                  <dt>Saved</dt>
+                  <dd>{money(figures.saved)}</dd>
+                </div>
+                <div>
+                  <dt>Opening</dt>
+                  <dd>{money(picked.account.opening_balance)}</dd>
+                </div>
+              </dl>
             )}
-          </p>
-          <div className="window menu" data-menu>
-            {picked && (
-              <Link href={`/accounts?a=${picked.account.id}&edit=1`} scroll={false} className="menu-item" data-sfx="confirm">
+            <p className="mt-1 text-muted">This month, except the opening balance.</p>
+
+            <div className="menu commands account-commands" data-menu>
+              <Link href={`${back}&edit=1`} scroll={false} className="menu-item" data-sfx="confirm">
                 Edit
               </Link>
-            )}
-            {active.length > 1 && (
-              <Link href={`/accounts?${picked ? `a=${picked.account.id}&` : ""}move=1`} scroll={false} className="menu-item" data-sfx="confirm">
-                Move money
-              </Link>
-            )}
-            {picked && (
-              <Link href={`/accounts?a=${picked.account.id}&check=1`} scroll={false} className="menu-item" data-sfx="confirm">
+              {active.length > 1 && !picked.account.archived_at && (
+                <Link href={`${back}&move=1`} scroll={false} className="menu-item" data-sfx="confirm">
+                  Move money
+                </Link>
+              )}
+              <Link href={`${back}&check=1`} scroll={false} className="menu-item" data-sfx="confirm">
                 Check balance
               </Link>
-            )}
-            {picked && (
-              <Link href={`/accounts?a=${picked.account.id}&import=1`} scroll={false} className="menu-item" data-sfx="confirm">
+              <Link href={`${back}&import=1`} scroll={false} className="menu-item" data-sfx="confirm">
                 Import statement
               </Link>
-            )}
-            {picked && (
-              <form action={setAccountArchived}>
-                <input type="hidden" name="id" value={picked.account.id} />
-                <input type="hidden" name="archive" value={picked.account.archived_at ? "0" : "1"} />
-                <SubmitButton className="menu-item" pending="…" sfx="page">
-                  {picked.account.archived_at ? "Restore" : "Archive"}
-                </SubmitButton>
-              </form>
-            )}
-            <Link href="/accounts?new=1" scroll={false} className="menu-item" data-sfx="confirm" aria-current={adding ? "true" : undefined}>
+              {picked.account.archived_at ? (
+                <form action={setAccountArchived}>
+                  <input type="hidden" name="id" value={picked.account.id} />
+                  <input type="hidden" name="archive" value="0" />
+                  <SubmitButton className="menu-item" pending="…" sfx="confirm">
+                    Restore
+                  </SubmitButton>
+                </form>
+              ) : (
+                <Link href={`${back}&archive=1`} scroll={false} className="menu-item" data-sfx="confirm">
+                  Archive
+                </Link>
+              )}
+              <Link href="/accounts?new=1" scroll={false} className="menu-item" data-sfx="confirm" aria-current={adding ? "true" : undefined}>
+                + New account
+              </Link>
+            </div>
+          </Panel>
+        ) : (
+          <Panel title="Accounts">
+            <p className="mb-3 text-muted">Add an account to start tracking where your money sits.</p>
+            <Link href="/accounts?new=1" scroll={false} className="btn" data-sfx="confirm">
               + New account
             </Link>
-          </div>
-        </div>
+          </Panel>
+        )}
+
+        {confirmingArchive && (
+          <RoutePopup title={`Archive ${picked.account.name}?`} closeHref={back}>
+            {params.error && (
+              <p className="mb-3 text-red" role="alert">
+                {params.error}
+              </p>
+            )}
+            <p className="mb-2">
+              {picked.account.name} leaves Home, the party and the forms. Its {money(picked.balance)}, entries and transfers stay, and it still counts in
+              the total.
+            </p>
+            <p className="mb-3 text-muted">You can restore it any time from Archived on this screen.</p>
+            <form action={setAccountArchived} className="popup-actions">
+              <input type="hidden" name="id" value={picked.account.id} />
+              <input type="hidden" name="archive" value="1" />
+              <Link href={back} scroll={false} className="btn" data-sfx="page">
+                Keep it
+              </Link>
+              <SubmitButton pending="Archiving…" sfx="delete">
+                Archive {picked.account.name}
+              </SubmitButton>
+            </form>
+          </RoutePopup>
+        )}
 
         {(adding || editing) && (
           <RoutePopup title={editing ? `Edit ${editing.name}` : "New account"} size="large" closeHref={back}>

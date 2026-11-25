@@ -310,16 +310,20 @@ export async function saveAccount(form: FormData) {
   redirect(id ? `/accounts?a=${id}` : "/accounts");
 }
 
-/** Archive hides an account from forms but keeps its history and balance. */
+/** Archive hides an account from forms but keeps its history and balance. Restore brings it back. */
 export async function setAccountArchived(form: FormData) {
-  const supabase = await db("/accounts");
+  const id = text(form, "id");
+  const archive = form.get("archive") === "1";
+  const back = `/accounts?a=${encodeURIComponent(id)}`;
+  const supabase = await db(back);
   const { error } = await supabase
     .from("accounts")
-    .update({ archived_at: form.get("archive") === "1" ? new Date().toISOString() : null })
-    .eq("id", text(form, "id"));
-  if (error) fail("/accounts", error.message);
+    .update({ archived_at: archive ? new Date().toISOString() : null })
+    .eq("id", id);
+  if (error) fail(back, error.message);
   revalidatePath("/", "layout");
-  redirect("/accounts");
+  // The message that follows names the account and, after archiving, offers Restore.
+  redirect(`${back}&done=${archive ? "archived" : "unarchived"}`);
 }
 
 /** Move money between two of your accounts. From Home (`from=home`) it lands back there. */
