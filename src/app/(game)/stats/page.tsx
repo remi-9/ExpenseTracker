@@ -87,8 +87,11 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
         </div>
       </section>
 
-      {/* Wide windows: earned and spent beside where the month went, which gets the wider side. */}
-      <Columns split="side" from="wider"
+      {/* Wide windows: two stacks that fill on their own, so neither leaves a gap. Earned and
+          spent with the biggest days on the left; where the month went and the calendar,
+          which get the wider side, on the right. */}
+      <Columns
+        split="side"
         side={
           <>
             <Panel title={`Where ${monthLabel(month).split(" ")[0]} went`} aside={<span>{money(summary.expense)}</span>}>
@@ -103,6 +106,9 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
                   </p>
                 </>
               )}
+            </Panel>
+            <Panel title="Day by day">
+              <SpendCalendar month={month} byDay={byDay} />
             </Panel>
           </>
         }
@@ -163,32 +169,25 @@ export default async function StatsPage({ searchParams }: { searchParams: Promis
             </tbody>
           </table>
         </Panel>
+        <Panel title="Biggest days">
+          {biggestDays.length === 0 ? (
+            <p className="text-muted">Nothing spent yet this month.</p>
+          ) : (
+            <ol className="entries">
+              {biggestDays.map(({ date, total, top }) => (
+                <li key={date}>
+                  <span className="text-muted">{dayLabel(date)}</span>
+                  <span className="min-w-0 break-words">
+                    {top && <CategoryIcon icon={top.category.icon} />}
+                    {top?.note ?? top?.category.name}
+                  </span>
+                  <span className="amount">{money(total)}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </Panel>
       </Columns>
-      <Panel title="Day by day">
-        <div className="grid gap-x-8 gap-y-4 sm:grid-cols-[auto_minmax(0,1fr)]">
-          <SpendCalendar month={month} byDay={byDay} />
-          <div>
-            <h3 className="mb-1 font-display text-[0.65rem] leading-loose text-muted uppercase">Biggest days</h3>
-            {biggestDays.length === 0 ? (
-              <p className="text-muted">Nothing spent yet this month.</p>
-            ) : (
-              <ol className="entries">
-                {biggestDays.map(({ date, total, top }) => (
-                  <li key={date}>
-                    <span className="text-muted">{dayLabel(date)}</span>
-                    <span className="min-w-0 break-words">
-                      {top && <CategoryIcon icon={top.category.icon} />}
-                      {top?.note ?? top?.category.name}
-                    </span>
-                    <span className="amount">{money(total)}</span>
-                    <span />
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-        </div>
-      </Panel>
     </>
   );
 }
