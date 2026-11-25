@@ -182,36 +182,200 @@ export function Hearts({ ratio, size = 22 }: { ratio: number; size?: number }) {
 // ---- Town map ---------------------------------------------------------------------
 // One small building, recoloured for each place, and a patch of tall grass.
 
-const BUILDING = [
-  "...rrrrrr...",
-  "..rrrrrrrr..",
-  ".rrrrrrrrrr.",
-  "rrrrrrrrrrrr",
-  ".wwwwwwwwww.",
-  ".wggwwwwggw.",
-  ".wggwddwggw.",
-  ".wwwwddwwww.",
-  ".wwwwddwwww.",
-  "kkkkkkkkkkkk",
-];
-const GRASS = [
-  "............",
-  "............",
-  "..g...g.....",
-  ".ggg.ggg..g.",
-  ".ggg.ggg.ggg",
-  "gggggggggggg",
-  "gdgggdgggdgg",
-  "gggggggggggg",
-  "gdgggggdgggg",
-  "kkkkkkkkkkkk",
-];
+// ---- Town map places (16×14) --------------------------------------------------
+// Each screen is a building that shows what it is for; r is that screen's roof colour.
 
-/** A place on the town map: a building with a roof of the given colour, or tall grass when there is none. */
-export function Place({ roof, size = 60 }: { roof?: string; size?: number }) {
-  return roof ? (
-    <Sprite rows={BUILDING} palette={{ r: roof, w: "#f4ecd8", g: "#7fc4e8", d: "#6a4020", k: INK }} size={size} />
-  ) : (
-    <Sprite rows={GRASS} palette={{ g: "#3f9a4a", d: "#2a6e33", k: INK }} size={size} />
-  );
+export type PlaceKind = "home" | "mart" | "bank" | "pc" | "tower" | "arena" | "grass" | "library" | "tent" | "workshop";
+
+export const PLACE_COLORS: Record<string, string> = {
+  w: "#f4ecd8", // wall
+  g: "#7fc4e8", // glass
+  d: "#6a4020", // door, wood
+  k: INK,
+  s: "#d8dde4", // smoke
+  m: "#8a8f98", // metal, stone
+  t: "#ffffff",
+  e: "#cf3a33",
+  b: "#2d5fc4",
+  n: "#3f9a4a",
+  o: "#2a6e33",
+  y: "#f2b632",
+};
+
+export const PLACES: Record<PlaceKind, string[]> = {
+  // Home: a cottage with a smoking chimney.
+  home: [
+    "..........s.s...",
+    "...........s....",
+    ".....rrrrr.mm...",
+    "....rrrrrrrmm...",
+    "...rrrrrrrrrr...",
+    "..rrrrrrrrrrrr..",
+    ".rrrrrrrrrrrrrr.",
+    "..wwwwwwwwwwww..",
+    "..wggwwwwwwggw..",
+    "..wggwwddwwggw..",
+    "..wwwwwddwwwww..",
+    "..wwwwwddwwwww..",
+    "..wwwwwddwwwww..",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Log: a shop with a sign, a striped awning and goods in the window.
+  mart: [
+    "................",
+    "..rrrrrrrrrrrr..",
+    "..rrrrrrrrrrrr..",
+    "..wwwwyyyywwww..",
+    "..wwwwyyyywwww..",
+    ".rtrtrtrtrtrtrt.",
+    ".rtrtrtrtrtrtrt.",
+    "..wwwwwwwwwwww..",
+    "..wgggggwwddww..",
+    "..wgyggewwddww..",
+    "..wgggggwwddww..",
+    "..wwwwwwwwddww..",
+    "..wwwwwwwwddww..",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Accounts: a bank with columns and a coin in the pediment.
+  bank: [
+    "................",
+    ".......rr.......",
+    ".....rrrrrr.....",
+    "...rrrrttrrrr...",
+    ".rrrrrrttrrrrrr.",
+    "wwwwwwwwwwwwwwww",
+    ".tmtmtmddmtmtmt.",
+    ".tmtmtmddmtmtmt.",
+    ".tmtmtmddmtmtmt.",
+    ".tmtmtmddmtmtmt.",
+    ".tmtmtmddmtmtmt.",
+    ".tmtmtmddmtmtmt.",
+    "wwwwwwwwwwwwwwww",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Bills: an office with a dish on the roof and a big screen in the window.
+  pc: [
+    "............m...",
+    "...........mmm..",
+    "............m...",
+    "..rrrrrrrrrrrr..",
+    ".rrrrrrrrrrrrrr.",
+    "..wwwwwwwwwwww..",
+    "..wkkkkkkwwwww..",
+    "..wkbbbbkwwddw..",
+    "..wkbnnbkwwddw..",
+    "..wkbbbbkwwddw..",
+    "..wkkkkkkwwddw..",
+    "..wwwkkwwwwddw..",
+    "..wwwwwwwwwddw..",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Stats: a radio tower with a bar chart on its wall.
+  tower: [
+    ".......ee.......",
+    ".......mm.......",
+    ".......mm.......",
+    "......mmmm......",
+    ".....rrrrrr.....",
+    "....rrrrrrrr....",
+    "....wwwwwwww....",
+    "....wwwwwwnw....",
+    "....wwwwbwnw....",
+    "....wywwbwnw....",
+    "....wywwbwnw....",
+    "....wwwddwww....",
+    "....wwwddwww....",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Quests: an arena with a flag and a trophy over the door.
+  arena: [
+    ".......kee......",
+    ".......kee......",
+    ".......k........",
+    "...rrrrrrrrrr...",
+    ".rrrrrrrrrrrrrr.",
+    "rrrrrrrrrrrrrrrr",
+    "wwwwwwwwwwwwwwww",
+    "wwwwwwyyyywwwwww",
+    "wggwwwwyywwwwggw",
+    "wggwwwyyyywwwggw",
+    "wwwwwwwddwwwwwww",
+    "wwwwwwwddwwwwwww",
+    "wwwwwwwddwwwwwww",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Battle: tall grass, where wild Pokémon wait.
+  grass: [
+    "................",
+    "................",
+    "................",
+    "................",
+    "...n.....n......",
+    "..nnn...nnn...n.",
+    ".nnnnn.nnnnn.nnn",
+    "nnnnnnnnnnnnnnnn",
+    "nonnnonnnonnnonn",
+    "nnnnnnnnnnnnnnnn",
+    "nnonnnnnonnnnnon",
+    "nnnnnnnnnnnnnnnn",
+    "nonnnnonnnnonnnn",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Dex: a domed library with shelves of books in the windows.
+  library: [
+    "......rrrr......",
+    ".....rrrrrr.....",
+    "....rrrrrrrr....",
+    "..wwwwwwwwwwww..",
+    ".rrrrrrrrrrrrrr.",
+    "..wwwwwwwwwwww..",
+    "..wddddwwddddw..",
+    "..wdebdwwdnydw..",
+    "..wdyndwwdbedw..",
+    "..wddddwwddddw..",
+    "..wwwwwddwwwww..",
+    "..wwwwwddwwwww..",
+    "..wwwwwddwwwww..",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Bag: a supply tent with crates beside it.
+  tent: [
+    "................",
+    "................",
+    "................",
+    ".....r..........",
+    "....rwr.........",
+    "....rwr.........",
+    "...rrwrr........",
+    "...rrdrr....dddd",
+    "..rrrdrrr...dyyd",
+    "..rrdddrr...dyyd",
+    ".rrrdddrrr..dddd",
+    ".rrdddddrr.ddddd",
+    "rrrdddddrrrdyyyd",
+    "kkkkkkkkkkkkkkkk",
+  ],
+  // Options: a workshop with a gear on its wall.
+  workshop: [
+    "................",
+    "......rrrr......",
+    "....rrrrrrrr....",
+    "..rrrrrrrrrrrr..",
+    ".rrrrrrrrrrrrrr.",
+    "..wwwwwwwwwwww..",
+    "..wwwmwmwwwwww..",
+    "..wwmmmmmwwggw..",
+    "..wmmmwmmmwggw..",
+    "..wwmmmmmwwwww..",
+    "..wwwmwmwwwddw..",
+    "..wwwwwwwwwddw..",
+    "..wwwwwwwwwddw..",
+    "kkkkkkkkkkkkkkkk",
+  ],
+};
+
+/** A place on the town map, in the roof colour of its screen. */
+export function Place({ kind, roof = "#cf3a33", size = 60 }: { kind: PlaceKind; roof?: string; size?: number }) {
+  return <Sprite rows={PLACES[kind]} palette={{ ...PLACE_COLORS, r: roof }} size={size} />;
 }

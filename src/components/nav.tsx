@@ -8,24 +8,24 @@ import type { AccountHealth } from "@/lib/money";
 import { sprite } from "@/lib/partners";
 import { play } from "@/lib/sfx";
 import { AccountParty } from "./accounts";
-import { Icon, Place, type IconName } from "./sprite";
+import { Icon, Place, type IconName, type PlaceKind } from "./sprite";
 
 // Add a screen by adding a line here (and an icon in sprite.tsx).
 // Its place in the list is also its number key: 1 for Home, 2 for the Mart, and so on (0 is the tenth).
 // `name` is what the start menu and the header call it; `plain` says what it is for.
-// `roof` is the colour of its building on the town map (none means tall grass).
-type Screen = { href: string; name: string; plain: string; hint: string; icon: IconName; roof?: string; tab?: boolean };
+// `place` is its building on the town map, and `roof` that building's colour.
+type Screen = { href: string; name: string; plain: string; hint: string; icon: IconName; place: PlaceKind; roof?: string; tab?: boolean };
 const SCREENS: Screen[] = [
-  { href: "/", name: "Home", plain: "Home", hint: "Wallet status", icon: "home", roof: "#cf3a33", tab: true },
-  { href: "/log", name: "Poké Mart", plain: "Log", hint: "Log an entry", icon: "log", roof: "#2d5fc4", tab: true },
-  { href: "/accounts", name: "Pokémon", plain: "Accounts", hint: "Your accounts", icon: "wallet", roof: "#d99a13", tab: true },
-  { href: "/bills", name: "Bill's PC", plain: "Bills", hint: "What is due", icon: "pc", roof: "#1baf7a" },
-  { href: "/stats", name: "Pokégear", plain: "Stats", hint: "Charts", icon: "stats", roof: "#8a8c8a" },
-  { href: "/quests", name: "Trainer", plain: "Quests", hint: "Quests, badges", icon: "quests", roof: "#d96d00" },
-  { href: "/battle", name: "Battle", plain: "Battle", hint: "Expedition", icon: "battle", tab: true },
-  { href: "/dex", name: "Pokédex", plain: "Dex", hint: "Team, PC boxes", icon: "dex", roof: "#e8eed6" },
-  { href: "/setup?s=bag", name: "Bag", plain: "Bag", hint: "Categories", icon: "bag", roof: "#6250d6" },
-  { href: "/setup?s=options", name: "Options", plain: "Options", hint: "Sound, text, frame", icon: "setup", roof: "#624d4e" },
+  { href: "/", name: "Home", plain: "Home", hint: "Wallet status", icon: "home", place: "home", roof: "#cf3a33", tab: true },
+  { href: "/log", name: "Poké Mart", plain: "Log", hint: "Log an entry", icon: "log", place: "mart", roof: "#2d5fc4", tab: true },
+  { href: "/accounts", name: "Pokémon", plain: "Accounts", hint: "Your accounts", icon: "wallet", place: "bank", roof: "#d99a13", tab: true },
+  { href: "/bills", name: "Bill's PC", plain: "Bills", hint: "What is due", icon: "pc", place: "pc", roof: "#1baf7a" },
+  { href: "/stats", name: "Pokégear", plain: "Stats", hint: "Charts", icon: "stats", place: "tower", roof: "#8a8c8a" },
+  { href: "/quests", name: "Trainer", plain: "Quests", hint: "Quests, badges", icon: "quests", place: "arena", roof: "#d96d00" },
+  { href: "/battle", name: "Battle", plain: "Battle", hint: "Expedition", icon: "battle", place: "grass", tab: true },
+  { href: "/dex", name: "Pokédex", plain: "Dex", hint: "Team, PC boxes", icon: "dex", place: "library", roof: "#b8405e" },
+  { href: "/setup?s=bag", name: "Bag", plain: "Bag", hint: "Categories", icon: "bag", place: "tent", roof: "#6250d6" },
+  { href: "/setup?s=options", name: "Options", plain: "Options", hint: "Sound, text, frame", icon: "setup", place: "workshop", roof: "#624d4e" },
 ];
 /** The key that jumps to the screen at this place in the list. */
 const keyFor = (index: number) => String((index + 1) % 10);
@@ -143,7 +143,7 @@ export function StartMenu({
                 >
                   {view === "map" ? (
                     <>
-                      <Place roof={screen.roof} />
+                      <Place kind={screen.place} roof={screen.roof} />
                       <span>{nameOf(screen)}</span>
                     </>
                   ) : (
