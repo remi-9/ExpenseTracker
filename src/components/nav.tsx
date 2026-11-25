@@ -9,6 +9,7 @@ import { sprite } from "@/lib/partners";
 import { play } from "@/lib/sfx";
 import { AccountParty } from "./accounts";
 import { Icon, Place, type IconName, type PlaceKind } from "./sprite";
+import { TownGround, TOWNS } from "./town-map";
 
 // Add a screen by adding a line here (and an icon in sprite.tsx).
 // Its place in the list is also its number key: 1 for Home, 2 for the Mart, and so on (0 is the tenth).
@@ -106,7 +107,10 @@ export function StartMenu({
 
   // Put the cursor on the current screen when the menu opens, so arrow keys work at once.
   useEffect(() => {
-    if (open) menu.current?.querySelector<HTMLElement>("[aria-current], a")?.focus();
+    if (!open || !menu.current) return;
+    // The town has a wide and a tall layout; only the one on screen can take focus.
+    const shown = (selector: string) => [...menu.current!.querySelectorAll<HTMLElement>(selector)].find((el) => el.offsetParent);
+    (shown("[aria-current]") ?? shown("a"))?.focus();
   }, [open, view]);
 
   const nameOf = (screen: Screen) => (screen.href === "/quests" ? trainer : screen.name);
@@ -129,31 +133,60 @@ export function StartMenu({
       {open && (
         <div className="start-backdrop" onClick={() => setOpen(false)}>
           <div className={`start-pop ${view === "map" ? "wide" : ""}`} style={cursor} onClick={(event) => event.stopPropagation()}>
-            <nav ref={menu} aria-label="Main" className={`window menu ${view === "map" ? "town" : ""} ${partnerDex ? "has-cursor" : ""}`} data-menu>
-              {SCREENS.map((screen, i) => (
-                <Link
-                  key={screen.href}
-                  href={screen.href}
-                  className={view === "map" ? "town-place" : "menu-item"}
-                  data-sfx="tab"
-                  aria-current={i === current ? "page" : undefined}
-                  aria-keyshortcuts={keyFor(i)}
-                  title={screen.hint}
-                  onClick={() => setOpen(false)}
-                >
-                  {view === "map" ? (
-                    <>
-                      <Place kind={screen.place} roof={screen.roof} />
-                      <span>{nameOf(screen)}</span>
-                    </>
-                  ) : (
-                    <>
+            <nav
+              ref={menu}
+              aria-label="Main"
+              className={`window menu ${view === "map" ? "town" : ""} ${partnerDex ? "has-cursor" : ""}`}
+              data-menu={view === "map" ? "map" : ""}
+            >
+              {view === "map"
+                ? (["wide", "tall"] as const).map((shape) => {
+                    const town = TOWNS[shape];
+                    return (
+                      <div
+                        key={shape}
+                        className={`town-map town-${shape}`}
+                        style={{ "--cols": town.tiles[0].length, "--rows": town.tiles.length } as CSSProperties}
+                      >
+                        <TownGround tiles={town.tiles} />
+                        {SCREENS.map((screen, i) => {
+                          const [col, row, w, h] = town.places[screen.place];
+                          return (
+                            <Link
+                              key={screen.href}
+                              href={screen.href}
+                              className="town-place"
+                              data-place={screen.place}
+                              data-sfx="tab"
+                              aria-current={i === current ? "page" : undefined}
+                              aria-keyshortcuts={keyFor(i)}
+                              title={screen.hint}
+                              style={{ gridColumn: `${col + 1} / span ${w}`, gridRow: `${row + 1} / span ${h}` }}
+                              onClick={() => setOpen(false)}
+                            >
+                              {screen.place !== "grass" && <Place kind={screen.place} roof={screen.roof} />}
+                              <span className="town-sign">{nameOf(screen)}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    );
+                  })
+                : SCREENS.map((screen, i) => (
+                    <Link
+                      key={screen.href}
+                      href={screen.href}
+                      className="menu-item"
+                      data-sfx="tab"
+                      aria-current={i === current ? "page" : undefined}
+                      aria-keyshortcuts={keyFor(i)}
+                      title={screen.hint}
+                      onClick={() => setOpen(false)}
+                    >
                       <MenuFace icon={screen.icon} label={nameOf(screen)} />
                       <small>{screen.hint}</small>
-                    </>
-                  )}
-                </Link>
-              ))}
+                    </Link>
+                  ))}
               <span className="town-foot">
                 <button type="button" className="menu-item" data-sfx="chip" onClick={() => writeView(view === "map" ? "list" : "map")}>
                   <Icon name={view === "map" ? "menu" : "map"} />
@@ -270,6 +303,29 @@ function isTyping(event: KeyboardEvent) {
   return !!field || event.metaKey || event.ctrlKey || event.altKey;
 }
 
+const DIRECTION: Record<string, [number, number]> = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] };
+
+/** The choice nearest to `from` in the direction of an arrow key, by where they sit on screen. */
+function nearest(choices: HTMLElement[], from: HTMLElement, key: string) {
+  const [dx, dy] = DIRECTION[key];
+  const a = from.getBoundingClientRect();
+  let best: HTMLElement | undefined;
+  let bestScore = Infinity;
+  for (const choice of choices) {
+    if (choice === from || !choice.offsetParent) continue;
+    const b = choice.getBoundingClientRect();
+    const x = b.left + b.width / 2 - (a.left + a.width / 2);
+    const y = b.top + b.height / 2 - (a.top + a.height / 2);
+    const along = x * dx + y * dy;
+    const across = Math.abs(x * dy + y * dx);
+    // Only what lies that way (within 45 degrees); straight ahead beats off to the side.
+    if (along <= 1 || across > along) continue;
+    const score = along + 2 * across;
+    if (score < bestScore) [best, bestScore] = [choice, score];
+  }
+  return best;
+}
+
 /**
  * Keyboard control for the whole app:
  *  - arrow keys move between the choices of any menu (an element with data-menu), like a D-pad;
@@ -297,8 +353,11 @@ export function Keys() {
         );
         const index = choices.indexOf(focused!);
         if (index < 0) return;
+        // On the town map the arrows walk: to the nearest place in that direction.
+        const next = menu.getAttribute("data-menu") === "map" ? nearest(choices, focused!, event.key) : choices[(index + step + choices.length) % choices.length];
+        if (!next) return;
         event.preventDefault();
-        choices[(index + step + choices.length) % choices.length].focus();
+        next.focus();
         return;
       }
 
