@@ -5,13 +5,23 @@ import { PartnerPicker, TrainerPicker } from "@/components/partner";
 import { PlayOnMount, SoundSwitch, VolumeSlider } from "@/components/sound";
 import { Icon } from "@/components/sprite";
 import { SubmitButton } from "@/components/submit";
-import { CategoryIcon, Columns, Dialog, Panel } from "@/components/ui";
+import { Bar, CategoryIcon, Columns, Dialog, Panel } from "@/components/ui";
 import { ImportForm } from "@/components/import-form";
 import { addCategory, addPreset, setCategoryArchived, setOption, setPassword } from "@/lib/actions";
-import { getCategories, getCaught, getOptions, getPartnerId, getPokemonNames, getTrainerId, getUserEmail } from "@/lib/data";
+import {
+  getBills,
+  getCategories,
+  getCaught,
+  getMonthTotals,
+  getOptions,
+  getPartnerId,
+  getPokemonNames,
+  getTrainerId,
+  getUserEmail,
+} from "@/lib/data";
 // The release number, shown in small text on Options.
 import { version } from "../../../../package.json";
-import { money } from "@/lib/format";
+import { money, parseMonth } from "@/lib/format";
 import type { CSSProperties } from "react";
 import { PATTERNS, TONE_COLORS, TONES, type Tone } from "@/lib/backdrop";
 import { FRAMES, SPEEDS } from "@/lib/options";
@@ -94,9 +104,9 @@ async function Partner() {
   );
 }
 
-/** Categories, laid out like the Bag: pockets on the left, items on the right, a note below. */
+/** Categories, laid out like the Bag: the pockets and their items on the left, the picked item on the right. */
 async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: string; adding: boolean }) {
-  const [categories, names] = await Promise.all([getCategories(), getPokemonNames()]);
+  const [categories, names, totals, bills] = await Promise.all([getCategories(), getPokemonNames(), getMonthTotals(), getBills()]);
   const kind = POCKETS.find(([k]) => k === pocket)?.[0] ?? "expense";
   const label = POCKETS.find(([k]) => k === kind)![1];
   const items = categories.filter((c) => c.kind === kind);
@@ -105,139 +115,204 @@ async function Bag({ pocket, selected, adding }: { pocket?: string; selected?: s
     (p) => p.kind === kind && !categories.some((c) => c.name.toLowerCase() === p.name.toLowerCase()),
   );
   const href = (extra: string) => `/setup?s=bag&pocket=${kind}${extra}`;
+  // This month for each item: how much, and how many entries.
+  const month = `${parseMonth()}-01`;
+  const thisMonth = (id: string) => totals.find((t) => t.month === month && t.category_id === id);
+  const itemBills = item ? bills.filter((b) => b.category_id === item.id && !b.archived_at) : [];
+  const spent = item ? (thisMonth(item.id)?.total ?? 0) : 0;
+  const target = item?.monthly_target ?? null;
 
   return (
     <>
-      <div className="bag">
-        <nav className="window menu" aria-label="Pockets" data-menu>
-          <span className="mx-auto py-1 text-muted">
-            <Icon name="bag" size={56} />
-          </span>
-          {POCKETS.map(([k, name]) => (
-            <Link
-              key={k}
-              href={`/setup?s=bag&pocket=${k}`}
-              className="menu-item"
-              data-sfx="page"
-              aria-current={k === kind ? "true" : undefined}
+      {/* Wide windows: the pockets and their items on the left, the picked item on the right. */}
+      <Columns
+        side={
+          item &&
+          !adding && (
+            <Panel
+              title={item.name}
+              aside={
+                <span>
+                  {label}
+                  {item.archived_at ? " · Archived" : ""}
+                </span>
+              }
             >
-              {name}
-            </Link>
-          ))}
-        </nav>
+              <div className="account-head">
+                <CategoryIcon icon={item.icon} size={48} />
+                <div className="min-w-0 flex-1">
+                  <p className="account-balance">{money(spent)}</p>
+                  <p className="text-muted">
+                    {kind === "income" ? "earned" : kind === "saving" ? "set aside" : "spent"} this month,{" "}
+                    {thisMonth(item.id)?.entries ?? 0} {thisMonth(item.id)?.entries === 1 ? "entry" : "entries"}
+                  </p>
+                </div>
+              </div>
 
-        <div className="window menu bag-items" data-menu>
-          {items.map((c) => (
-            <Link
-              key={c.id}
-              href={href(`&c=${c.id}`)}
-              scroll={false}
-              className={`menu-item ${c.archived_at ? "opacity-50" : ""}`}
-              data-sfx="chip"
-              aria-current={c.id === item?.id ? "true" : undefined}
-            >
-              <CategoryIcon icon={c.icon} size={24} />
-              {c.name}
-              <small>{detail(c)}</small>
-            </Link>
-          ))}
-          <Link href={href("&new=1")} scroll={false} className="menu-item" data-sfx="confirm" aria-current={adding ? "true" : undefined}>
-            + New {label.toLowerCase()} item
-          </Link>
-        </div>
-      </div>
+              {target != null && (
+                <div className="mt-3 flex flex-col gap-1">
+                  <Bar
+                    ratio={Math.min(1, spent / (target || 1))}
+                    tone={kind === "saving" ? "blue" : spent > target ? "red" : spent > target * 0.8 ? "gold" : "green"}
+                    label={kind === "saving" ? "Progress to this month's goal" : "Share of this month's budget used"}
+                  />
+                  <p className="text-muted">
+                    {kind === "saving"
+                      ? spent >= target
+                        ? `Goal of ${money(target)} reached.`
+                        : `${money(target - spent)} to go for the ${money(target)} goal.`
+                      : spent > target
+                        ? `${money(spent - target)} over the ${money(target)} budget.`
+                        : `${money(target - spent)} left of the ${money(target)} budget.`}
+                  </p>
+                </div>
+              )}
 
-      {item && !adding && (
-        <div className="battle-bottom">
-          <p className="window battle-text">
-            <CategoryIcon icon={item.icon} />
-            {item.name}: a {label.toLowerCase()} category
-            {item.monthly_target != null &&
-              ` with a ${item.kind === "saving" ? "goal" : "budget"} of ${money(item.monthly_target)} a month`}
-            .{item.archived_at ? " It is archived, so it is hidden when you log." : ""}
-          </p>
-          <div className="window menu" data-menu>
-            <Link href={`/bills?new=1&cat=${item.id}`} className="menu-item" data-sfx="confirm">
-              Schedule a bill
-            </Link>
-            <form action={setCategoryArchived}>
-              <input type="hidden" name="id" value={item.id} />
-              <input type="hidden" name="archive" value={item.archived_at ? "0" : "1"} />
-              <SubmitButton className="menu-item" pending="…" sfx="page">
-                {item.archived_at ? "Restore" : "Archive"}
-              </SubmitButton>
-            </form>
-            <Link href={`/log?kind=${kind}&cat=${item.id}`} className="menu-item">
-              Log an entry
+              <h3 className="mt-4 mb-1 font-display text-[0.6rem] leading-loose text-muted uppercase">Bills</h3>
+              {itemBills.length === 0 ? (
+                <p className="text-muted">None scheduled under {item.name}.</p>
+              ) : (
+                <ul>
+                  {itemBills.map((b) => (
+                    <li key={b.id}>
+                      <Link href={`/bills?b=${b.id}`} className="underline">
+                        {b.name}
+                      </Link>{" "}
+                      <span className="text-muted">
+                        {b.amount != null ? money(b.amount) : "varies"}, day {b.due_day}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {item.archived_at && <p className="mt-2 text-muted">It is archived, so it is hidden when you log.</p>}
+
+              <div className="menu commands account-commands bag-commands" data-menu>
+                <Link href={`/log?kind=${kind}&cat=${item.id}`} className="menu-item" data-sfx="confirm">
+                  Log an entry
+                </Link>
+                <Link href={`/bills?new=1&cat=${item.id}`} className="menu-item" data-sfx="confirm">
+                  Schedule a bill
+                </Link>
+                <form action={setCategoryArchived}>
+                  <input type="hidden" name="id" value={item.id} />
+                  <input type="hidden" name="archive" value={item.archived_at ? "0" : "1"} />
+                  <SubmitButton className="menu-item" pending="…" sfx="page">
+                    {item.archived_at ? "Restore" : "Archive"}
+                  </SubmitButton>
+                </form>
+              </div>
+            </Panel>
+          )
+        }
+      >
+        <section className="box bag-box" aria-label="Bag">
+          <nav className="bag-pockets" aria-label="Pockets" data-menu>
+            <Icon name="bag" size={40} />
+            {POCKETS.map(([k, name]) => (
+              <Link
+                key={k}
+                href={`/setup?s=bag&pocket=${k}`}
+                className="menu-item"
+                data-sfx="page"
+                aria-current={k === kind ? "true" : undefined}
+              >
+                {name}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="menu bag-grid" data-menu>
+            {items.map((c) => (
+              <Link
+                key={c.id}
+                href={href(`&c=${c.id}`)}
+                scroll={false}
+                className={`menu-item bag-item ${c.archived_at ? "opacity-50" : ""}`}
+                data-sfx="chip"
+                aria-current={c.id === item?.id ? "true" : undefined}
+              >
+                <CategoryIcon icon={c.icon} size={28} />
+                <span className="min-w-0">
+                  <span className="block break-words">{c.name}</span>
+                  <small className="block">
+                    {money(thisMonth(c.id)?.total ?? 0)}
+                    {detail(c) ? ` · ${detail(c)}` : ""}
+                  </small>
+                </span>
+              </Link>
+            ))}
+            <Link href={href("&new=1")} scroll={false} className="menu-item bag-item" data-sfx="confirm" aria-current={adding ? "true" : undefined}>
+              + New {label.toLowerCase()} item
             </Link>
           </div>
-        </div>
-      )}
+        </section>
 
-      {adding && (
-        <Panel title={`New ${label.toLowerCase()} item`}>
-          {presets.length > 0 && (
-            <>
-              <form action={addPreset} className="flex flex-wrap">
-                {presets.map((p) => (
-                  <button key={p.name} name="preset" value={p.index} className="chip" data-sfx="confirm">
-                    <CategoryIcon icon={p.icon} />
-                    {p.name}
-                  </button>
-                ))}
-              </form>
-              <p className="mt-1 mb-3 text-muted">One tap adds any of these. Or make your own:</p>
-            </>
-          )}
-          <form action={addCategory} className="grid gap-3 sm:grid-cols-2">
-            <input type="hidden" name="kind" value={kind} />
-            <label className="flex flex-col gap-1">
-              Name
-              <input name="name" required placeholder="e.g. Groceries" className="field" />
-            </label>
-            {kind !== "income" && (
-              <label className="flex flex-col gap-1">
-                {kind === "saving" ? "Monthly goal (optional)" : "Monthly budget (optional)"}
-                <input name="monthly_target" type="number" min="0" step="0.01" placeholder="Turns it into a quest" className="field" />
-              </label>
+        {adding && (
+          <Panel title={`New ${label.toLowerCase()} item`}>
+            {presets.length > 0 && (
+              <>
+                <form action={addPreset} className="flex flex-wrap">
+                  {presets.map((p) => (
+                    <button key={p.name} name="preset" value={p.index} className="chip" data-sfx="confirm">
+                      <CategoryIcon icon={p.icon} />
+                      {p.name}
+                    </button>
+                  ))}
+                </form>
+                <p className="mt-1 mb-3 text-muted">One tap adds any of these. Or make your own:</p>
+              </>
             )}
-            <fieldset className="sm:col-span-2">
-              <legend className="mb-1">Icon</legend>
-              <details open>
-                <summary className="cursor-pointer text-muted">Items ({ITEM_ICONS.length})</summary>
-                <div className="icon-grid">
-                  {ITEM_ICONS.map((icon) => (
-                    <label key={icon} className="chip p-1!" title={icon.replaceAll("-", " ")}>
-                      <input type="radio" name="icon" value={icon} aria-label={icon.replaceAll("-", " ")} />
-                      <img src={sprite.item(icon)} alt="" width={30} height={30} className="pixel" loading="lazy" />
-                    </label>
-                  ))}
-                </div>
-              </details>
-              <details>
-                <summary className="cursor-pointer text-muted">Pokémon ({POKEMON_ICONS.length})</summary>
-                <div className="icon-grid">
-                  {POKEMON_ICONS.map((dex) => (
-                    <label key={dex} className="chip p-0.5!" title={names[dex - 1] ?? `No. ${dex}`}>
-                      <input type="radio" name="icon" value={`pkmn-${dex}`} aria-label={names[dex - 1] ?? `No. ${dex}`} />
-                      <img src={sprite.icon(dex)} alt="" width={40} height={30} className="pixel" loading="lazy" />
-                    </label>
-                  ))}
-                </div>
-              </details>
-              <label className="mt-2 flex items-center gap-2">
-                or an emoji
-                <input name="emoji" maxLength={4} className="field w-20!" />
+            <form action={addCategory} className="grid gap-3 sm:grid-cols-2">
+              <input type="hidden" name="kind" value={kind} />
+              <label className="flex flex-col gap-1">
+                Name
+                <input name="name" required placeholder="e.g. Groceries" className="field" />
               </label>
-            </fieldset>
-            <div className="sm:col-span-2">
-              <SubmitButton pending="Adding…" sfx="confirm">
-                Add to bag
-              </SubmitButton>
-            </div>
-          </form>
-        </Panel>
-      )}
+              {kind !== "income" && (
+                <label className="flex flex-col gap-1">
+                  {kind === "saving" ? "Monthly goal (optional)" : "Monthly budget (optional)"}
+                  <input name="monthly_target" type="number" min="0" step="0.01" placeholder="Turns it into a quest" className="field" />
+                </label>
+              )}
+              <fieldset className="sm:col-span-2">
+                <legend className="mb-1">Icon</legend>
+                <details open>
+                  <summary className="cursor-pointer text-muted">Items ({ITEM_ICONS.length})</summary>
+                  <div className="icon-grid">
+                    {ITEM_ICONS.map((icon) => (
+                      <label key={icon} className="chip p-1!" title={icon.replaceAll("-", " ")}>
+                        <input type="radio" name="icon" value={icon} aria-label={icon.replaceAll("-", " ")} />
+                        <img src={sprite.item(icon)} alt="" width={30} height={30} className="pixel" loading="lazy" />
+                      </label>
+                    ))}
+                  </div>
+                </details>
+                <details>
+                  <summary className="cursor-pointer text-muted">Pokémon ({POKEMON_ICONS.length})</summary>
+                  <div className="icon-grid">
+                    {POKEMON_ICONS.map((dex) => (
+                      <label key={dex} className="chip p-0.5!" title={names[dex - 1] ?? `No. ${dex}`}>
+                        <input type="radio" name="icon" value={`pkmn-${dex}`} aria-label={names[dex - 1] ?? `No. ${dex}`} />
+                        <img src={sprite.icon(dex)} alt="" width={40} height={30} className="pixel" loading="lazy" />
+                      </label>
+                    ))}
+                  </div>
+                </details>
+                <label className="mt-2 flex items-center gap-2">
+                  or an emoji
+                  <input name="emoji" maxLength={4} className="field w-20!" />
+                </label>
+              </fieldset>
+              <div className="sm:col-span-2">
+                <SubmitButton pending="Adding…" sfx="confirm">
+                  Add to bag
+                </SubmitButton>
+              </div>
+            </form>
+          </Panel>
+        )}
+      </Columns>
     </>
   );
 }
