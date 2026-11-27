@@ -4,6 +4,26 @@ Versions are `major.minor.patch`. A round of new features raises the minor numbe
 a fix raises the patch. The number lives in `package.json` and each release is
 tagged `vX.Y.Z`.
 
+## 1.3.0 (2026-11-27)
+
+- Music by the time of day: a route theme in the morning, a lo-fi cafe tune in
+  the afternoon and a music box waltz at night, with the battle tune in fights.
+  Tunes fade into each other and loop without a gap.
+- Music and Effects each have a volume slider on Options. The clicks in the
+  music and effects are gone.
+- The town map is a town: streets, trees and a pond, with a building for each
+  screen and your partner at the door of the one you are on. Arrow keys walk it.
+- The start menu fits on screen without scrolling, on phones too.
+- Pokemon (accounts): the picked account has its own panel with the month's
+  figures, beside only its transfers. Archive asks first and offers Restore.
+- Bill's PC shows the picked bill as facts beside what is due this month.
+- Pokegear stacks its panels in two columns that leave no gap.
+- Three monthly quests on the trainer card: pay every bill on time, log on 15
+  days, spend less than last month.
+- The Bag lists items with this month's totals beside the picked item.
+- Home's latest entries end where the scene ends and scroll inside.
+- No database change.
+
 ## 1.2.0 (2026-11-23)
 
 - A pixel coin is the app's mark: browser tab, phone home screen and header.
